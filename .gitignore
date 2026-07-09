@@ -1,0 +1,24 @@
+# Local download cache and generated artifacts
+data/raw/
+data/processed/
+output/
+
+# Python build/test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
