@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import warnings
 from collections.abc import Iterable
+from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup, FeatureNotFound, Tag
 
@@ -19,6 +20,22 @@ SECTION_RANGE_RE = re.compile(
 )
 SCP_RE = re.compile(r"^scp-\d{3}$", re.IGNORECASE)
 SCP_001_PROPOSAL_RE = re.compile(r"(?<!\d)0*1(?!\d).*提案")
+SCP_001_PROPOSAL_SLUG_RE = re.compile(
+    r"^(?:[a-z0-9][a-z0-9-]*:)?[a-z0-9][a-z0-9-]*"
+    r"-proposal(?:-(?:[ivxlcdm]+|\d+))?$",
+    re.IGNORECASE,
+)
+SCP_001_IGNORED_CONTAINER_PARTS = frozenset(
+    {
+        "breadcrumbs",
+        "edit",
+        "footer",
+        "nav",
+        "page-options",
+        "side-bar",
+        "sidebar",
+    }
+)
 
 
 def parse_tales_index(html: str, base_url: str, start: int, end: int) -> list[PageRef]:
@@ -44,6 +61,48 @@ def parse_tales_index(html: str, base_url: str, start: int, end: int) -> list[Pa
         _with_order(entry, order)
         for order, entry in enumerate(entries, start=1)
     ]
+
+
+def parse_scp001_proposals(html: str, base_url: str) -> list[PageRef]:
+    soup = _parse_html(html)
+    content = soup.select_one("#page-content")
+    if content is None:
+        raise ValueError("SCP-001 page does not contain #page-content")
+
+    entries: list[PageRef] = []
+    seen_slugs: set[str] = set()
+    for anchor in content.find_all("a", href=True):
+        if not isinstance(anchor, Tag):
+            continue
+        if _is_ignored_scp001_anchor(anchor, content):
+            continue
+
+        href = anchor.get("href")
+        if not isinstance(href, str) or not _is_scp001_page_href(href):
+            continue
+
+        url = normalize_url(base_url, href)
+        if not _same_site_url(url, base_url):
+            continue
+
+        slug = slug_from_url(url)
+        if slug in seen_slugs or not _is_scp001_proposal_slug(slug):
+            continue
+
+        seen_slugs.add(slug)
+        entries.append(
+            PageRef(
+                title=anchor.get_text(" ", strip=True) or slug,
+                url=url,
+                slug=slug,
+                level=2,
+                role="proposal",
+                parent_slug="scp-001",
+                source="scp-001",
+            )
+        )
+
+    return [_with_order(entry, order) for order, entry in enumerate(entries, start=1)]
 
 
 def _parse_html(html: str) -> BeautifulSoup:
@@ -131,6 +190,62 @@ def _first_anchor(li: Tag) -> Tag | None:
 def _is_page_href(href: str) -> bool:
     stripped = href.strip().lower()
     return bool(stripped) and stripped != "#" and not stripped.startswith("javascript:")
+
+
+def _is_scp001_page_href(href: str) -> bool:
+    stripped = href.strip().lower()
+    return (
+        _is_page_href(stripped)
+        and stripped != "#"
+        and not stripped.startswith("#")
+        and not stripped.startswith("data:")
+        and not stripped.startswith("javascript:")
+        and not stripped.startswith("mailto:")
+        and not stripped.startswith("tel:")
+    )
+
+
+def _same_site_url(url: str, base_url: str) -> bool:
+    parsed_url = urlparse(url)
+    parsed_base = urlparse(base_url)
+    if not parsed_url.netloc or not parsed_base.netloc:
+        return True
+    return parsed_url.netloc.lower() == parsed_base.netloc.lower()
+
+
+def _is_scp001_proposal_slug(slug: str) -> bool:
+    normalized_slug = slug.strip().lower()
+    return normalized_slug != "scp-001" and bool(
+        SCP_001_PROPOSAL_SLUG_RE.match(normalized_slug)
+    )
+
+
+def _is_ignored_scp001_anchor(anchor: Tag, content: Tag) -> bool:
+    for parent in anchor.parents:
+        if parent is content:
+            return False
+        if not isinstance(parent, Tag):
+            continue
+        if parent.name == "nav":
+            return True
+        if _has_ignored_scp001_token(parent):
+            return True
+    return False
+
+
+def _has_ignored_scp001_token(tag: Tag) -> bool:
+    tokens = [str(tag.get("id", ""))]
+    classes = tag.get("class", [])
+    if isinstance(classes, str):
+        tokens.append(classes)
+    else:
+        tokens.extend(str(class_name) for class_name in classes)
+
+    return any(
+        ignored_part in token.lower()
+        for token in tokens
+        for ignored_part in SCP_001_IGNORED_CONTAINER_PARTS
+    )
 
 
 def _role_for_slug(slug: str) -> str:
