@@ -9,6 +9,7 @@ from scp_epub.models import PageRef, ProcessedPage
 from scp_epub.urls import normalize_url, slug_from_url
 
 
+NON_DOWNLOADABLE_ASSET_SCHEMES = {"data", "mailto", "tel"}
 UNWANTED_TAGS = {"script", "style", "iframe", "nav", "aside"}
 UNWANTED_IDS = {
     "action-area",
@@ -89,6 +90,9 @@ def transform_page(
 
 def _normalize_assets(page_content: Tag, base_url: str, asset_urls: list[str], seen_assets: set[str]) -> None:
     for tag in page_content.find_all(ASSET_ATTRIBUTES.keys()):
+        if tag.name == "link" and not _is_stylesheet_link(tag):
+            continue
+
         attribute = ASSET_ATTRIBUTES[str(tag.name)]
         raw_url = tag.get(attribute)
         if not isinstance(raw_url, str):
@@ -100,6 +104,9 @@ def _normalize_assets(page_content: Tag, base_url: str, asset_urls: list[str], s
 
         normalized = normalize_url(base_url, raw_url)
         tag[attribute] = normalized
+        if _has_non_downloadable_asset_scheme(normalized):
+            continue
+
         _append_once(asset_urls, seen_assets, normalized)
 
 
@@ -145,7 +152,10 @@ def _is_unwanted_element(tag: Tag) -> bool:
     if classes & UNWANTED_CLASSES:
         return True
 
-    if any(token.startswith("page-options") or "rate-box" in token or "rating" in token for token in classes):
+    if any(
+        token.startswith("page-options") or token.startswith("page-rate-") or token.startswith("rate-box")
+        for token in classes
+    ):
         return True
 
     role = str(tag.get("role", "")).lower()
@@ -159,6 +169,19 @@ def _class_tokens(tag: Tag) -> set[str]:
     if isinstance(raw_classes, Iterable):
         return {str(token).lower() for token in raw_classes}
     return set()
+
+
+def _is_stylesheet_link(tag: Tag) -> bool:
+    rel = tag.get("rel", [])
+    if isinstance(rel, str):
+        return "stylesheet" in rel.lower().split()
+    if isinstance(rel, Iterable):
+        return any(str(token).lower() == "stylesheet" for token in rel)
+    return False
+
+
+def _has_non_downloadable_asset_scheme(url: str) -> bool:
+    return urlparse(url).scheme.lower() in NON_DOWNLOADABLE_ASSET_SCHEMES
 
 
 def _sanitize_attributes(tag: Tag) -> None:

@@ -36,7 +36,10 @@ def test_transforms_only_page_content_and_removes_wikidot_chrome():
     assert "Outside chrome" not in result.xhtml
     assert "Outside footer" not in result.xhtml
     assert soup.find("h1").get_text(strip=True) == "SCP-999"
-    assert "Main article text" in soup.find("p").get_text(" ", strip=True)
+    page_text = soup.get_text(" ", strip=True)
+    assert "Main article text" in page_text
+    assert "Threat rating: green." in page_text
+    assert "Rating note is article content." in page_text
 
     assert soup.find("script") is None
     assert soup.find("style") is None
@@ -61,10 +64,17 @@ def test_normalizes_and_deduplicates_assets_in_encounter_order():
     assert [img["src"] for img in soup.find_all("img")] == [
         "https://scp-wiki-cn.wikidot.com/images/photo.png",
         "https://scp-wiki-cn.wikidot.com/images/photo.png",
+        "data:image/png;base64,AAAA",
     ]
     assert soup.find("source")["src"] == "https://scp-wiki-cn.wikidot.com/media/interview.ogg"
     assert soup.find("object")["data"] == "https://scp-wiki-cn.wikidot.com/files/report.pdf"
+    assert soup.find("object", title="Inline object")["data"] == "data:application/pdf;base64,BBBB"
     assert soup.find("link")["href"] == "https://scp-wiki-cn.wikidot.com/css/page.css"
+    canonical = soup.find("link", rel="canonical")
+    assert canonical["href"] == "/canonical-page#frag"
+    assert "https://scp-wiki-cn.wikidot.com/canonical-page" not in result.asset_urls
+    assert "data:image/png;base64,AAAA" not in result.asset_urls
+    assert "data:application/pdf;base64,BBBB" not in result.asset_urls
 
 
 def test_classifies_internal_and_external_links_and_ignores_fragment_and_javascript():
@@ -77,6 +87,7 @@ def test_classifies_internal_and_external_links_and_ignores_fragment_and_javascr
     )
     assert result.external_links == (
         "https://example.test/out",
+        "https://scp-wiki-cn.wikidot.com/not-in-manifest",
         "mailto:researcher@example.test",
     )
 
@@ -84,6 +95,7 @@ def test_classifies_internal_and_external_links_and_ignores_fragment_and_javascr
     assert "https://scp-wiki-cn.wikidot.com/scp-002" in hrefs
     assert "https://example.test/out" in hrefs
     assert "https://scp-wiki-cn.wikidot.com/old:kalinins-proposal" in hrefs
+    assert "https://scp-wiki-cn.wikidot.com/not-in-manifest" in hrefs
     assert "mailto:researcher@example.test" in hrefs
     assert "#local-anchor" not in hrefs
     assert "javascript:void(0)" not in hrefs

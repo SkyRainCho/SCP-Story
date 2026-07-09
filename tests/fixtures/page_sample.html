@@ -19,16 +19,22 @@
         <a href="/scp-002#section" onclick="alert('internal')">an internal link</a>,
         <a href="https://example.test/out#fragment" style="color: blue">an external link</a>,
         <a href="/old:kalinins-proposal">a namespace link</a>,
+        <a href="/not-in-manifest#missing">a same-site unlisted link</a>,
         <a href="#local-anchor">a local jump</a>,
         <a href="javascript:void(0)">a javascript link</a>,
         and <a href="mailto:researcher@example.test#sig">mail contact</a>.
       </p>
+      <p class="threat-rating">Threat rating: green.</p>
+      <p class="rating-note">Rating note is article content.</p>
 
       <img src="images/photo.png#first" alt="Specimen photo" title="Photo title" class="image" onclick="alert('image')" style="width: 100px">
       <img src="./images/photo.png#duplicate" alt="Duplicate specimen photo">
+      <img src="data:image/png;base64,AAAA" alt="Inline data image">
       <source src="/media/interview.ogg#clip" type="audio/ogg">
       <object data="/files/report.pdf#page=1" title="Report"></object>
+      <object data="data:application/pdf;base64,BBBB" title="Inline object"></object>
       <link rel="stylesheet" href="css/page.css#theme">
+      <link rel="canonical" href="/canonical-page#frag">
 
       <script>alert('remove me')</script>
       <style>.remove-me { color: red; }</style>
