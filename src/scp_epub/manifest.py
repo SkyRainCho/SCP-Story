@@ -91,6 +91,11 @@ def _with_order(entry: PageRef, order: int) -> PageRef:
 
 
 def _to_manifest_dict(entry: PageRef) -> dict[str, object]:
+    if entry.children:
+        raise ValueError(
+            f"manifest entries must be flat: {entry.slug} has children"
+        )
+
     values = {
         "title": entry.title,
         "url": entry.url,

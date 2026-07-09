@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from scp_epub.manifest import merge_manifest
 from scp_epub.models import PageRef
 
@@ -13,6 +15,7 @@ def page_ref(
     parent_slug: str | None = None,
     source: str = "tales-index",
     order: int = 0,
+    children: tuple[PageRef, ...] = (),
 ) -> PageRef:
     return PageRef(
         title=title or slug,
@@ -23,6 +26,7 @@ def page_ref(
         parent_slug=parent_slug,
         source=source,
         order=order,
+        children=children,
     )
 
 
@@ -154,6 +158,55 @@ def test_merge_prepends_proposals_when_scp001_is_missing():
     assert [entry.order for entry in manifest] == [1, 2, 3, 4]
 
 
+def test_merge_deduplicates_repeated_proposals_with_first_occurrence_winning():
+    index_entries = [
+        page_ref("scp-001", order=1),
+        page_ref("scp-002", order=2),
+    ]
+    proposals = [
+        page_ref(
+            "alpha-proposal",
+            title="First Alpha",
+            level=2,
+            role="proposal",
+            parent_slug="scp-001",
+            source="scp-001",
+            order=1,
+        ),
+        page_ref(
+            "alpha-proposal",
+            title="Duplicate Alpha",
+            level=2,
+            role="proposal",
+            parent_slug="scp-001",
+            source="scp-001",
+            order=2,
+        ),
+        page_ref(
+            "beta-proposal",
+            title="Beta Proposal",
+            level=2,
+            role="proposal",
+            parent_slug="scp-001",
+            source="scp-001",
+            order=3,
+        ),
+    ]
+
+    manifest = merge_manifest(index_entries, proposals)
+
+    assert [entry.slug for entry in manifest] == [
+        "scp-001",
+        "alpha-proposal",
+        "beta-proposal",
+        "scp-002",
+    ]
+    assert [entry.order for entry in manifest] == [1, 2, 3, 4]
+
+    by_slug = {entry.slug: entry for entry in manifest}
+    assert by_slug["alpha-proposal"].title == "First Alpha"
+
+
 def test_write_and_read_manifest_round_trips_utf8_json(tmp_path):
     entries = [
         page_ref("scp-001", title="破碎之神", order=1),
@@ -192,3 +245,15 @@ def test_write_and_read_manifest_round_trips_utf8_json(tmp_path):
     ]
     assert [entry["slug"] for entry in data] == ["scp-001", "scp-001-o5"]
     assert round_tripped == entries
+
+
+def test_write_manifest_rejects_non_flat_entries(tmp_path):
+    child = page_ref("story-001", level=2, role="related", parent_slug="scp-001")
+    entries = [
+        page_ref("scp-001", title="SCP-001", order=1, children=(child,)),
+    ]
+
+    from scp_epub.manifest import write_manifest
+
+    with pytest.raises(ValueError, match="manifest entries must be flat"):
+        write_manifest(entries, tmp_path / "manifest.json")
