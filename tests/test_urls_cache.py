@@ -10,6 +10,7 @@ from scp_epub.urls import normalize_url, safe_filename, slug_from_url
 def test_normalize_url_handles_relative_and_fragments():
     assert normalize_url("https://scp-wiki-cn.wikidot.com", "/scp-002#x") == "https://scp-wiki-cn.wikidot.com/scp-002#x"
     assert normalize_url("https://scp-wiki-cn.wikidot.com", "http://example.test/a") == "http://example.test/a"
+    assert normalize_url("https://scp-wiki-cn.wikidot.com", "https://example.test/a") == "https://example.test/a"
 
 
 def test_normalize_url_handles_wikidot_namespaced_page_links():
@@ -21,6 +22,8 @@ def test_normalize_url_handles_wikidot_namespaced_page_links():
 
 
 def test_normalize_url_preserves_non_fetchable_schemes():
+    assert normalize_url("https://scp-wiki-cn.wikidot.com", "mailto:test@example.test") == "mailto:test@example.test"
+    assert normalize_url("https://scp-wiki-cn.wikidot.com", "ftp://example.test/file.txt") == "ftp://example.test/file.txt"
     assert normalize_url("https://scp-wiki-cn.wikidot.com", "javascript:void(0)") == "javascript:void(0)"
     assert normalize_url("https://scp-wiki-cn.wikidot.com", "data:image/png;base64,abc") == "data:image/png;base64,abc"
     assert normalize_url("https://scp-wiki-cn.wikidot.com", "tel:+123") == "tel:+123"
