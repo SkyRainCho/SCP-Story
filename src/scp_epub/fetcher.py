@@ -27,7 +27,7 @@ class SessionHTTPClient(Protocol):
         ...
 
 
-HTTPClient = Callable[[str, dict[str, str]], Any] | SessionHTTPClient
+HTTPClient = Callable[..., Any] | SessionHTTPClient
 
 
 class BrowserFetcher(Protocol):
@@ -166,6 +166,8 @@ class Fetcher:
 
         response = self._get_with_retries(url)
         content_type = response.content_type or "application/octet-stream"
+        if force:
+            self._delete_cached_asset_files(url)
         asset_path, metadata_path = self.cache.write_asset(
             url,
             response.content,
@@ -203,12 +205,20 @@ class Fetcher:
         raise last_error
 
     def _call_http_client(self, url: str, headers: dict[str, str]) -> Any:
-        if callable(self.http_client):
-            return self.http_client(url, headers)
         get = getattr(self.http_client, "get", None)
-        if get is None:
-            raise TypeError("HTTP client must be callable or provide get()")
-        return get(url, headers=headers)
+        if callable(get):
+            return get(url, headers=headers)
+        if callable(self.http_client):
+            return self.http_client(url, headers=headers)
+        raise TypeError("HTTP client must be callable or provide get()")
+
+    def _delete_cached_asset_files(self, url: str) -> None:
+        if not self.cache.assets_dir.exists():
+            return
+        digest = self.cache.asset_digest(url)
+        for path in sorted(self.cache.assets_dir.glob(f"{digest}.*")):
+            if path.is_file():
+                path.unlink()
 
     def _fetch_with_browser(self, url: str) -> tuple[str, int, str]:
         fetcher = self.browser_fetcher
@@ -296,7 +306,10 @@ class Fetcher:
             if separator and key.lower() == "charset" and value.strip():
                 charset = value.strip().strip('"')
                 break
-        return content.decode(charset, errors="replace")
+        try:
+            return content.decode(charset, errors="replace")
+        except LookupError:
+            return content.decode("utf-8", errors="replace")
 
 
 def _to_bytes(content: Any) -> bytes:

@@ -109,6 +109,63 @@ def test_fetch_page_accepts_session_like_http_client(tmp_path: Path):
     ]
 
 
+def test_fetch_page_accepts_keyword_only_callable_http_client(tmp_path: Path):
+    calls: list[tuple[str, dict[str, str]]] = []
+
+    def client(url: str, *, headers: dict[str, str]):
+        calls.append((url, dict(headers)))
+        return b"<html>keyword callable</html>", 200, "text/html"
+
+    cache = CacheStore(tmp_path / "raw")
+
+    result = Fetcher(cache, http_client=client).fetch_page(
+        "scp-002",
+        "https://example.test/scp-002",
+    )
+
+    assert result.path.read_text(encoding="utf-8") == "<html>keyword callable</html>"
+    assert calls == [
+        (
+            "https://example.test/scp-002",
+            {"User-Agent": Fetcher.DEFAULT_USER_AGENT},
+        )
+    ]
+
+
+def test_fetch_page_prefers_get_when_http_client_is_also_callable(tmp_path: Path):
+    class Response:
+        status_code = 200
+        content = b"<html>get path</html>"
+        headers = {"content-type": "text/html"}
+
+    class DualClient:
+        def __init__(self):
+            self.calls: list[tuple[str, dict[str, str]]] = []
+
+        def __call__(self, url: str, *, headers: dict[str, str]):
+            raise AssertionError("__call__ should not be used when get() exists")
+
+        def get(self, url: str, *, headers: dict[str, str]):
+            self.calls.append((url, dict(headers)))
+            return Response()
+
+    cache = CacheStore(tmp_path / "raw")
+    client = DualClient()
+
+    result = Fetcher(cache, http_client=client).fetch_page(
+        "scp-002",
+        "https://example.test/scp-002",
+    )
+
+    assert result.path.read_text(encoding="utf-8") == "<html>get path</html>"
+    assert client.calls == [
+        (
+            "https://example.test/scp-002",
+            {"User-Agent": Fetcher.DEFAULT_USER_AGENT},
+        )
+    ]
+
+
 def test_fetch_page_uses_browser_fallback_after_http_failure_and_caches_html(tmp_path: Path):
     cache = CacheStore(tmp_path / "raw")
     client = RecordingClient([(b"server error", 500, "text/plain")])
@@ -148,6 +205,26 @@ def test_fetch_page_raises_fetch_error_when_http_and_fallback_fail(tmp_path: Pat
     assert "https://example.test/scp-002" in str(exc_info.value)
 
 
+def test_fetch_page_invalid_charset_falls_back_to_utf8_replacement(tmp_path: Path):
+    cache = CacheStore(tmp_path / "raw")
+    client = RecordingClient(
+        [
+            (
+                "<html>中文</html>".encode("utf-8"),
+                200,
+                "text/html; charset=not-a-codec",
+            )
+        ]
+    )
+
+    result = Fetcher(cache, http_client=client).fetch_page(
+        "scp-002",
+        "https://example.test/scp-002",
+    )
+
+    assert result.path.read_text(encoding="utf-8") == "<html>中文</html>"
+
+
 def test_fetch_asset_downloads_bytes_and_cache_hit_avoids_http(tmp_path: Path):
     cache = CacheStore(tmp_path / "raw")
     url = "https://example.test/assets/logo.png"
@@ -172,6 +249,32 @@ def test_fetch_asset_downloads_bytes_and_cache_hit_avoids_http(tmp_path: Path):
     assert second.status_code == 200
     assert second.content_type == "image/png"
     assert second_client.calls == []
+
+
+def test_fetch_asset_force_refresh_removes_stale_digest_files(tmp_path: Path):
+    cache = CacheStore(tmp_path / "raw")
+    url = "https://example.test/assets/logo"
+    fetcher = Fetcher(
+        cache,
+        http_client=RecordingClient(
+            [
+                (b"png bytes", 200, "image/png"),
+                (b"webp bytes", 200, "image/webp"),
+            ]
+        ),
+    )
+
+    png = fetcher.fetch_asset(url)
+    webp = fetcher.fetch_asset(url, force=True)
+    cached = fetcher.fetch_asset(url)
+
+    assert png.path.suffix == ".png"
+    assert webp.path.suffix == ".webp"
+    assert cached.from_cache is True
+    assert cached.path == webp.path
+    assert cached.path.read_bytes() == b"webp bytes"
+    assert not png.path.exists()
+    assert not png.metadata_path.exists()
 
 
 def test_fetch_page_retries_until_retry_count_total_attempts(tmp_path: Path):
