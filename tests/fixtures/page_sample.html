@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Outside title</title>
+  </head>
+  <body>
+    <header>Outside chrome that must not appear</header>
+
+    <div id="page-content">
+      <nav class="site-nav">Navigation controls</nav>
+      <div id="toc" class="toc">Table of contents controls</div>
+      <div class="page-options-bottom">Edit History Tags Source</div>
+      <div class="rate-box-with-credit-button">Rating widget</div>
+      <div id="page-info">Wikidot page info controls</div>
+
+      <h1 onclick="alert('heading')" style="color: red">SCP-999</h1>
+      <p class="main-text" onclick="alert('paragraph')" style="font-size: 24px">
+        Main article text with
+        <a href="/scp-002#section" onclick="alert('internal')">an internal link</a>,
+        <a href="https://example.test/out#fragment" style="color: blue">an external link</a>,
+        <a href="/old:kalinins-proposal">a namespace link</a>,
+        <a href="#local-anchor">a local jump</a>,
+        <a href="javascript:void(0)">a javascript link</a>,
+        and <a href="mailto:researcher@example.test#sig">mail contact</a>.
+      </p>
+
+      <img src="images/photo.png#first" alt="Specimen photo" title="Photo title" class="image" onclick="alert('image')" style="width: 100px">
+      <img src="./images/photo.png#duplicate" alt="Duplicate specimen photo">
+      <source src="/media/interview.ogg#clip" type="audio/ogg">
+      <object data="/files/report.pdf#page=1" title="Report"></object>
+      <link rel="stylesheet" href="css/page.css#theme">
+
+      <script>alert('remove me')</script>
+      <style>.remove-me { color: red; }</style>
+    </div>
+
+    <footer>Outside footer that must not appear</footer>
+  </body>
+</html>
