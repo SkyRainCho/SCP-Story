@@ -25,12 +25,13 @@ SCP_001_PROPOSAL_SLUG_RE = re.compile(
     r"-proposal(?:-(?:[ivxlcdm]+|\d+))?$",
     re.IGNORECASE,
 )
+SCP_001_CODE_NAME_RE = re.compile(r"^代[号號]\s*[：:]?")
+SCP_001_EXACT_IGNORED_CONTAINER_TOKENS = frozenset({"nav"})
 SCP_001_IGNORED_CONTAINER_PARTS = frozenset(
     {
         "breadcrumbs",
         "edit",
         "footer",
-        "nav",
         "page-options",
         "side-bar",
         "sidebar",
@@ -86,13 +87,14 @@ def parse_scp001_proposals(html: str, base_url: str) -> list[PageRef]:
             continue
 
         slug = slug_from_url(url)
-        if slug in seen_slugs or not _is_scp001_proposal_slug(slug):
+        anchor_text = anchor.get_text(" ", strip=True)
+        if slug in seen_slugs or not _is_scp001_proposal_link(slug, anchor_text):
             continue
 
         seen_slugs.add(slug)
         entries.append(
             PageRef(
-                title=anchor.get_text(" ", strip=True) or slug,
+                title=anchor_text or slug,
                 url=url,
                 slug=slug,
                 level=2,
@@ -220,6 +222,17 @@ def _is_scp001_proposal_slug(slug: str) -> bool:
     )
 
 
+def _is_scp001_proposal_link(slug: str, anchor_text: str) -> bool:
+    normalized_slug = slug.strip().lower()
+    if normalized_slug == "scp-001":
+        return False
+    return _is_scp001_proposal_slug(slug) or _is_scp001_code_name_text(anchor_text)
+
+
+def _is_scp001_code_name_text(anchor_text: str) -> bool:
+    return bool(SCP_001_CODE_NAME_RE.match(anchor_text.strip()))
+
+
 def _is_ignored_scp001_anchor(anchor: Tag, content: Tag) -> bool:
     for parent in anchor.parents:
         if parent is content:
@@ -241,9 +254,13 @@ def _has_ignored_scp001_token(tag: Tag) -> bool:
     else:
         tokens.extend(str(class_name) for class_name in classes)
 
+    normalized_tokens = [token.lower() for token in tokens]
+    if any(token in SCP_001_EXACT_IGNORED_CONTAINER_TOKENS for token in normalized_tokens):
+        return True
+
     return any(
-        ignored_part in token.lower()
-        for token in tokens
+        ignored_part in token
+        for token in normalized_tokens
         for ignored_part in SCP_001_IGNORED_CONTAINER_PARTS
     )
 

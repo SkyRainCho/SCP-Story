@@ -20,9 +20,13 @@ def test_parse_scp001_proposals_preserves_order_and_metadata():
         "tuftos-proposal",
         "old:kalinins-proposal",
         "alt:nico-proposal",
+        "scp-001-o5",
+        "ouroboros",
+        "psul-001",
+        "001-blank-i",
         "nameless-proposal",
     ]
-    assert [entry.order for entry in entries] == [1, 2, 3, 4, 5, 6]
+    assert [entry.order for entry in entries] == list(range(1, 11))
     assert {entry.source for entry in entries} == {"scp-001"}
     assert {entry.role for entry in entries} == {"proposal"}
     assert {entry.level for entry in entries} == {2}
@@ -32,7 +36,11 @@ def test_parse_scp001_proposals_preserves_order_and_metadata():
     assert by_slug["old:kalinins-proposal"].url == (
         "https://scp-wiki-cn.wikidot.com/old:kalinins-proposal"
     )
+    assert by_slug["scp-001-o5"].title == "代号：O5"
     assert by_slug["nameless-proposal"].title == "nameless-proposal"
+    assert "keter-duty" not in by_slug
+    assert "edit-this-proposal" not in by_slug
+    assert "nav-s-proposal" not in by_slug
 
 
 def test_parse_scp001_proposals_requires_page_content():
