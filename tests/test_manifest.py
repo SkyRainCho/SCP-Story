@@ -257,3 +257,37 @@ def test_write_manifest_rejects_non_flat_entries(tmp_path):
 
     with pytest.raises(ValueError, match="manifest entries must be flat"):
         write_manifest(entries, tmp_path / "manifest.json")
+
+
+def test_read_manifest_rejects_non_flat_json(tmp_path):
+    path = tmp_path / "manifest.json"
+    path.write_text(
+        json.dumps(
+            [
+                {
+                    "title": "SCP-001",
+                    "url": "https://scp-wiki-cn.wikidot.com/scp-001",
+                    "slug": "scp-001",
+                    "level": 1,
+                    "role": "scp",
+                    "parent_slug": None,
+                    "source": "tales-index",
+                    "order": 1,
+                    "children": [
+                        {
+                            "title": "Story 001",
+                            "url": "https://scp-wiki-cn.wikidot.com/story-001",
+                            "slug": "story-001",
+                        }
+                    ],
+                }
+            ],
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    from scp_epub.manifest import read_manifest
+
+    with pytest.raises(ValueError, match="manifest entries must be flat"):
+        read_manifest(path)

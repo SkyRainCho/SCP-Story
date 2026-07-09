@@ -110,6 +110,11 @@ def _to_manifest_dict(entry: PageRef) -> dict[str, object]:
 
 
 def _from_manifest_dict(entry: dict[str, object]) -> PageRef:
+    if entry.get("children"):
+        raise ValueError(
+            f"manifest entries must be flat: {entry.get('slug', '<unknown>')} has children"
+        )
+
     parent_slug = entry["parent_slug"]
     return PageRef(
         title=str(entry["title"]),
