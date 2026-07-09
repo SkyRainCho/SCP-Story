@@ -22,3 +22,7 @@ venv/
 # Editor and OS files
 .DS_Store
 Thumbs.db
+
+# Generated review artifacts
+docs/superpowers/specs/*-findings.json
+docs/superpowers/specs/*-review.json
