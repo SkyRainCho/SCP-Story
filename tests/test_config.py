@@ -113,10 +113,19 @@ def test_load_config_rejects_paths_outside_workspace(tmp_path: Path, field: str,
     ("field", "value", "expected"),
     [
         ("retry_count", "many", "retry_count must be an integer"),
+        ("retry_count", "2.9", "retry_count must be an integer"),
+        ("retry_count", '"2.9"', "retry_count must be an integer"),
+        ("retry_count", "true", "retry_count must be an integer"),
+        ("retry_count", "0", "retry_count must be at least 1"),
         (
             "request_delay_seconds",
             "soon",
             "request_delay_seconds must be a number",
+        ),
+        (
+            "request_delay_seconds",
+            "-0.1",
+            "request_delay_seconds must be non-negative",
         ),
     ],
 )
@@ -184,7 +193,10 @@ retry_count: 2
     ("field", "value", "expected"),
     [
         ("start", "first", "Volume 001-099 start must be an integer"),
+        ("start", "1.9", "Volume 001-099 start must be an integer"),
         ("end", "last", "Volume 001-099 end must be an integer"),
+        ("start", "0", "Volume 001-099 start must be positive"),
+        ("end", "-1", "Volume 001-099 end must be positive"),
     ],
 )
 def test_load_config_rejects_invalid_volume_numbers(
@@ -194,4 +206,12 @@ def test_load_config_rejects_invalid_volume_numbers(
     write_config(config_path, **{field: value})
 
     with pytest.raises(ValueError, match=expected):
+        load_config(config_path)
+
+
+def test_load_config_rejects_reversed_volume_range(tmp_path: Path):
+    config_path = tmp_path / "series.yaml"
+    write_config(config_path, start="100", end="99")
+
+    with pytest.raises(ValueError, match="Volume 001-099 start must be <= end"):
         load_config(config_path)

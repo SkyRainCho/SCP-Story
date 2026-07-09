@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import Any
 
@@ -54,10 +55,10 @@ def load_config(path: str | Path) -> AppConfig:
         manifest_dir=_workspace_path(workspace, "manifest_dir", data["manifest_dir"]),
         processed_dir=_workspace_path(workspace, "processed_dir", data["processed_dir"]),
         output_dir=_workspace_path(workspace, "output_dir", data["output_dir"]),
-        request_delay_seconds=_number(
+        request_delay_seconds=_non_negative_number(
             data["request_delay_seconds"], "request_delay_seconds"
         ),
-        retry_count=_integer(data["retry_count"], "retry_count"),
+        retry_count=_minimum_integer(data["retry_count"], "retry_count", 1),
         volumes=volumes,
     )
 
@@ -71,11 +72,16 @@ def _load_volumes(value: Any) -> dict[str, VolumeSpec]:
         if missing:
             raise ValueError(
                 f"Volume {volume_key} missing required keys: {', '.join(missing)}"
-        )
+            )
+        start = _positive_integer(volume["start"], f"Volume {volume_key} start")
+        end = _positive_integer(volume["end"], f"Volume {volume_key} end")
+        if start > end:
+            raise ValueError(f"Volume {volume_key} start must be <= end")
+
         volumes[volume_key] = VolumeSpec(
             key=volume_key,
-            start=_integer(volume["start"], f"Volume {volume_key} start"),
-            end=_integer(volume["end"], f"Volume {volume_key} end"),
+            start=start,
+            end=end,
             title=str(volume["title"]),
             output_slug=str(volume["output_slug"]),
         )
@@ -100,17 +106,59 @@ def _workspace_path(workspace: Path, key: str, value: Any) -> Path:
 
 
 def _integer(value: Any, name: str) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must be an integer")
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if math.isfinite(value) and value.is_integer():
+            return int(value)
+        raise ValueError(f"{name} must be an integer")
+    if isinstance(value, str):
+        try:
+            return int(value.strip(), 10)
+        except ValueError:
+            raise ValueError(f"{name} must be an integer") from None
     try:
-        return int(value)
+        converted = int(value)
     except (TypeError, ValueError):
         raise ValueError(f"{name} must be an integer") from None
+    if converted != value:
+        raise ValueError(f"{name} must be an integer")
+    return converted
 
 
 def _number(value: Any, name: str) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must be a number")
     try:
-        return float(value)
+        number = float(value)
     except (TypeError, ValueError):
         raise ValueError(f"{name} must be a number") from None
+    if not math.isfinite(number):
+        raise ValueError(f"{name} must be finite")
+    return number
+
+
+def _non_negative_number(value: Any, name: str) -> float:
+    number = _number(value, name)
+    if number < 0:
+        raise ValueError(f"{name} must be non-negative")
+    return number
+
+
+def _minimum_integer(value: Any, name: str, minimum: int) -> int:
+    integer = _integer(value, name)
+    if integer < minimum:
+        raise ValueError(f"{name} must be at least {minimum}")
+    return integer
+
+
+def _positive_integer(value: Any, name: str) -> int:
+    integer = _integer(value, name)
+    if integer <= 0:
+        raise ValueError(f"{name} must be positive")
+    return integer
 
 
 def _mapping(value: Any, name: str) -> dict[str, Any]:
