@@ -12,7 +12,10 @@ from .urls import normalize_url, slug_from_url
 
 HEADING_NAMES = frozenset(f"h{level}" for level in range(1, 7))
 SECTION_RANGE_RE = re.compile(
-    r"(?P<start>\d{1,3})\s*(?:到|至|-|--|—|–|~)\s*(?P<end>\d{1,3})"
+    r"(?:SCP[-\s]*)?(?P<start>\d{1,3})\s*"
+    r"(?:到|至|--|—|–|-|~)\s*"
+    r"(?:SCP[-\s]*)?(?P<end>\d{1,3})",
+    re.IGNORECASE,
 )
 SCP_RE = re.compile(r"^scp-\d{3}$", re.IGNORECASE)
 SCP_001_PROPOSAL_RE = re.compile(r"(?<!\d)0*1(?!\d).*提案")
@@ -28,7 +31,7 @@ def parse_tales_index(html: str, base_url: str, start: int, end: int) -> list[Pa
         raise ValueError("Index page does not contain #page-content")
 
     entries: list[PageRef] = []
-    for heading in content.find_all(HEADING_NAMES, recursive=False):
+    for heading in content.find_all(HEADING_NAMES):
         title = heading.get_text(" ", strip=True)
         if not _section_matches(title, start, end):
             continue

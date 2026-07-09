@@ -7,7 +7,7 @@ FIXTURE = Path("tests/fixtures/index_sample.html")
 BASE_URL = "https://scp-wiki-cn.wikidot.com"
 
 
-def test_parse_tales_index_keeps_target_sections_only():
+def test_parse_tales_index_keeps_target_sections_only_in_wrapped_content_panel():
     html = FIXTURE.read_text(encoding="utf-8")
 
     entries = parse_tales_index(html, BASE_URL, start=1, end=99)
@@ -53,3 +53,45 @@ def test_parse_tales_index_partial_range_excludes_001_proposal_section():
         "scp-099",
         "supplement-099",
     ]
+
+
+def test_parse_tales_index_matches_repeated_scp_prefix_range_heading():
+    html = """
+<div id="page-content">
+  <div class="content-panel">
+    <h1>SCP-002到SCP-099</h1>
+    <ul><li><a href="/scp-002">SCP-002</a></li></ul>
+  </div>
+</div>
+"""
+
+    entries = parse_tales_index(html, BASE_URL, start=2, end=99)
+
+    assert [entry.slug for entry in entries] == ["scp-002"]
+
+
+def test_parse_tales_index_includes_lower_heading_content_until_same_level_boundary():
+    html = """
+<div id="page-content">
+  <div class="content-panel">
+    <h1>002到099</h1>
+    <ul><li><a href="/scp-002">SCP-002</a></li></ul>
+    <h2>相关故事</h2>
+    <ul><li><a href="/story-lower">Lower Story</a></li></ul>
+    <h1>100到199</h1>
+    <ul><li><a href="/scp-100">SCP-100</a></li></ul>
+  </div>
+</div>
+"""
+
+    entries = parse_tales_index(html, BASE_URL, start=2, end=99)
+
+    assert [entry.slug for entry in entries] == ["scp-002", "story-lower"]
+
+
+def test_parse_tales_index_partial_range_for_001_only_excludes_later_range():
+    html = FIXTURE.read_text(encoding="utf-8")
+
+    entries = parse_tales_index(html, BASE_URL, start=1, end=1)
+
+    assert [entry.slug for entry in entries] == ["scp-001", "spc-001"]
