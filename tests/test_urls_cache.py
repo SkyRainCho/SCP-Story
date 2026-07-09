@@ -1,3 +1,4 @@
+import hashlib
 import json
 from pathlib import Path
 
@@ -18,6 +19,15 @@ def test_safe_filename_removes_windows_reserved_characters():
     assert safe_filename("old:kalinins-proposal") == "old_kalinins-proposal"
 
 
+def test_safe_filename_avoids_windows_reserved_basenames():
+    assert safe_filename("con") == "con_"
+    assert safe_filename("COM1") == "COM1_"
+
+
+def test_safe_filename_replaces_ascii_control_characters():
+    assert safe_filename("bad\x00\x1fname") == "bad_name"
+
+
 def test_cache_store_writes_page_and_metadata(tmp_path: Path):
     cache = CacheStore(tmp_path / "raw")
     page_path, meta_path = cache.write_page("scp-002", "https://example.test/scp-002", "<html></html>", 200, "text/html")
@@ -27,3 +37,33 @@ def test_cache_store_writes_page_and_metadata(tmp_path: Path):
     assert metadata["url"] == "https://example.test/scp-002"
     assert metadata["status_code"] == 200
     assert len(metadata["sha256"]) == 64
+
+
+def test_cache_store_asset_path_uses_parsed_url_path_for_suffix(tmp_path: Path):
+    cache = CacheStore(tmp_path / "raw")
+
+    assert cache.asset_path("https://example.test/image.png#fragment").suffix == ".png"
+
+
+def test_cache_store_asset_path_content_type_parameters_map_suffix(tmp_path: Path):
+    cache = CacheStore(tmp_path / "raw")
+
+    assert cache.asset_path("https://example.test/image", "image/png; charset=binary").suffix == ".png"
+
+
+def test_cache_store_writes_asset_and_metadata(tmp_path: Path):
+    cache = CacheStore(tmp_path / "raw")
+    content = b"image bytes"
+    asset_path, meta_path = cache.write_asset(
+        "https://example.test/image.png",
+        content,
+        200,
+        "image/png",
+    )
+
+    assert asset_path.read_bytes() == content
+    metadata = json.loads(meta_path.read_text(encoding="utf-8"))
+    assert metadata["url"] == "https://example.test/image.png"
+    assert metadata["status_code"] == 200
+    assert metadata["content_type"] == "image/png"
+    assert metadata["sha256"] == hashlib.sha256(content).hexdigest()

@@ -4,6 +4,7 @@ import hashlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 
 from .urls import safe_filename
 
@@ -49,7 +50,7 @@ class CacheStore:
 
     def asset_path(self, url: str, content_type: str = "") -> Path:
         digest = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
-        suffix = _suffix_from_content_type(content_type) or Path(url.split("?")[0]).suffix or ".bin"
+        suffix = _suffix_from_content_type(content_type) or Path(urlparse(url).path).suffix or ".bin"
         return self.assets_dir / f"{digest}{suffix}"
 
     def write_asset(self, url: str, content: bytes, status_code: int, content_type: str) -> tuple[Path, Path]:
