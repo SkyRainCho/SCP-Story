@@ -36,7 +36,8 @@ def test_cache_store_writes_page_and_metadata(tmp_path: Path):
     metadata = json.loads(meta_path.read_text(encoding="utf-8"))
     assert metadata["url"] == "https://example.test/scp-002"
     assert metadata["status_code"] == 200
-    assert len(metadata["sha256"]) == 64
+    assert metadata["content_type"] == "text/html"
+    assert metadata["sha256"] == hashlib.sha256("<html></html>".encode("utf-8")).hexdigest()
 
 
 def test_cache_store_asset_path_uses_parsed_url_path_for_suffix(tmp_path: Path):
@@ -45,10 +46,26 @@ def test_cache_store_asset_path_uses_parsed_url_path_for_suffix(tmp_path: Path):
     assert cache.asset_path("https://example.test/image.png#fragment").suffix == ".png"
 
 
+def test_cache_store_asset_path_rejects_unsafe_url_suffix(tmp_path: Path):
+    cache = CacheStore(tmp_path / "raw")
+
+    assert cache.asset_path("https://example.test/image.png:large").suffix == ".bin"
+
+
 def test_cache_store_asset_path_content_type_parameters_map_suffix(tmp_path: Path):
     cache = CacheStore(tmp_path / "raw")
 
     assert cache.asset_path("https://example.test/image", "image/png; charset=binary").suffix == ".png"
+
+
+def test_cache_store_asset_path_maps_epub_asset_content_types(tmp_path: Path):
+    cache = CacheStore(tmp_path / "raw")
+
+    assert cache.asset_path("https://example.test/vector", "image/svg+xml").suffix == ".svg"
+    assert cache.asset_path("https://example.test/font", "font/ttf").suffix == ".ttf"
+    assert cache.asset_path("https://example.test/font", "font/otf").suffix == ".otf"
+    assert cache.asset_path("https://example.test/font", "application/font-woff").suffix == ".woff"
+    assert cache.asset_path("https://example.test/font", "application/font-woff2").suffix == ".woff2"
 
 
 def test_cache_store_writes_asset_and_metadata(tmp_path: Path):

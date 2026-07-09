@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
 from .urls import safe_filename
+
+
+SAFE_URL_SUFFIX = re.compile(r"^\.[A-Za-z0-9]{1,10}$")
 
 
 class CacheStore:
@@ -50,7 +54,7 @@ class CacheStore:
 
     def asset_path(self, url: str, content_type: str = "") -> Path:
         digest = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
-        suffix = _suffix_from_content_type(content_type) or Path(urlparse(url).path).suffix or ".bin"
+        suffix = _suffix_from_content_type(content_type) or _suffix_from_url_path(url) or ".bin"
         return self.assets_dir / f"{digest}{suffix}"
 
     def write_asset(self, url: str, content: bytes, status_code: int, content_type: str) -> tuple[Path, Path]:
@@ -82,7 +86,17 @@ def _suffix_from_content_type(content_type: str) -> str:
         "image/png": ".png",
         "image/gif": ".gif",
         "image/webp": ".webp",
+        "image/svg+xml": ".svg",
         "text/css": ".css",
         "font/woff": ".woff",
         "font/woff2": ".woff2",
+        "font/ttf": ".ttf",
+        "font/otf": ".otf",
+        "application/font-woff": ".woff",
+        "application/font-woff2": ".woff2",
     }.get(content_type, "")
+
+
+def _suffix_from_url_path(url: str) -> str:
+    suffix = Path(urlparse(url).path).suffix
+    return suffix if SAFE_URL_SUFFIX.fullmatch(suffix) else ""
