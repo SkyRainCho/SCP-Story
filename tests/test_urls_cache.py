@@ -13,6 +13,11 @@ def test_normalize_url_handles_relative_and_fragments():
     assert normalize_url("https://scp-wiki-cn.wikidot.com", "https://example.test/a") == "https://example.test/a"
 
 
+def test_normalize_url_uses_urljoin_page_base_semantics():
+    assert normalize_url("https://scp-wiki-cn.wikidot.com/scp-001", "scp-002") == "https://scp-wiki-cn.wikidot.com/scp-002"
+    assert normalize_url("https://scp-wiki-cn.wikidot.com/scp-001", "old:kalinins-proposal") == "https://scp-wiki-cn.wikidot.com/old:kalinins-proposal"
+
+
 def test_normalize_url_handles_wikidot_namespaced_page_links():
     normalized = normalize_url("https://scp-wiki-cn.wikidot.com", "old:kalinins-proposal")
 
@@ -107,3 +112,14 @@ def test_cache_store_writes_asset_and_metadata(tmp_path: Path):
     assert metadata["status_code"] == 200
     assert metadata["content_type"] == "image/png"
     assert metadata["sha256"] == hashlib.sha256(content).hexdigest()
+
+
+def test_cache_store_finds_extensionless_asset_by_url_digest(tmp_path: Path):
+    cache = CacheStore(tmp_path / "raw")
+    url = "https://example.test/assets/logo"
+    asset_path, _ = cache.write_asset(url, b"png bytes", 200, "image/png")
+
+    assert asset_path.suffix == ".png"
+    assert asset_path.stem == cache.asset_digest(url)
+    assert cache.has_asset(url)
+    assert cache.find_asset(url) == asset_path

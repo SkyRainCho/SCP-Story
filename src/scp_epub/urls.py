@@ -24,7 +24,7 @@ def normalize_url(base_url: str, href: str) -> str:
         href = f"./{href}"
     elif scheme in REAL_SCHEMES:
         return href
-    return urljoin(base_url.rstrip("/") + "/", href)
+    return urljoin(base_url, href)
 
 
 def slug_from_url(url: str) -> str:

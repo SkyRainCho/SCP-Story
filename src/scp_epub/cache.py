@@ -53,9 +53,24 @@ class CacheStore:
         return page_path, meta_path
 
     def asset_path(self, url: str, content_type: str = "") -> Path:
-        digest = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+        digest = self.asset_digest(url)
         suffix = _suffix_from_content_type(content_type) or _suffix_from_url_path(url) or ".bin"
         return self.assets_dir / f"{digest}{suffix}"
+
+    def asset_digest(self, url: str) -> str:
+        return hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+
+    def find_asset(self, url: str) -> Path | None:
+        if not self.assets_dir.exists():
+            return None
+        digest = self.asset_digest(url)
+        for candidate in sorted(self.assets_dir.glob(f"{digest}.*")):
+            if candidate.is_file() and not candidate.name.endswith(".json"):
+                return candidate
+        return None
+
+    def has_asset(self, url: str) -> bool:
+        return self.find_asset(url) is not None
 
     def write_asset(self, url: str, content: bytes, status_code: int, content_type: str) -> tuple[Path, Path]:
         self.assets_dir.mkdir(parents=True, exist_ok=True)
