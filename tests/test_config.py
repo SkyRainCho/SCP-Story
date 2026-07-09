@@ -17,12 +17,12 @@ cache_dir: {cache_dir}
 manifest_dir: {manifest_dir}
 processed_dir: {processed_dir}
 output_dir: {output_dir}
-request_delay_seconds: 0.1
-retry_count: 2
+request_delay_seconds: {request_delay_seconds}
+retry_count: {retry_count}
 volumes:
   "001-099":
-    start: 1
-    end: 99
+    start: {start}
+    end: {end}
     title: Volume Title
     output_slug: volume-slug
 """
@@ -34,6 +34,10 @@ def write_config(config_path: Path, **overrides: str) -> None:
         "manifest_dir": "data/manifests",
         "processed_dir": "data/processed",
         "output_dir": "output",
+        "request_delay_seconds": "0.1",
+        "retry_count": "2",
+        "start": "1",
+        "end": "99",
     }
     values.update(overrides)
     config_path.write_text(VALID_CONFIG.format(**values), encoding="utf-8")
@@ -79,6 +83,15 @@ def test_load_config_rejects_missing_volume(tmp_path: Path):
         raise AssertionError("expected ValueError")
 
 
+@pytest.mark.parametrize("yaml_text", ["42\n", "- series_id\n"])
+def test_load_config_rejects_non_mapping_top_level(tmp_path: Path, yaml_text: str):
+    config_path = tmp_path / "series.yaml"
+    config_path.write_text(yaml_text, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="config must be a mapping"):
+        load_config(config_path)
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [
@@ -93,6 +106,27 @@ def test_load_config_rejects_paths_outside_workspace(tmp_path: Path, field: str,
     write_config(config_path, **{field: value})
 
     with pytest.raises(ValueError, match=field):
+        load_config(config_path)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "expected"),
+    [
+        ("retry_count", "many", "retry_count must be an integer"),
+        (
+            "request_delay_seconds",
+            "soon",
+            "request_delay_seconds must be a number",
+        ),
+    ],
+)
+def test_load_config_rejects_invalid_top_level_numbers(
+    tmp_path: Path, field: str, value: str, expected: str
+):
+    config_path = tmp_path / "series.yaml"
+    write_config(config_path, **{field: value})
+
+    with pytest.raises(ValueError, match=expected):
         load_config(config_path)
 
 
@@ -141,6 +175,23 @@ retry_count: 2
         + volume_yaml,
         encoding="utf-8",
     )
+
+    with pytest.raises(ValueError, match=expected):
+        load_config(config_path)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "expected"),
+    [
+        ("start", "first", "Volume 001-099 start must be an integer"),
+        ("end", "last", "Volume 001-099 end must be an integer"),
+    ],
+)
+def test_load_config_rejects_invalid_volume_numbers(
+    tmp_path: Path, field: str, value: str, expected: str
+):
+    config_path = tmp_path / "series.yaml"
+    write_config(config_path, **{field: value})
 
     with pytest.raises(ValueError, match=expected):
         load_config(config_path)

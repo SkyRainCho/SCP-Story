@@ -31,7 +31,8 @@ REQUIRED_VOLUME_KEYS = {"start", "end", "title", "output_slug"}
 
 def load_config(path: str | Path) -> AppConfig:
     config_path = Path(path).resolve()
-    data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    raw_data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data = _mapping({} if raw_data is None else raw_data, "config")
     missing = sorted(REQUIRED_TOP_LEVEL - set(data))
     if missing:
         raise ValueError(f"Config missing required keys: {', '.join(missing)}")
@@ -53,8 +54,10 @@ def load_config(path: str | Path) -> AppConfig:
         manifest_dir=_workspace_path(workspace, "manifest_dir", data["manifest_dir"]),
         processed_dir=_workspace_path(workspace, "processed_dir", data["processed_dir"]),
         output_dir=_workspace_path(workspace, "output_dir", data["output_dir"]),
-        request_delay_seconds=float(data["request_delay_seconds"]),
-        retry_count=int(data["retry_count"]),
+        request_delay_seconds=_number(
+            data["request_delay_seconds"], "request_delay_seconds"
+        ),
+        retry_count=_integer(data["retry_count"], "retry_count"),
         volumes=volumes,
     )
 
@@ -68,11 +71,11 @@ def _load_volumes(value: Any) -> dict[str, VolumeSpec]:
         if missing:
             raise ValueError(
                 f"Volume {volume_key} missing required keys: {', '.join(missing)}"
-            )
+        )
         volumes[volume_key] = VolumeSpec(
             key=volume_key,
-            start=int(volume["start"]),
-            end=int(volume["end"]),
+            start=_integer(volume["start"], f"Volume {volume_key} start"),
+            end=_integer(volume["end"], f"Volume {volume_key} end"),
             title=str(volume["title"]),
             output_slug=str(volume["output_slug"]),
         )
@@ -94,6 +97,20 @@ def _workspace_path(workspace: Path, key: str, value: Any) -> Path:
     except ValueError:
         raise ValueError(f"{key} must stay inside the workspace") from None
     return resolved
+
+
+def _integer(value: Any, name: str) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{name} must be an integer") from None
+
+
+def _number(value: Any, name: str) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{name} must be a number") from None
 
 
 def _mapping(value: Any, name: str) -> dict[str, Any]:
