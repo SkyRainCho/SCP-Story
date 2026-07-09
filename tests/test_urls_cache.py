@@ -1,5 +1,6 @@
 import hashlib
 import json
+from datetime import datetime
 from pathlib import Path
 
 from scp_epub.cache import CacheStore
@@ -9,6 +10,13 @@ from scp_epub.urls import normalize_url, safe_filename, slug_from_url
 def test_normalize_url_handles_relative_and_fragments():
     assert normalize_url("https://scp-wiki-cn.wikidot.com", "/scp-002#x") == "https://scp-wiki-cn.wikidot.com/scp-002#x"
     assert normalize_url("https://scp-wiki-cn.wikidot.com", "http://example.test/a") == "http://example.test/a"
+
+
+def test_normalize_url_handles_wikidot_namespaced_page_links():
+    normalized = normalize_url("https://scp-wiki-cn.wikidot.com", "old:kalinins-proposal")
+
+    assert normalized == "https://scp-wiki-cn.wikidot.com/old:kalinins-proposal"
+    assert slug_from_url(normalized) == "old:kalinins-proposal"
 
 
 def test_slug_from_url_keeps_old_namespace():
@@ -38,6 +46,9 @@ def test_cache_store_writes_page_and_metadata(tmp_path: Path):
     assert metadata["status_code"] == 200
     assert metadata["content_type"] == "text/html"
     assert metadata["sha256"] == hashlib.sha256("<html></html>".encode("utf-8")).hexdigest()
+    fetched_at = datetime.fromisoformat(metadata["fetched_at"])
+    assert fetched_at.tzinfo is not None
+    assert fetched_at.utcoffset() is not None
 
 
 def test_cache_store_asset_path_uses_parsed_url_path_for_suffix(tmp_path: Path):

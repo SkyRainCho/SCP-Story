@@ -13,9 +13,13 @@ WINDOWS_RESERVED_BASENAMES = {
     *(f"com{index}" for index in range(1, 10)),
     *(f"lpt{index}" for index in range(1, 10)),
 }
+EXTERNAL_SCHEMES = {"http", "https", "mailto", "ftp"}
 
 
 def normalize_url(base_url: str, href: str) -> str:
+    parsed_href = urlparse(href)
+    if parsed_href.scheme and parsed_href.scheme.lower() not in EXTERNAL_SCHEMES:
+        href = f"./{href}"
     return urljoin(base_url.rstrip("/") + "/", href)
 
 
