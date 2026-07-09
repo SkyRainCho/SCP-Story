@@ -6,13 +6,13 @@ from scp_epub.config import load_config
 
 
 VALID_CONFIG = """
-series_id: scp-series-1
-title: Test Series
-language: zh-CN
-creator: Test Creator
-base_url: https://example.test
-index_path: /index
-scp001_path: /scp-001
+series_id: {series_id}
+title: {title}
+language: {language}
+creator: {creator}
+base_url: {base_url}
+index_path: {index_path}
+scp001_path: {scp001_path}
 cache_dir: {cache_dir}
 manifest_dir: {manifest_dir}
 processed_dir: {processed_dir}
@@ -23,13 +23,20 @@ volumes:
   "001-099":
     start: {start}
     end: {end}
-    title: Volume Title
-    output_slug: volume-slug
+    title: {volume_title}
+    output_slug: {output_slug}
 """
 
 
 def write_config(config_path: Path, **overrides: str) -> None:
     values = {
+        "series_id": "scp-series-1",
+        "title": "Test Series",
+        "language": "zh-CN",
+        "creator": "Test Creator",
+        "base_url": "https://example.test",
+        "index_path": "/index",
+        "scp001_path": "/scp-001",
         "cache_dir": "data/raw",
         "manifest_dir": "data/manifests",
         "processed_dir": "data/processed",
@@ -38,6 +45,8 @@ def write_config(config_path: Path, **overrides: str) -> None:
         "retry_count": "2",
         "start": "1",
         "end": "99",
+        "volume_title": "Volume Title",
+        "output_slug": "volume-slug",
     }
     values.update(overrides)
     config_path.write_text(VALID_CONFIG.format(**values), encoding="utf-8")
@@ -106,6 +115,23 @@ def test_load_config_rejects_paths_outside_workspace(tmp_path: Path, field: str,
     write_config(config_path, **{field: value})
 
     with pytest.raises(ValueError, match=field):
+        load_config(config_path)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "expected"),
+    [
+        ("cache_dir", "", "cache_dir must be a non-empty string"),
+        ("title", '"   "', "title must be a non-empty string"),
+    ],
+)
+def test_load_config_rejects_invalid_top_level_strings(
+    tmp_path: Path, field: str, value: str, expected: str
+):
+    config_path = tmp_path / "series.yaml"
+    write_config(config_path, **{field: value})
+
+    with pytest.raises(ValueError, match=expected):
         load_config(config_path)
 
 
@@ -200,6 +226,27 @@ retry_count: 2
     ],
 )
 def test_load_config_rejects_invalid_volume_numbers(
+    tmp_path: Path, field: str, value: str, expected: str
+):
+    config_path = tmp_path / "series.yaml"
+    write_config(config_path, **{field: value})
+
+    with pytest.raises(ValueError, match=expected):
+        load_config(config_path)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "expected"),
+    [
+        ("volume_title", "", "Volume 001-099 title must be a non-empty string"),
+        (
+            "output_slug",
+            '""',
+            "Volume 001-099 output_slug must be a non-empty string",
+        ),
+    ],
+)
+def test_load_config_rejects_invalid_volume_strings(
     tmp_path: Path, field: str, value: str, expected: str
 ):
     config_path = tmp_path / "series.yaml"

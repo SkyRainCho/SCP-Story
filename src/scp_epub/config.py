@@ -44,13 +44,13 @@ def load_config(path: str | Path) -> AppConfig:
 
     return AppConfig(
         workspace=workspace,
-        series_id=str(data["series_id"]),
-        title=str(data["title"]),
-        language=str(data["language"]),
-        creator=str(data["creator"]),
-        base_url=str(data["base_url"]).rstrip("/"),
-        index_path=str(data["index_path"]),
-        scp001_path=str(data["scp001_path"]),
+        series_id=_required_string(data["series_id"], "series_id"),
+        title=_required_string(data["title"], "title"),
+        language=_required_string(data["language"], "language"),
+        creator=_required_string(data["creator"], "creator"),
+        base_url=_required_string(data["base_url"], "base_url").rstrip("/"),
+        index_path=_required_string(data["index_path"], "index_path"),
+        scp001_path=_required_string(data["scp001_path"], "scp001_path"),
         cache_dir=_workspace_path(workspace, "cache_dir", data["cache_dir"]),
         manifest_dir=_workspace_path(workspace, "manifest_dir", data["manifest_dir"]),
         processed_dir=_workspace_path(workspace, "processed_dir", data["processed_dir"]),
@@ -82,8 +82,10 @@ def _load_volumes(value: Any) -> dict[str, VolumeSpec]:
             key=volume_key,
             start=start,
             end=end,
-            title=str(volume["title"]),
-            output_slug=str(volume["output_slug"]),
+            title=_required_string(volume["title"], f"Volume {volume_key} title"),
+            output_slug=_required_string(
+                volume["output_slug"], f"Volume {volume_key} output_slug"
+            ),
         )
 
     if not volumes:
@@ -92,7 +94,7 @@ def _load_volumes(value: Any) -> dict[str, VolumeSpec]:
 
 
 def _workspace_path(workspace: Path, key: str, value: Any) -> Path:
-    raw_path = Path(str(value))
+    raw_path = Path(_required_string(value, key))
     if raw_path.is_absolute() or raw_path.drive:
         raise ValueError(f"{key} must be a relative path inside the workspace")
 
@@ -103,6 +105,12 @@ def _workspace_path(workspace: Path, key: str, value: Any) -> Path:
     except ValueError:
         raise ValueError(f"{key} must stay inside the workspace") from None
     return resolved
+
+
+def _required_string(value: Any, name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{name} must be a non-empty string")
+    return value
 
 
 def _integer(value: Any, name: str) -> int:
