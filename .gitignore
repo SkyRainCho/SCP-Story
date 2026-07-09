@@ -1,4 +1,5 @@
 # Local download cache and generated artifacts
+.worktrees/
 data/raw/
 data/processed/
 output/
