@@ -49,6 +49,7 @@ class PageRef:
     role: str
     parent_slug: str | None = None
     source: str = "index"
+    order: int = 0
     children: tuple["PageRef", ...] = field(default_factory=tuple)
 
 
