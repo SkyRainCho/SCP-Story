@@ -17,6 +17,13 @@ def test_normalize_url_handles_wikidot_namespaced_page_links():
 
     assert normalized == "https://scp-wiki-cn.wikidot.com/old:kalinins-proposal"
     assert slug_from_url(normalized) == "old:kalinins-proposal"
+    assert normalize_url("https://scp-wiki-cn.wikidot.com", "alt:nico-proposal") == "https://scp-wiki-cn.wikidot.com/alt:nico-proposal"
+
+
+def test_normalize_url_preserves_non_fetchable_schemes():
+    assert normalize_url("https://scp-wiki-cn.wikidot.com", "javascript:void(0)") == "javascript:void(0)"
+    assert normalize_url("https://scp-wiki-cn.wikidot.com", "data:image/png;base64,abc") == "data:image/png;base64,abc"
+    assert normalize_url("https://scp-wiki-cn.wikidot.com", "tel:+123") == "tel:+123"
 
 
 def test_slug_from_url_keeps_old_namespace():
@@ -41,6 +48,8 @@ def test_cache_store_writes_page_and_metadata(tmp_path: Path):
     page_path, meta_path = cache.write_page("scp-002", "https://example.test/scp-002", "<html></html>", 200, "text/html")
 
     assert page_path.read_text(encoding="utf-8") == "<html></html>"
+    assert cache.has_page("scp-002")
+    assert cache.read_page("scp-002") == "<html></html>"
     metadata = json.loads(meta_path.read_text(encoding="utf-8"))
     assert metadata["url"] == "https://example.test/scp-002"
     assert metadata["status_code"] == 200

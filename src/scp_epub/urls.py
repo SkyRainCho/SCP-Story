@@ -13,13 +13,17 @@ WINDOWS_RESERVED_BASENAMES = {
     *(f"com{index}" for index in range(1, 10)),
     *(f"lpt{index}" for index in range(1, 10)),
 }
-EXTERNAL_SCHEMES = {"http", "https", "mailto", "ftp"}
+REAL_SCHEMES = {"http", "https", "mailto", "ftp", "javascript", "data", "tel"}
+WIKIDOT_PAGE_NAMESPACES = {"old", "alt"}
 
 
 def normalize_url(base_url: str, href: str) -> str:
     parsed_href = urlparse(href)
-    if parsed_href.scheme and parsed_href.scheme.lower() not in EXTERNAL_SCHEMES:
+    scheme = parsed_href.scheme.lower()
+    if scheme in WIKIDOT_PAGE_NAMESPACES:
         href = f"./{href}"
+    elif scheme in REAL_SCHEMES:
+        return href
     return urljoin(base_url.rstrip("/") + "/", href)
 
 
