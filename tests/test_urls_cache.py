@@ -8,9 +8,14 @@ from scp_epub.urls import normalize_url, safe_filename, slug_from_url
 
 
 def test_normalize_url_handles_relative_and_fragments():
-    assert normalize_url("https://scp-wiki-cn.wikidot.com", "/scp-002#x") == "https://scp-wiki-cn.wikidot.com/scp-002#x"
+    assert normalize_url("https://scp-wiki-cn.wikidot.com", "/scp-002#x") == "https://scp-wiki-cn.wikidot.com/scp-002"
     assert normalize_url("https://scp-wiki-cn.wikidot.com", "http://example.test/a") == "http://example.test/a"
     assert normalize_url("https://scp-wiki-cn.wikidot.com", "https://example.test/a") == "https://example.test/a"
+
+
+def test_normalize_url_trims_whitespace_and_strips_fragments():
+    assert normalize_url("https://scp-wiki-cn.wikidot.com", " https://example.test/a#frag ") == "https://example.test/a"
+    assert normalize_url("https://scp-wiki-cn.wikidot.com", " //example.test/a#frag ") == "https://example.test/a"
 
 
 def test_normalize_url_uses_urljoin_page_base_semantics():
@@ -24,10 +29,12 @@ def test_normalize_url_handles_wikidot_namespaced_page_links():
     assert normalized == "https://scp-wiki-cn.wikidot.com/old:kalinins-proposal"
     assert slug_from_url(normalized) == "old:kalinins-proposal"
     assert normalize_url("https://scp-wiki-cn.wikidot.com", "alt:nico-proposal") == "https://scp-wiki-cn.wikidot.com/alt:nico-proposal"
+    assert normalize_url("https://scp-wiki-cn.wikidot.com", "component:collapsible") == "https://scp-wiki-cn.wikidot.com/component:collapsible"
+    assert normalize_url("https://scp-wiki-cn.wikidot.com", "fragment:scp-001") == "https://scp-wiki-cn.wikidot.com/fragment:scp-001"
 
 
 def test_normalize_url_preserves_non_fetchable_schemes():
-    assert normalize_url("https://scp-wiki-cn.wikidot.com", "mailto:test@example.test") == "mailto:test@example.test"
+    assert normalize_url("https://scp-wiki-cn.wikidot.com", "mailto:test@example.test#frag") == "mailto:test@example.test"
     assert normalize_url("https://scp-wiki-cn.wikidot.com", "ftp://example.test/file.txt") == "ftp://example.test/file.txt"
     assert normalize_url("https://scp-wiki-cn.wikidot.com", "javascript:void(0)") == "javascript:void(0)"
     assert normalize_url("https://scp-wiki-cn.wikidot.com", "data:image/png;base64,abc") == "data:image/png;base64,abc"
@@ -36,6 +43,7 @@ def test_normalize_url_preserves_non_fetchable_schemes():
 
 def test_slug_from_url_keeps_old_namespace():
     assert slug_from_url("https://scp-wiki-cn.wikidot.com/old:kalinins-proposal") == "old:kalinins-proposal"
+    assert slug_from_url("https://scp-wiki-cn.wikidot.com/SCP-002") == "scp-002"
 
 
 def test_safe_filename_removes_windows_reserved_characters():
@@ -72,12 +80,18 @@ def test_cache_store_asset_path_uses_parsed_url_path_for_suffix(tmp_path: Path):
     cache = CacheStore(tmp_path / "raw")
 
     assert cache.asset_path("https://example.test/image.png#fragment").suffix == ".png"
+    assert cache.asset_path("https://example.test/image.JPEG").suffix == ".jpeg"
+    assert cache.asset_path("https://example.test/styles/site.css").suffix == ".css"
+    assert cache.asset_path("https://example.test/fonts/site.woff2").suffix == ".woff2"
 
 
 def test_cache_store_asset_path_rejects_unsafe_url_suffix(tmp_path: Path):
     cache = CacheStore(tmp_path / "raw")
 
     assert cache.asset_path("https://example.test/image.png:large").suffix == ".bin"
+    assert cache.asset_path("https://example.test/download.exe").suffix == ".bin"
+    assert cache.asset_path("https://example.test/index.php").suffix == ".bin"
+    assert cache.asset_path("https://example.test/page.aspx").suffix == ".bin"
 
 
 def test_cache_store_asset_path_content_type_parameters_map_suffix(tmp_path: Path):
@@ -114,7 +128,7 @@ def test_cache_store_writes_asset_and_metadata(tmp_path: Path):
     assert metadata["sha256"] == hashlib.sha256(content).hexdigest()
 
 
-def test_cache_store_finds_extensionless_asset_by_url_digest(tmp_path: Path):
+def test_cache_store_finds_asset_by_url_digest_without_content_type_lookup(tmp_path: Path):
     cache = CacheStore(tmp_path / "raw")
     url = "https://example.test/assets/logo"
     asset_path, _ = cache.write_asset(url, b"png bytes", 200, "image/png")
@@ -123,3 +137,9 @@ def test_cache_store_finds_extensionless_asset_by_url_digest(tmp_path: Path):
     assert asset_path.stem == cache.asset_digest(url)
     assert cache.has_asset(url)
     assert cache.find_asset(url) == asset_path
+
+
+def test_cache_store_extensionless_asset_without_content_type_uses_bin(tmp_path: Path):
+    cache = CacheStore(tmp_path / "raw")
+
+    assert cache.asset_path("https://example.test/assets/logo").suffix == ".bin"

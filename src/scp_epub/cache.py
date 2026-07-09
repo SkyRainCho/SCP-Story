@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
@@ -10,7 +9,19 @@ from urllib.parse import urlparse
 from .urls import safe_filename
 
 
-SAFE_URL_SUFFIX = re.compile(r"^\.[A-Za-z0-9]{1,10}$")
+SUPPORTED_URL_SUFFIXES = {
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".webp",
+    ".svg",
+    ".css",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".otf",
+}
 
 
 class CacheStore:
@@ -113,5 +124,5 @@ def _suffix_from_content_type(content_type: str) -> str:
 
 
 def _suffix_from_url_path(url: str) -> str:
-    suffix = Path(urlparse(url).path).suffix
-    return suffix if SAFE_URL_SUFFIX.fullmatch(suffix) else ""
+    suffix = Path(urlparse(url).path).suffix.lower()
+    return suffix if suffix in SUPPORTED_URL_SUFFIXES else ""

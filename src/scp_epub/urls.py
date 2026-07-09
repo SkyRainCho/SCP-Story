@@ -14,23 +14,27 @@ WINDOWS_RESERVED_BASENAMES = {
     *(f"lpt{index}" for index in range(1, 10)),
 }
 REAL_SCHEMES = {"http", "https", "mailto", "ftp", "javascript", "data", "tel"}
-WIKIDOT_PAGE_NAMESPACES = {"old", "alt"}
 
 
 def normalize_url(base_url: str, href: str) -> str:
+    href = href.strip()
     parsed_href = urlparse(href)
     scheme = parsed_href.scheme.lower()
-    if scheme in WIKIDOT_PAGE_NAMESPACES:
+    if scheme and scheme not in REAL_SCHEMES:
         href = f"./{href}"
     elif scheme in REAL_SCHEMES:
-        return href
-    return urljoin(base_url, href)
+        return _without_fragment(href)
+    return _without_fragment(urljoin(base_url.strip(), href))
 
 
 def slug_from_url(url: str) -> str:
     parsed = urlparse(url)
-    slug = parsed.path.strip("/")
+    slug = parsed.path.strip("/").lower()
     return slug or "index"
+
+
+def _without_fragment(url: str) -> str:
+    return urlparse(url)._replace(fragment="").geturl()
 
 
 def safe_filename(value: str) -> str:
