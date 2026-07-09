@@ -120,6 +120,8 @@ def _suffix_from_content_type(content_type: str) -> str:
         "font/otf": ".otf",
         "application/font-woff": ".woff",
         "application/font-woff2": ".woff2",
+        "application/vnd.ms-opentype": ".otf",
+        "application/font-sfnt": ".ttf",
     }.get(content_type, "")
 
 

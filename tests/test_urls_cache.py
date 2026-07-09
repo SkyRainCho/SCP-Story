@@ -42,6 +42,7 @@ def test_normalize_url_preserves_non_fetchable_schemes():
 
 
 def test_slug_from_url_keeps_old_namespace():
+    assert slug_from_url("https://scp-wiki-cn.wikidot.com/") == "index"
     assert slug_from_url("https://scp-wiki-cn.wikidot.com/old:kalinins-proposal") == "old:kalinins-proposal"
     assert slug_from_url("https://scp-wiki-cn.wikidot.com/SCP-002") == "scp-002"
 
@@ -108,6 +109,8 @@ def test_cache_store_asset_path_maps_epub_asset_content_types(tmp_path: Path):
     assert cache.asset_path("https://example.test/font", "font/otf").suffix == ".otf"
     assert cache.asset_path("https://example.test/font", "application/font-woff").suffix == ".woff"
     assert cache.asset_path("https://example.test/font", "application/font-woff2").suffix == ".woff2"
+    assert cache.asset_path("https://example.test/font", "application/vnd.ms-opentype").suffix == ".otf"
+    assert cache.asset_path("https://example.test/font", "application/font-sfnt").suffix == ".ttf"
 
 
 def test_cache_store_writes_asset_and_metadata(tmp_path: Path):
@@ -126,6 +129,9 @@ def test_cache_store_writes_asset_and_metadata(tmp_path: Path):
     assert metadata["status_code"] == 200
     assert metadata["content_type"] == "image/png"
     assert metadata["sha256"] == hashlib.sha256(content).hexdigest()
+    fetched_at = datetime.fromisoformat(metadata["fetched_at"])
+    assert fetched_at.tzinfo is not None
+    assert fetched_at.utcoffset() is not None
 
 
 def test_cache_store_finds_asset_by_url_digest_without_content_type_lookup(tmp_path: Path):
