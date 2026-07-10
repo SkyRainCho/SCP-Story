@@ -234,6 +234,9 @@ def _is_scp001_code_name_text(anchor_text: str) -> bool:
 
 
 def _is_ignored_scp001_anchor(anchor: Tag, content: Tag) -> bool:
+    if "newpage" in _tag_class_tokens(anchor):
+        return True
+
     for parent in anchor.parents:
         if parent is content:
             return False
@@ -248,11 +251,7 @@ def _is_ignored_scp001_anchor(anchor: Tag, content: Tag) -> bool:
 
 def _has_ignored_scp001_token(tag: Tag) -> bool:
     tokens = [str(tag.get("id", ""))]
-    classes = tag.get("class", [])
-    if isinstance(classes, str):
-        tokens.append(classes)
-    else:
-        tokens.extend(str(class_name) for class_name in classes)
+    tokens.extend(_tag_class_tokens(tag))
 
     normalized_tokens = [token.lower() for token in tokens]
     if any(token in SCP_001_EXACT_IGNORED_CONTAINER_TOKENS for token in normalized_tokens):
@@ -263,6 +262,13 @@ def _has_ignored_scp001_token(tag: Tag) -> bool:
         for token in normalized_tokens
         for ignored_part in SCP_001_IGNORED_CONTAINER_PARTS
     )
+
+
+def _tag_class_tokens(tag: Tag) -> list[str]:
+    classes = tag.get("class", [])
+    if isinstance(classes, str):
+        return [classes]
+    return [str(class_name) for class_name in classes]
 
 
 def _role_for_slug(slug: str) -> str:
