@@ -132,6 +132,54 @@ def test_fetch_page_accepts_keyword_only_callable_http_client(tmp_path: Path):
     ]
 
 
+def test_fetch_page_passes_configured_timeout_to_urllib(tmp_path: Path, monkeypatch):
+    captured: dict[str, float] = {}
+
+    class Response:
+        status = 200
+        headers = {"Content-Type": "text/html; charset=utf-8"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def read(self):
+            return b"<html>timeout</html>"
+
+    def urlopen(_request, *, timeout: float):
+        captured["timeout"] = timeout
+        return Response()
+
+    monkeypatch.setattr("scp_epub.fetcher.request.urlopen", urlopen)
+    cache = CacheStore(tmp_path / "raw")
+
+    Fetcher(cache, request_timeout_seconds=7).fetch_page(
+        "scp-002",
+        "https://example.test/scp-002",
+    )
+
+    assert captured["timeout"] == 7
+
+
+def test_fetch_asset_uses_asset_specific_retry_count(tmp_path: Path):
+    cache = CacheStore(tmp_path / "raw")
+    client = RecordingClient(
+        [
+            OSError("temporary failure"),
+            (b"png bytes", 200, "image/png"),
+        ]
+    )
+
+    with pytest.raises(FetchError):
+        Fetcher(cache, http_client=client, retry_count=2, asset_retry_count=1).fetch_asset(
+            "https://example.test/assets/logo.png"
+        )
+
+    assert len(client.calls) == 1
+
+
 def test_fetch_page_prefers_get_when_http_client_is_also_callable(tmp_path: Path):
     class Response:
         status_code = 200

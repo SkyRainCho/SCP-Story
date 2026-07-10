@@ -45,7 +45,10 @@ def app_config(
         processed_dir=tmp_path / "data" / "processed",
         output_dir=tmp_path / "output",
         request_delay_seconds=0,
+        request_timeout_seconds=30,
         retry_count=1,
+        asset_timeout_seconds=5,
+        asset_retry_count=1,
         include_scp001_proposals=include_scp001_proposals,
         volumes={volume_key: volume},
     )

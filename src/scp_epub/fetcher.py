@@ -65,18 +65,30 @@ class Fetcher:
         http_client: HTTPClient | None = None,
         browser_fetcher: BrowserFetcher | Callable[[str], BrowserFetchData] | None = None,
         retry_count: int = 3,
+        asset_retry_count: int | None = None,
         request_delay_seconds: float = 0.0,
+        request_timeout_seconds: float = 30.0,
+        asset_timeout_seconds: float | None = None,
         user_agent: str = DEFAULT_USER_AGENT,
     ):
         if retry_count < 1:
             raise ValueError("retry_count must be at least 1")
+        if asset_retry_count is not None and asset_retry_count < 1:
+            raise ValueError("asset_retry_count must be at least 1")
         if request_delay_seconds < 0:
             raise ValueError("request_delay_seconds must be non-negative")
+        if request_timeout_seconds <= 0:
+            raise ValueError("request_timeout_seconds must be positive")
+        if asset_timeout_seconds is not None and asset_timeout_seconds <= 0:
+            raise ValueError("asset_timeout_seconds must be positive")
         self.cache = cache
-        self.http_client = http_client or self._urllib_get
+        self.http_client = http_client
         self.browser_fetcher = browser_fetcher
         self.retry_count = retry_count
+        self.asset_retry_count = asset_retry_count or retry_count
         self.request_delay_seconds = request_delay_seconds
+        self.request_timeout_seconds = request_timeout_seconds
+        self.asset_timeout_seconds = asset_timeout_seconds or request_timeout_seconds
         self.user_agent = user_agent
 
     def fetch_page(self, slug: str, url: str, *, force: bool = False) -> FetchResult:
@@ -96,7 +108,11 @@ class Fetcher:
             )
 
         try:
-            response = self._get_with_retries(url)
+            response = self._get_with_retries(
+                url,
+                retry_count=self.retry_count,
+                timeout_seconds=self.request_timeout_seconds,
+            )
         except FetchError as http_error:
             if self.browser_fetcher is None:
                 raise http_error
@@ -164,7 +180,11 @@ class Fetcher:
                     content_type=metadata["content_type"],
                 )
 
-        response = self._get_with_retries(url)
+        response = self._get_with_retries(
+            url,
+            retry_count=self.asset_retry_count,
+            timeout_seconds=self.asset_timeout_seconds,
+        )
         content_type = response.content_type or "application/octet-stream"
         if force:
             self._delete_cached_asset_files(url)
@@ -183,12 +203,20 @@ class Fetcher:
             content_type=content_type,
         )
 
-    def _get_with_retries(self, url: str) -> _Response:
+    def _get_with_retries(
+        self,
+        url: str,
+        *,
+        retry_count: int,
+        timeout_seconds: float,
+    ) -> _Response:
         last_error: FetchError | None = None
         headers = {"User-Agent": self.user_agent}
-        for attempt in range(1, self.retry_count + 1):
+        for attempt in range(1, retry_count + 1):
             try:
-                response = self._normalize_response(self._call_http_client(url, headers))
+                response = self._normalize_response(
+                    self._call_http_client(url, headers, timeout_seconds)
+                )
                 if response.status_code >= 400:
                     raise FetchError(url, status_code=response.status_code, reason="HTTP error")
                 return response
@@ -197,14 +225,22 @@ class Fetcher:
             except Exception as exc:
                 last_error = FetchError(url, reason=str(exc))
 
-            if attempt < self.retry_count and self.request_delay_seconds:
+            if attempt < retry_count and self.request_delay_seconds:
                 time.sleep(self.request_delay_seconds)
 
         if last_error is None:
             raise FetchError(url, reason="unknown error")
         raise last_error
 
-    def _call_http_client(self, url: str, headers: dict[str, str]) -> Any:
+    def _call_http_client(
+        self,
+        url: str,
+        headers: dict[str, str],
+        timeout_seconds: float,
+    ) -> Any:
+        if self.http_client is None:
+            return self._urllib_get(url, headers=headers, timeout_seconds=timeout_seconds)
+
         get = getattr(self.http_client, "get", None)
         if callable(get):
             return get(url, headers=headers)
@@ -230,10 +266,15 @@ class Fetcher:
             return html, status_code, content_type or "text/html"
         return raw, 200, "text/html"
 
-    def _urllib_get(self, url: str, headers: dict[str, str]) -> _Response:
+    def _urllib_get(
+        self,
+        url: str,
+        headers: dict[str, str],
+        timeout_seconds: float,
+    ) -> _Response:
         req = request.Request(url, headers=headers, method="GET")
         try:
-            with request.urlopen(req, timeout=30) as response:
+            with request.urlopen(req, timeout=timeout_seconds) as response:
                 return _Response(
                     content=response.read(),
                     status_code=response.status,

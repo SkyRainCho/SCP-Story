@@ -181,7 +181,10 @@ def make_fetcher(config: AppConfig) -> Fetcher:
     return Fetcher(
         CacheStore(config.cache_dir),
         retry_count=config.retry_count,
+        asset_retry_count=config.asset_retry_count,
         request_delay_seconds=config.request_delay_seconds,
+        request_timeout_seconds=config.request_timeout_seconds,
+        asset_timeout_seconds=config.asset_timeout_seconds,
     )
 
 
