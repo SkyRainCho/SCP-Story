@@ -60,12 +60,14 @@ class FakeFetcher:
         root: Path,
         pages: dict[str, str],
         cached_slugs: set[str] | None = None,
+        failed_pages: set[str] | None = None,
         assets: dict[str, tuple[str, bytes, str]] | None = None,
         failed_assets: set[str] | None = None,
     ):
         self.root = root
         self.pages = pages
         self.cached_slugs = cached_slugs or set()
+        self.failed_pages = failed_pages or set()
         self.calls: list[tuple[str, str, bool]] = []
         self.assets = assets or {}
         self.failed_assets = failed_assets or set()
@@ -73,6 +75,8 @@ class FakeFetcher:
 
     def fetch_page(self, slug: str, url: str, *, force: bool = False) -> FetchResult:
         self.calls.append((slug, url, force))
+        if slug in self.failed_pages:
+            raise RuntimeError(f"failed fake page for {slug}")
         if slug not in self.pages:
             raise AssertionError(f"missing fake page for {slug}")
         safe_slug = slug.replace(":", "_")
@@ -310,6 +314,44 @@ def test_build_volume_localizes_assets_and_reports_missing_assets(tmp_path: Path
     report = json.loads((config.output_dir / "reports" / "test-volume-report.json").read_text(encoding="utf-8"))
     assert report["asset_urls"] == [good_url, missing_url]
     assert report["missing_assets"] == [missing_url]
+
+
+def test_build_volume_skips_failed_pages_and_reports_missing_pages(tmp_path: Path):
+    config = app_config(tmp_path)
+    manifest = [
+        PageRef("SCP-001", f"{BASE_URL}/scp-001", "scp-001", 1, "scp", order=1),
+        PageRef("Missing Tale", f"{BASE_URL}/missing-tale", "missing-tale", 2, "related", order=2),
+        PageRef("SCP-002", f"{BASE_URL}/scp-002", "scp-002", 1, "scp", order=3),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-001": simple_page("SCP-001", "First body"),
+            "scp-002": simple_page("SCP-002", "Second body"),
+        },
+        failed_pages={"missing-tale"},
+    )
+
+    output_path = build_volume(config, "001-099", fetcher=fetcher)
+
+    with zipfile.ZipFile(output_path) as archive:
+        names = archive.namelist()
+        assert "OEBPS/text/0001-scp-001.xhtml" in names
+        assert "OEBPS/text/0002-missing-tale.xhtml" not in names
+        assert "OEBPS/text/0003-scp-002.xhtml" in names
+    report = json.loads((config.output_dir / "reports" / "test-volume-report.json").read_text(encoding="utf-8"))
+    assert report["page_count"] == 2
+    assert report["missing_pages"] == [
+        {
+            "slug": "missing-tale",
+            "title": "Missing Tale",
+            "url": f"{BASE_URL}/missing-tale",
+            "reason": "failed fake page for missing-tale",
+        }
+    ]
 
 
 def test_build_volume_force_rebuilds_existing_manifest_from_refreshed_sources(tmp_path: Path):

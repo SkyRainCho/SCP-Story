@@ -507,6 +507,7 @@ def write_build_report(
     output_path: Path,
     external_links: list[str] | tuple[str, ...] = (),
     missing_assets: list[str] | tuple[str, ...] = (),
+    missing_pages: list[dict[str, str]] | tuple[dict[str, str], ...] = (),
 ) -> Path:
     ordered_pages = _ordered_pages(pages)
     page_summaries = [{"slug": page.entry.slug, "title": page.entry.title} for page in ordered_pages]
@@ -521,6 +522,7 @@ def write_build_report(
         "external_links": _unique(
             [*(value for page in ordered_pages for value in page.external_links), *external_links]
         ),
+        "missing_pages": list(missing_pages),
         "missing_assets": list(missing_assets),
     }
 
