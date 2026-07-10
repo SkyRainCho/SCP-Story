@@ -269,9 +269,9 @@ def _has_ignored_scp001_token(tag: Tag) -> bool:
 
 
 def _tag_class_tokens(tag: Tag) -> list[str]:
-    classes = tag.get("class", [])
+    classes = tag.get("class") or []
     if isinstance(classes, str):
-        return [classes]
+        return classes.split()
     return [str(class_name) for class_name in classes]
 
 

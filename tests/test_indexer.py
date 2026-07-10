@@ -1,6 +1,8 @@
 from pathlib import Path
 
-from scp_epub.indexer import parse_tales_index
+from bs4 import BeautifulSoup
+
+from scp_epub.indexer import _is_newpage_anchor, parse_tales_index
 
 
 FIXTURE = Path("tests/fixtures/index_sample.html")
@@ -95,3 +97,12 @@ def test_parse_tales_index_partial_range_for_001_only_excludes_later_range():
     entries = parse_tales_index(html, BASE_URL, start=1, end=1)
 
     assert [entry.slug for entry in entries] == ["scp-001", "spc-001"]
+
+
+def test_newpage_detection_splits_string_class_attributes():
+    soup = BeautifulSoup('<a href="/missing">Missing</a>', "html.parser")
+    anchor = soup.find("a")
+    assert anchor is not None
+    anchor["class"] = "external-link newpage"
+
+    assert _is_newpage_anchor(anchor)
