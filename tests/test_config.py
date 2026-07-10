@@ -71,6 +71,17 @@ def test_load_config_builds_absolute_urls_and_paths(tmp_path: Path):
     assert config.workspace == tmp_path
 
 
+def test_series_1_config_defines_all_volume_ranges():
+    config = load_config(Path("config/series-1.yaml"))
+
+    expected_keys = ["001-099"] + [
+        f"{start:03d}-{start + 99:03d}" for start in range(100, 1000, 100)
+    ]
+    assert list(config.volumes) == expected_keys
+    assert config.volumes["001-099"].start == 1
+    assert config.volumes["900-999"].end == 999
+
+
 def test_load_config_under_config_dir_uses_parent_workspace(tmp_path: Path):
     config_dir = tmp_path / "config"
     config_dir.mkdir()
