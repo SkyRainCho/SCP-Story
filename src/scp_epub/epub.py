@@ -4,6 +4,7 @@ import json
 import uuid
 import zipfile
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from html import escape
 from pathlib import Path
 from typing import Iterable
@@ -30,12 +31,14 @@ def write_epub(
     language: str,
     creator: str,
     identifier: str | None = None,
+    modified: datetime | str | None = None,
 ) -> Path:
     ordered_pages = _ordered_pages(pages)
     if not ordered_pages:
         raise ValueError("write_epub requires at least one page")
 
     book_identifier = identifier or f"urn:uuid:{uuid.uuid4()}"
+    modified_value = _format_modified(modified)
     page_entries = [_chapter_entry(page) for page in ordered_pages]
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -51,12 +54,13 @@ def write_epub(
                 language=language,
                 creator=creator,
                 identifier=book_identifier,
+                modified=modified_value,
                 page_entries=page_entries,
             ),
         )
-        archive.writestr("OEBPS/nav.xhtml", _nav_xhtml(title=title, page_entries=page_entries))
+        archive.writestr("OEBPS/nav.xhtml", _nav_xhtml(title=title, language=language, page_entries=page_entries))
         for entry in page_entries:
-            archive.writestr(entry.archive_path, _page_xhtml(entry.page))
+            archive.writestr(entry.archive_path, _page_xhtml(entry.page, language=language))
 
     return output_path
 
@@ -104,6 +108,17 @@ def _chapter_entry(page: ProcessedPage) -> _ChapterEntry:
     )
 
 
+def _format_modified(modified: datetime | str | None) -> str:
+    if isinstance(modified, str):
+        return modified
+
+    value = modified or datetime.now(timezone.utc)
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    value = value.astimezone(timezone.utc).replace(microsecond=0)
+    return value.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def _container_xml() -> str:
     return """<?xml version="1.0" encoding="utf-8"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
@@ -120,6 +135,7 @@ def _content_opf(
     language: str,
     creator: str,
     identifier: str,
+    modified: str,
     page_entries: list[_ChapterEntry],
 ) -> str:
     manifest_items = "\n".join(
@@ -130,11 +146,12 @@ def _content_opf(
     spine_items = "\n".join(f'    <itemref idref="{entry.id}"/>' for entry in page_entries)
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="book-id" version="3.0">
-  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/">
     <dc:title>{escape(title)}</dc:title>
     <dc:language>{escape(language)}</dc:language>
     <dc:creator>{escape(creator)}</dc:creator>
     <dc:identifier id="book-id">{escape(identifier)}</dc:identifier>
+    <meta property="dcterms:modified">{escape(modified)}</meta>
   </metadata>
   <manifest>
     <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
@@ -147,11 +164,12 @@ def _content_opf(
 """
 
 
-def _nav_xhtml(*, title: str, page_entries: list[_ChapterEntry]) -> str:
+def _nav_xhtml(*, title: str, language: str, page_entries: list[_ChapterEntry]) -> str:
     nav_items = "\n".join(_nav_item(entry) for entry in page_entries)
+    escaped_language = escape(language, quote=True)
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="en">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="{escaped_language}" xml:lang="{escaped_language}">
   <head>
     <meta charset="utf-8"/>
     <title>{escape(title)}</title>
@@ -176,11 +194,12 @@ def _nav_item(entry: _ChapterEntry) -> str:
     )
 
 
-def _page_xhtml(page: ProcessedPage) -> str:
+def _page_xhtml(page: ProcessedPage, *, language: str) -> str:
     page_title = escape(page.entry.title)
+    escaped_language = escape(language, quote=True)
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="{escaped_language}" xml:lang="{escaped_language}">
   <head>
     <meta charset="utf-8"/>
     <title>{page_title}</title>

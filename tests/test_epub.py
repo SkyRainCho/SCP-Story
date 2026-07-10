@@ -80,6 +80,7 @@ def test_write_epub_opf_manifest_spine_and_metadata_are_ordered(tmp_path: Path):
         language="zh-CN",
         creator="SCP Wiki",
         identifier="urn:scp:test",
+        modified="2026-07-10T12:34:56Z",
     )
 
     with zipfile.ZipFile(output_path) as archive:
@@ -89,6 +90,8 @@ def test_write_epub_opf_manifest_spine_and_metadata_are_ordered(tmp_path: Path):
     assert "<dc:language>zh-CN</dc:language>" in opf
     assert "<dc:creator>SCP Wiki</dc:creator>" in opf
     assert '<dc:identifier id="book-id">urn:scp:test</dc:identifier>' in opf
+    assert 'xmlns:dcterms="http://purl.org/dc/terms/"' in opf
+    assert '<meta property="dcterms:modified">2026-07-10T12:34:56Z</meta>' in opf
     assert '<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>' in opf
     assert '<item id="page-0001" href="text/0001-scp-001.xhtml" media-type="application/xhtml+xml"/>' in opf
     assert '<item id="page-0002" href="text/0002-scp-002.xhtml" media-type="application/xhtml+xml"/>' in opf
@@ -107,8 +110,11 @@ def test_write_epub_xhtml_pages_include_title_body_and_safe_filename(tmp_path: P
     write_epub([page], output_path, title="SCP", language="zh-CN", creator="SCP")
 
     with zipfile.ZipFile(output_path) as archive:
+        nav = archive.read("OEBPS/nav.xhtml").decode("utf-8")
         chapter = archive.read("OEBPS/text/0007-old_kalinins-proposal.xhtml").decode("utf-8")
 
+    assert '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="zh-CN" xml:lang="zh-CN">' in nav
+    assert '<html xmlns="http://www.w3.org/1999/xhtml" lang="zh-CN" xml:lang="zh-CN">' in chapter
     assert "<title>旧案: Kalinin &amp; Friends</title>" in chapter
     assert "<h1>旧案: Kalinin &amp; Friends</h1>" in chapter
     assert "<p>Transformed <strong>body</strong></p>" in chapter
