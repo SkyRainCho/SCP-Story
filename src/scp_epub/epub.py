@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import mimetypes
 import uuid
 import zipfile
 from dataclasses import dataclass
@@ -9,6 +10,7 @@ from html import escape
 from pathlib import Path
 from typing import Iterable
 
+from scp_epub.assets import AssetRef
 from scp_epub.models import ProcessedPage
 from scp_epub.urls import safe_filename
 
@@ -23,6 +25,15 @@ class _ChapterEntry:
     page: ProcessedPage
 
 
+@dataclass(frozen=True)
+class _AssetEntry:
+    id: str
+    href: str
+    archive_path: str
+    path: Path
+    media_type: str
+
+
 def write_epub(
     pages: list[ProcessedPage],
     output_path: Path,
@@ -32,6 +43,7 @@ def write_epub(
     creator: str,
     identifier: str | None = None,
     modified: datetime | str | None = None,
+    assets: list[AssetRef] | tuple[AssetRef, ...] = (),
 ) -> Path:
     ordered_pages = _ordered_pages(pages)
     if not ordered_pages:
@@ -40,6 +52,7 @@ def write_epub(
     book_identifier = identifier or f"urn:uuid:{uuid.uuid4()}"
     modified_value = _format_modified(modified)
     page_entries = [_chapter_entry(page) for page in ordered_pages]
+    asset_entries = _asset_entries(assets)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
@@ -56,11 +69,14 @@ def write_epub(
                 identifier=book_identifier,
                 modified=modified_value,
                 page_entries=page_entries,
+                asset_entries=asset_entries,
             ),
         )
         archive.writestr("OEBPS/nav.xhtml", _nav_xhtml(title=title, language=language, page_entries=page_entries))
         for entry in page_entries:
             archive.writestr(entry.archive_path, _page_xhtml(entry.page, language=language))
+        for entry in asset_entries:
+            archive.write(entry.path, entry.archive_path)
 
     return output_path
 
@@ -108,6 +124,34 @@ def _chapter_entry(page: ProcessedPage) -> _ChapterEntry:
     )
 
 
+def _asset_entries(assets: list[AssetRef] | tuple[AssetRef, ...]) -> list[_AssetEntry]:
+    entries: list[_AssetEntry] = []
+    seen_hrefs: set[str] = set()
+    for index, asset in enumerate(assets, start=1):
+        if asset.href in seen_hrefs:
+            continue
+        seen_hrefs.add(asset.href)
+        href = asset.href.replace("\\", "/")
+        entries.append(
+            _AssetEntry(
+                id=f"asset-{index:04d}",
+                href=href,
+                archive_path=f"OEBPS/{href}",
+                path=asset.path,
+                media_type=_asset_media_type(asset),
+            )
+        )
+    return entries
+
+
+def _asset_media_type(asset: AssetRef) -> str:
+    content_type = asset.content_type.split(";", 1)[0].strip().lower()
+    if content_type:
+        return content_type
+    guessed, _encoding = mimetypes.guess_type(asset.path.name)
+    return guessed or "application/octet-stream"
+
+
 def _format_modified(modified: datetime | str | None) -> str:
     if isinstance(modified, str):
         return modified
@@ -137,12 +181,19 @@ def _content_opf(
     identifier: str,
     modified: str,
     page_entries: list[_ChapterEntry],
+    asset_entries: list[_AssetEntry],
 ) -> str:
-    manifest_items = "\n".join(
+    page_manifest_items = "\n".join(
         f'    <item id="{entry.id}" href="{escape(entry.href, quote=True)}" '
         'media-type="application/xhtml+xml"/>'
         for entry in page_entries
     )
+    asset_manifest_items = "\n".join(
+        f'    <item id="{entry.id}" href="{escape(entry.href, quote=True)}" '
+        f'media-type="{escape(entry.media_type, quote=True)}"/>'
+        for entry in asset_entries
+    )
+    manifest_items = "\n".join(value for value in (page_manifest_items, asset_manifest_items) if value)
     spine_items = "\n".join(f'    <itemref idref="{entry.id}"/>' for entry in page_entries)
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="book-id" version="3.0">

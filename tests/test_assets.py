@@ -1,0 +1,123 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from scp_epub.assets import localize_assets
+from scp_epub.models import FetchResult, PageRef, ProcessedPage
+
+
+class FakeAssetFetcher:
+    def __init__(self, root: Path, assets: dict[str, tuple[str, bytes]], failures: set[str] | None = None):
+        self.root = root
+        self.assets = assets
+        self.failures = failures or set()
+        self.calls: list[str] = []
+
+    def fetch_asset(self, url: str) -> FetchResult:
+        self.calls.append(url)
+        if url in self.failures:
+            raise RuntimeError(f"missing {url}")
+        filename, content = self.assets[url]
+        asset_path = self.root / filename
+        metadata_path = self.root / f"{filename}.json"
+        asset_path.parent.mkdir(parents=True, exist_ok=True)
+        asset_path.write_bytes(content)
+        metadata_path.write_text("{}", encoding="utf-8")
+        content_type = "text/css" if filename.endswith(".css") else "image/png"
+        return FetchResult(
+            url=url,
+            path=asset_path,
+            metadata_path=metadata_path,
+            from_cache=False,
+            status_code=200,
+            content_type=content_type,
+        )
+
+
+def _page(
+    slug: str,
+    order: int,
+    xhtml: str,
+    asset_urls: tuple[str, ...],
+) -> ProcessedPage:
+    return ProcessedPage(
+        entry=PageRef(
+            title=slug.upper(),
+            url=f"https://scp-wiki-cn.wikidot.com/{slug}",
+            slug=slug,
+            level=1,
+            role="scp",
+            order=order,
+        ),
+        xhtml=xhtml,
+        asset_urls=asset_urls,
+        internal_links=(),
+        external_links=(),
+    )
+
+
+def test_localize_assets_fetches_unique_assets_rewrites_xhtml_and_preserves_data_assets(tmp_path: Path):
+    image_url = "https://scp-wiki-cn.wikidot.com/images/photo.png"
+    css_url = "https://scp-wiki-cn.wikidot.com/css/page.css"
+    pages = [
+        _page(
+            "scp-001",
+            1,
+            (
+                f'<p><img src="{image_url}" alt="one"/>'
+                f'<img src="data:image/png;base64,AAAA" alt="inline"/>'
+                f'<link rel="stylesheet" href="{css_url}"/></p>'
+            ),
+            (image_url, css_url),
+        ),
+        _page(
+            "scp-002",
+            2,
+            f'<figure><img src="{image_url}" alt="two"/></figure>',
+            (image_url,),
+        ),
+    ]
+    fetcher = FakeAssetFetcher(
+        tmp_path,
+        {
+            image_url: ("photo.png", b"image"),
+            css_url: ("page.css", b"body{}"),
+        },
+    )
+
+    localized_pages, assets, missing_assets = localize_assets(pages, fetcher)
+
+    assert fetcher.calls == [image_url, css_url]
+    assert missing_assets == []
+    assert [asset.source_url for asset in assets] == [image_url, css_url]
+    assert [asset.href for asset in assets] == ["assets/photo.png", "assets/page.css"]
+    assert '../assets/photo.png' in localized_pages[0].xhtml
+    assert '../assets/page.css' in localized_pages[0].xhtml
+    assert 'src="data:image/png;base64,AAAA"' in localized_pages[0].xhtml
+    assert '../assets/photo.png' in localized_pages[1].xhtml
+    assert localized_pages[0].asset_urls == (image_url, css_url)
+
+
+def test_localize_assets_leaves_failed_assets_remote_and_reports_missing(tmp_path: Path):
+    good_url = "https://scp-wiki-cn.wikidot.com/images/photo.png"
+    missing_url = "https://scp-wiki-cn.wikidot.com/images/missing.png"
+    pages = [
+        _page(
+            "scp-001",
+            1,
+            f'<img src="{good_url}"/><source src="{missing_url}"/>',
+            (good_url, missing_url),
+        )
+    ]
+    fetcher = FakeAssetFetcher(
+        tmp_path,
+        {good_url: ("photo.png", b"image")},
+        failures={missing_url},
+    )
+
+    localized_pages, assets, missing_assets = localize_assets(pages, fetcher)
+
+    assert [asset.source_url for asset in assets] == [good_url]
+    assert missing_assets == [missing_url]
+    assert '../assets/photo.png' in localized_pages[0].xhtml
+    assert missing_url in localized_pages[0].xhtml

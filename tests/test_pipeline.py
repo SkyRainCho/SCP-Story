@@ -45,11 +45,21 @@ def app_config(tmp_path: Path, *, volume_key: str = "001-099") -> AppConfig:
 
 
 class FakeFetcher:
-    def __init__(self, root: Path, pages: dict[str, str], cached_slugs: set[str] | None = None):
+    def __init__(
+        self,
+        root: Path,
+        pages: dict[str, str],
+        cached_slugs: set[str] | None = None,
+        assets: dict[str, tuple[str, bytes, str]] | None = None,
+        failed_assets: set[str] | None = None,
+    ):
         self.root = root
         self.pages = pages
         self.cached_slugs = cached_slugs or set()
         self.calls: list[tuple[str, str, bool]] = []
+        self.assets = assets or {}
+        self.failed_assets = failed_assets or set()
+        self.asset_calls: list[str] = []
 
     def fetch_page(self, slug: str, url: str, *, force: bool = False) -> FetchResult:
         self.calls.append((slug, url, force))
@@ -68,6 +78,27 @@ class FakeFetcher:
             from_cache=slug in self.cached_slugs,
             status_code=200,
             content_type="text/html",
+        )
+
+    def fetch_asset(self, url: str) -> FetchResult:
+        self.asset_calls.append(url)
+        if url in self.failed_assets:
+            raise RuntimeError(f"missing fake asset for {url}")
+        if url not in self.assets:
+            raise AssertionError(f"missing fake asset for {url}")
+        filename, content, content_type = self.assets[url]
+        asset_path = self.root / "assets" / filename
+        metadata_path = self.root / "assets" / f"{filename}.json"
+        asset_path.parent.mkdir(parents=True, exist_ok=True)
+        asset_path.write_bytes(content)
+        metadata_path.write_text("{}", encoding="utf-8")
+        return FetchResult(
+            url=url,
+            path=asset_path,
+            metadata_path=metadata_path,
+            from_cache=False,
+            status_code=200,
+            content_type=content_type,
         )
 
 
@@ -184,6 +215,43 @@ def test_build_volume_fetches_transforms_and_writes_epub_report_and_processed_fi
     assert report["page_count"] == 2
     assert report["output_path"] == str(output_path)
     assert report["internal_links"] == [f"{BASE_URL}/scp-001"]
+
+
+def test_build_volume_localizes_assets_and_reports_missing_assets(tmp_path: Path):
+    config = app_config(tmp_path)
+    manifest = [
+        PageRef("SCP-001", f"{BASE_URL}/scp-001", "scp-001", 1, "scp", order=1),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    good_url = f"{BASE_URL}/images/photo.png"
+    missing_url = f"{BASE_URL}/images/missing.png"
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-001": simple_page(
+                "SCP-001",
+                f'Article body <img src="/images/photo.png"/><object data="/images/missing.png"></object>',
+            ),
+        },
+        assets={good_url: ("photo.png", b"png data", "image/png")},
+        failed_assets={missing_url},
+    )
+
+    output_path = build_volume(config, "001-099", fetcher=fetcher)
+
+    assert fetcher.asset_calls == [good_url, missing_url]
+    with zipfile.ZipFile(output_path) as archive:
+        assert archive.read("OEBPS/assets/photo.png") == b"png data"
+        chapter = archive.read("OEBPS/text/0001-scp-001.xhtml").decode("utf-8")
+        opf = archive.read("OEBPS/content.opf").decode("utf-8")
+    assert '../assets/photo.png' in chapter
+    assert missing_url in chapter
+    assert '<item id="asset-0001" href="assets/photo.png" media-type="image/png"/>' in opf
+    report = json.loads((config.output_dir / "reports" / "test-volume-report.json").read_text(encoding="utf-8"))
+    assert report["asset_urls"] == [good_url, missing_url]
+    assert report["missing_assets"] == [missing_url]
 
 
 def test_build_volume_force_rebuilds_existing_manifest_from_refreshed_sources(tmp_path: Path):

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from scp_epub.assets import AssetRef
 from scp_epub.epub import write_build_report, write_epub
 from scp_epub.models import PageRef, ProcessedPage
 
@@ -118,6 +119,41 @@ def test_write_epub_xhtml_pages_include_title_body_and_safe_filename(tmp_path: P
     assert "<title>旧案: Kalinin &amp; Friends</title>" in chapter
     assert "<h1>旧案: Kalinin &amp; Friends</h1>" in chapter
     assert "<p>Transformed <strong>body</strong></p>" in chapter
+
+
+def test_write_epub_includes_localized_assets_in_archive_and_manifest(tmp_path: Path):
+    asset_path = tmp_path / "cache" / "photo.png"
+    asset_path.parent.mkdir(parents=True)
+    asset_path.write_bytes(b"png data")
+    page = _page(
+        "scp-001",
+        "SCP-001",
+        1,
+        xhtml='<p><img src="../assets/photo.png" alt="Specimen"/></p>',
+    )
+    output_path = tmp_path / "series.epub"
+
+    write_epub(
+        [page],
+        output_path,
+        title="SCP",
+        language="zh-CN",
+        creator="SCP",
+        assets=[
+            AssetRef(
+                source_url="https://scp-wiki-cn.wikidot.com/images/photo.png",
+                path=asset_path,
+                href="assets/photo.png",
+                content_type="image/png",
+            )
+        ],
+    )
+
+    with zipfile.ZipFile(output_path) as archive:
+        assert archive.read("OEBPS/assets/photo.png") == b"png data"
+        opf = archive.read("OEBPS/content.opf").decode("utf-8")
+
+    assert '<item id="asset-0001" href="assets/photo.png" media-type="image/png"/>' in opf
 
 
 def test_write_epub_rejects_empty_pages(tmp_path: Path):
