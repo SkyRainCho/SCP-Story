@@ -1,0 +1,119 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Outside title</title>
+  </head>
+  <body>
+    <header>Outside chrome that must not appear</header>
+
+    <div id="page-content">
+      <nav class="site-nav">Navigation controls</nav>
+      <div id="toc" class="toc">Table of contents controls</div>
+      <div class="page-options-bottom">Edit History Tags Source</div>
+      <div class="rate-box-with-credit-button">Rating widget</div>
+      <div id="page-info">Wikidot page info controls</div>
+      <div class="creditRate">
+        <div class="rate-box-with-credit-button">Credit rating widget</div>
+        <div class="creditButtonStandalone"><p><a class="fa fa-info" href="#u-credit-view">i</a></p></div>
+      </div>
+      <div id="u-credit-view">
+        <div class="modalcontainer">
+          <div class="modalbox">
+            <h2>著作信息</h2>
+            <p><strong>Captain Kirby的提案</strong>：O5-13</p>
+            <blockquote><p>我们只是人类而已。</p></blockquote>
+            <p><strong>作者：</strong> Captain Kirby</p>
+          </div>
+        </div>
+      </div>
+      <div class="info-container">
+        <div class="collapsible-block">
+          <div class="collapsible-block-content">
+            <p style="text-align: center;"><strong>djkaktus的提案I</strong> - <em>孩子们</em></p>
+            <div id="u-author_block">
+              <p><span class="logical-link-wrap"><a href="/djkaktus">djkaktus</a><span class="logical-link-custom">▸ 该作者的更多作品 ◂</span></span></p>
+            </div>
+            <div class="translation_block"><h1>其他语言</h1></div>
+            <div class="u-faq"><p><a href="/component:info-ayers">常见问题</a></p></div>
+          </div>
+        </div>
+      </div>
+
+      <h1 onclick="alert('heading')" style="color: red; behavior: url(/bad.htc)">SCP-999</h1>
+      <p class="main-text" onclick="alert('paragraph')" style="font-size: 24px; background-image: url(javascript:alert(1))">
+        Main article text with
+        <a href="/scp-002#section" onclick="alert('internal')">an internal link</a>,
+        <a href="https://example.test/out#fragment" style="color: blue">an external link</a>,
+        <a href="/old:kalinins-proposal">a namespace link</a>,
+        <a href="/not-in-manifest#missing">a same-site unlisted link</a>,
+        <a href="#local-anchor">a local jump</a>,
+        <a href="javascript:void(0)">a javascript link</a>,
+        and <a href="mailto:researcher@example.test#sig">mail contact</a>.
+      </p>
+      <p class="threat-rating">Threat rating: green.</p>
+      <p class="rating-note">Rating note is article content.</p>
+      <div class="notice" style="border: solid 1px #999999; background: #f2f2c2; padding: 5px">
+        Styled warning panel.
+      </div>
+
+      <div style="display: none;">
+        <div class="code">
+          <pre>/* VARIABLES */
+:root {
+  --logo-img: var(--darkmode-logo-img);
+}</pre>
+        </div>
+      </div>
+      <div class="collapsible-block">
+        <div class="collapsible-block-folded"><a class="collapsible-block-link" href="javascript:;">+&nbsp;CODE</a></div>
+        <div class="collapsible-block-unfolded" style="display:none">
+          <div class="collapsible-block-unfolded-link"><a class="collapsible-block-link" href="javascript:;">-&nbsp;CODE</a></div>
+          <div class="collapsible-block-content">
+            <div class="code">
+              <pre>/*
+    BLANKSTYLE CSS
+*/
+@import url('https://fonts.example/css');
+#page-content { font-size: .9rem; }</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="code"><pre>print("article code should stay")</pre></div>
+
+      <span style="text-decoration: line-through;">Struck proposal</span>
+      <img src="images/photo.png#first" alt="Specimen photo" title="Photo title" class="image" onclick="alert('image')" style="width: 100px">
+      <img src="./images/photo.png#duplicate" alt="Duplicate specimen photo">
+      <img src="data:image/png;base64,AAAA" alt="Inline data image">
+      <source src="/media/interview.ogg#clip" type="audio/ogg">
+      <object data="/files/report.pdf#page=1" title="Report"></object>
+      <object data="data:application/pdf;base64,BBBB" title="Inline object"></object>
+      <link rel="stylesheet" href="css/page.css#theme">
+      <link rel="canonical" href="/canonical-page#frag">
+
+      <script>alert('remove me')</script>
+      <style>.remove-me { color: red; }</style>
+
+      <div class="footer-wikiwalk-nav">
+        <div style="text-align: center;">
+          <p>« <a href="/scp-002">SCP-002</a> | SCP-003 | <a href="/scp-004">SCP-004</a> »</p>
+        </div>
+      </div>
+      <div class="licensebox">
+        <div class="collapsible-block">
+          <div class="collapsible-block-folded"><a class="collapsible-block-link" href="javascript:;">‡ 授权 / 引用</a></div>
+          <div class="collapsible-block-unfolded">
+            <div class="collapsible-block-unfolded-link"><a class="collapsible-block-link" href="javascript:;">‡ 隐藏授权 / 引用</a></div>
+            <div class="collapsible-block-content">
+              <p>请按如下方式引用此页：</p>
+              <p>“<a href="/scp-003">SCP-003</a>”，作者 Example。</p>
+              <p>更多详情请参阅<a href="/licensing-guide">授权指南</a>。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer>Outside footer that must not appear</footer>
+  </body>
+</html>

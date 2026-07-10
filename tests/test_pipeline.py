@@ -1,0 +1,353 @@
+from __future__ import annotations
+
+import json
+import zipfile
+from pathlib import Path
+
+import pytest
+
+from scp_epub.models import AppConfig, FetchResult, PageRef, VolumeSpec
+from scp_epub.pipeline import (
+    build_manifest,
+    build_volume,
+    fetch_manifest_pages,
+)
+
+
+BASE_URL = "https://scp-wiki-cn.wikidot.com"
+
+
+def app_config(
+    tmp_path: Path,
+    *,
+    volume_key: str = "001-099",
+    include_scp001_proposals: bool = False,
+) -> AppConfig:
+    volume = VolumeSpec(
+        key=volume_key,
+        start=1,
+        end=99,
+        title="Test Volume",
+        output_slug="test-volume",
+    )
+    return AppConfig(
+        workspace=tmp_path,
+        series_id="test-series",
+        title="Test Series",
+        language="zh-CN",
+        creator="Test Creator",
+        base_url=BASE_URL,
+        index_path="/scp-series-1-tales-edition",
+        series_index_path="/scp-series",
+        scp001_path="/scp-001",
+        cache_dir=tmp_path / "data" / "raw",
+        manifest_dir=tmp_path / "data" / "manifests",
+        processed_dir=tmp_path / "data" / "processed",
+        output_dir=tmp_path / "output",
+        request_delay_seconds=0,
+        retry_count=1,
+        include_scp001_proposals=include_scp001_proposals,
+        volumes={volume_key: volume},
+    )
+
+
+class FakeFetcher:
+    def __init__(
+        self,
+        root: Path,
+        pages: dict[str, str],
+        cached_slugs: set[str] | None = None,
+        assets: dict[str, tuple[str, bytes, str]] | None = None,
+        failed_assets: set[str] | None = None,
+    ):
+        self.root = root
+        self.pages = pages
+        self.cached_slugs = cached_slugs or set()
+        self.calls: list[tuple[str, str, bool]] = []
+        self.assets = assets or {}
+        self.failed_assets = failed_assets or set()
+        self.asset_calls: list[tuple[str, bool]] = []
+
+    def fetch_page(self, slug: str, url: str, *, force: bool = False) -> FetchResult:
+        self.calls.append((slug, url, force))
+        if slug not in self.pages:
+            raise AssertionError(f"missing fake page for {slug}")
+        safe_slug = slug.replace(":", "_")
+        page_path = self.root / "pages" / f"{safe_slug}.html"
+        metadata_path = self.root / "pages" / f"{safe_slug}.json"
+        page_path.parent.mkdir(parents=True, exist_ok=True)
+        page_path.write_text(self.pages[slug], encoding="utf-8")
+        metadata_path.write_text("{}", encoding="utf-8")
+        return FetchResult(
+            url=url,
+            path=page_path,
+            metadata_path=metadata_path,
+            from_cache=slug in self.cached_slugs,
+            status_code=200,
+            content_type="text/html",
+        )
+
+    def fetch_asset(self, url: str, *, force: bool = False) -> FetchResult:
+        self.asset_calls.append((url, force))
+        if url in self.failed_assets:
+            raise RuntimeError(f"missing fake asset for {url}")
+        if url not in self.assets:
+            raise AssertionError(f"missing fake asset for {url}")
+        filename, content, content_type = self.assets[url]
+        asset_path = self.root / "assets" / filename
+        metadata_path = self.root / "assets" / f"{filename}.json"
+        asset_path.parent.mkdir(parents=True, exist_ok=True)
+        asset_path.write_bytes(content)
+        metadata_path.write_text("{}", encoding="utf-8")
+        return FetchResult(
+            url=url,
+            path=asset_path,
+            metadata_path=metadata_path,
+            from_cache=False,
+            status_code=200,
+            content_type=content_type,
+        )
+
+
+def simple_page(title: str, body: str = "Body") -> str:
+    return f"""
+<html>
+  <body>
+    <div id="page-content">
+      <h1>{title}</h1>
+      <p>{body}</p>
+    </div>
+  </body>
+</html>
+"""
+
+
+def simple_index(*slugs: str) -> str:
+    items = "\n".join(
+        f'<li><a href="/{slug}">{slug.upper()}</a></li>'
+        for slug in slugs
+    )
+    return f"""
+<html>
+  <body>
+    <div id="page-content">
+      <h1>001到099</h1>
+      <ul>{items}</ul>
+    </div>
+  </body>
+</html>
+"""
+
+
+def simple_series_index(*slugs: str) -> str:
+    items = "\n".join(
+        f'<li><a href="/{slug}">{slug.upper()}</a> - Title {slug}</li>'
+        for slug in slugs
+    )
+    return f"""
+<html>
+  <body>
+    <div id="page-content">
+      <h1>SCP系列</h1>
+      <ul>{items}</ul>
+    </div>
+  </body>
+</html>
+"""
+
+
+def test_build_manifest_uses_tales_index_links_by_default(tmp_path: Path):
+    config = app_config(tmp_path)
+    pages = {
+        "scp-series-1-tales-edition": Path("tests/fixtures/index_sample.html").read_text(encoding="utf-8"),
+        "scp-series": simple_series_index("scp-001", "scp-002", "scp-019", "scp-020", "scp-099"),
+    }
+    fetcher = FakeFetcher(tmp_path / "cache", pages)
+
+    manifest = build_manifest(config, "001-099", fetcher=fetcher)
+
+    assert [slug for slug, _url, _force in fetcher.calls] == [
+        "scp-series-1-tales-edition",
+        "scp-series",
+    ]
+    assert [entry.slug for entry in manifest[:3]] == ["scp-001", "spc-001", "scp-002"]
+    assert "scp-019" in [entry.slug for entry in manifest]
+    assert "scp-020" in [entry.slug for entry in manifest]
+    assert "dr-clef-s-proposal" not in [entry.slug for entry in manifest]
+    manifest_path = config.manifest_dir / "test-volume.json"
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert payload[0]["slug"] == "scp-001"
+    assert payload[1]["slug"] == "spc-001"
+    assert payload[[entry["slug"] for entry in payload].index("scp-019")]["title"] == "SCP-019 - Title scp-019"
+
+
+def test_build_manifest_can_merge_scp001_proposals_when_enabled(tmp_path: Path):
+    config = app_config(tmp_path, include_scp001_proposals=True)
+    pages = {
+        "scp-series-1-tales-edition": Path("tests/fixtures/index_sample.html").read_text(encoding="utf-8"),
+        "scp-series": simple_series_index("scp-001", "scp-002", "scp-099"),
+        "scp-001": Path("tests/fixtures/scp001_sample.html").read_text(encoding="utf-8"),
+    }
+    fetcher = FakeFetcher(tmp_path / "cache", pages)
+
+    manifest = build_manifest(config, "001-099", fetcher=fetcher)
+
+    assert [slug for slug, _url, _force in fetcher.calls] == [
+        "scp-series-1-tales-edition",
+        "scp-series",
+        "scp-001",
+    ]
+    assert [entry.slug for entry in manifest[:5]] == [
+        "scp-001",
+        "dr-clef-s-proposal",
+        "djkaktus-s-proposal",
+        "tuftos-proposal",
+        "old:kalinins-proposal",
+    ]
+    assert "spc-001" in [entry.slug for entry in manifest]
+    manifest_path = config.manifest_dir / "test-volume.json"
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert payload[0]["slug"] == "scp-001"
+    assert payload[1]["slug"] == "dr-clef-s-proposal"
+
+
+def test_fetch_manifest_pages_fetches_each_manifest_entry(tmp_path: Path):
+    config = app_config(tmp_path)
+    manifest = [
+        PageRef("SCP-001", f"{BASE_URL}/scp-001", "scp-001", 1, "scp", order=1),
+        PageRef("SCP-002", f"{BASE_URL}/scp-002", "scp-002", 1, "scp", order=2),
+    ]
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-001": simple_page("SCP-001"),
+            "scp-002": simple_page("SCP-002"),
+        },
+        cached_slugs={"scp-002"},
+    )
+
+    results = fetch_manifest_pages(config, manifest, fetcher=fetcher)
+
+    assert [result.from_cache for result in results] == [False, True]
+    assert [slug for slug, _url, _force in fetcher.calls] == ["scp-001", "scp-002"]
+
+
+def test_build_volume_fetches_transforms_and_writes_epub_report_and_processed_files(tmp_path: Path):
+    config = app_config(tmp_path)
+    manifest = [
+        PageRef("SCP-001", f"{BASE_URL}/scp-001", "scp-001", 1, "scp", order=1),
+        PageRef("SCP-002", f"{BASE_URL}/scp-002", "scp-002", 1, "scp", order=2),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-001": simple_page("SCP-001", "Hub body"),
+            "scp-002": simple_page("SCP-002", 'Article body <a href="/scp-001">hub</a>'),
+        },
+        cached_slugs={"scp-001"},
+    )
+
+    output_path = build_volume(config, "001-099", fetcher=fetcher)
+
+    assert output_path == config.output_dir / "epub" / "test-volume.epub"
+    assert output_path.exists()
+    with zipfile.ZipFile(output_path) as archive:
+        names = archive.namelist()
+        assert "OEBPS/text/0001-scp-001.xhtml" in names
+        assert "OEBPS/text/0002-scp-002.xhtml" in names
+    processed_dir = config.processed_dir / "test-volume"
+    assert (processed_dir / "0001-scp-001.xhtml").exists()
+    assert "Hub body" in (processed_dir / "0001-scp-001.xhtml").read_text(encoding="utf-8")
+    report_path = config.output_dir / "reports" / "test-volume-report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["page_count"] == 2
+    assert report["output_path"] == str(output_path)
+    assert report["internal_links"] == [f"{BASE_URL}/scp-001"]
+
+
+def test_build_volume_localizes_assets_and_reports_missing_assets(tmp_path: Path):
+    config = app_config(tmp_path)
+    manifest = [
+        PageRef("SCP-001", f"{BASE_URL}/scp-001", "scp-001", 1, "scp", order=1),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    good_url = f"{BASE_URL}/images/photo.png"
+    missing_url = f"{BASE_URL}/images/missing.png"
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-001": simple_page(
+                "SCP-001",
+                f'Article body <img src="/images/photo.png"/><object data="/images/missing.png"></object>',
+            ),
+        },
+        assets={good_url: ("photo.png", b"png data", "image/png")},
+        failed_assets={missing_url},
+    )
+
+    output_path = build_volume(config, "001-099", fetcher=fetcher)
+
+    assert fetcher.asset_calls == [(good_url, False), (missing_url, False)]
+    with zipfile.ZipFile(output_path) as archive:
+        assert archive.read("OEBPS/assets/photo.png") == b"png data"
+        chapter = archive.read("OEBPS/text/0001-scp-001.xhtml").decode("utf-8")
+        opf = archive.read("OEBPS/content.opf").decode("utf-8")
+    assert '../assets/photo.png' in chapter
+    assert missing_url in chapter
+    assert '<item id="asset-0001" href="assets/photo.png" media-type="image/png"/>' in opf
+    assert (
+        '<item id="page-0001" href="text/0001-scp-001.xhtml" '
+        'media-type="application/xhtml+xml" properties="remote-resources"/>'
+    ) in opf
+    report = json.loads((config.output_dir / "reports" / "test-volume-report.json").read_text(encoding="utf-8"))
+    assert report["asset_urls"] == [good_url, missing_url]
+    assert report["missing_assets"] == [missing_url]
+
+
+def test_build_volume_force_rebuilds_existing_manifest_from_refreshed_sources(tmp_path: Path):
+    config = app_config(tmp_path)
+    stale_manifest = [
+        PageRef("Stale Page", f"{BASE_URL}/stale-page", "stale-page", 1, "scp", order=1),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(stale_manifest, config.manifest_dir / "test-volume.json")
+    asset_url = f"{BASE_URL}/images/refreshed.png"
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-series-1-tales-edition": simple_index("scp-001", "scp-002"),
+            "scp-series": simple_series_index("scp-001", "scp-002"),
+            "scp-001": simple_page("SCP-001", 'Refreshed hub <img src="/images/refreshed.png"/>'),
+            "scp-002": simple_page("SCP-002", "Refreshed article"),
+        },
+        assets={asset_url: ("refreshed.png", b"png data", "image/png")},
+    )
+
+    output_path = build_volume(config, "001-099", fetcher=fetcher, force=True)
+
+    assert output_path == config.output_dir / "epub" / "test-volume.epub"
+    assert [slug for slug, _url, _force in fetcher.calls] == [
+        "scp-series-1-tales-edition",
+        "scp-series",
+        "scp-001",
+        "scp-002",
+    ]
+    assert all(force for _slug, _url, force in fetcher.calls)
+    assert fetcher.asset_calls == [(asset_url, True)]
+    refreshed_manifest = json.loads((config.manifest_dir / "test-volume.json").read_text(encoding="utf-8"))
+    assert [entry["slug"] for entry in refreshed_manifest] == ["scp-001", "scp-002"]
+    report = json.loads((config.output_dir / "reports" / "test-volume-report.json").read_text(encoding="utf-8"))
+    assert report["slugs"] == ["scp-001", "scp-002"]
+
+
+def test_unknown_volume_key_raises_value_error(tmp_path: Path):
+    config = app_config(tmp_path)
+
+    with pytest.raises(ValueError, match="Unknown volume"):
+        build_manifest(config, "missing-volume", fetcher=FakeFetcher(tmp_path / "cache", {}))

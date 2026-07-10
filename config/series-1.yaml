@@ -1,0 +1,21 @@
+series_id: scp-series-1
+title: SCP Series 1 Tales Edition
+language: zh-CN
+creator: SCP Wiki CN
+base_url: https://scp-wiki-cn.wikidot.com
+index_path: /scp-series-1-tales-edition
+series_index_path: /scp-series
+scp001_path: /scp-001
+cache_dir: data/raw
+manifest_dir: data/manifests
+processed_dir: data/processed
+output_dir: output
+request_delay_seconds: 0.5
+retry_count: 3
+include_scp001_proposals: false
+volumes:
+  "001-099":
+    start: 1
+    end: 99
+    title: SCP Series 1 Tales Edition 001-099
+    output_slug: scp-series-1-001-099-tales
