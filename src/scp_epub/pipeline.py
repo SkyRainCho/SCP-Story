@@ -4,7 +4,7 @@ from argparse import Namespace
 from pathlib import Path
 from typing import Protocol
 
-from .assets import localize_assets
+from .assets import localize_assets, remote_resource_page_slugs
 from .cache import CacheStore
 from .config import load_config
 from .epub import write_build_report, write_epub
@@ -96,7 +96,12 @@ def build_volume(
         force=force,
     )
     processed_pages = _process_pages(config, volume, manifest, fetch_results)
-    localized_pages, localized_assets, missing_assets = localize_assets(processed_pages, active_fetcher)
+    localized_pages, localized_assets, missing_assets = localize_assets(
+        processed_pages,
+        active_fetcher,
+        force=force,
+    )
+    remote_slugs = remote_resource_page_slugs(localized_pages, missing_assets)
 
     output_path = config.output_dir / "epub" / f"{volume.output_slug}.epub"
     write_epub(
@@ -107,6 +112,7 @@ def build_volume(
         creator=config.creator,
         identifier=f"urn:{config.series_id}:{volume.output_slug}",
         assets=localized_assets,
+        remote_resource_page_slugs=remote_slugs,
     )
     write_build_report(
         config.output_dir / "reports" / f"{volume.output_slug}-report.json",

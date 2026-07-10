@@ -59,7 +59,7 @@ class FakeFetcher:
         self.calls: list[tuple[str, str, bool]] = []
         self.assets = assets or {}
         self.failed_assets = failed_assets or set()
-        self.asset_calls: list[str] = []
+        self.asset_calls: list[tuple[str, bool]] = []
 
     def fetch_page(self, slug: str, url: str, *, force: bool = False) -> FetchResult:
         self.calls.append((slug, url, force))
@@ -80,8 +80,8 @@ class FakeFetcher:
             content_type="text/html",
         )
 
-    def fetch_asset(self, url: str) -> FetchResult:
-        self.asset_calls.append(url)
+    def fetch_asset(self, url: str, *, force: bool = False) -> FetchResult:
+        self.asset_calls.append((url, force))
         if url in self.failed_assets:
             raise RuntimeError(f"missing fake asset for {url}")
         if url not in self.assets:
@@ -241,7 +241,7 @@ def test_build_volume_localizes_assets_and_reports_missing_assets(tmp_path: Path
 
     output_path = build_volume(config, "001-099", fetcher=fetcher)
 
-    assert fetcher.asset_calls == [good_url, missing_url]
+    assert fetcher.asset_calls == [(good_url, False), (missing_url, False)]
     with zipfile.ZipFile(output_path) as archive:
         assert archive.read("OEBPS/assets/photo.png") == b"png data"
         chapter = archive.read("OEBPS/text/0001-scp-001.xhtml").decode("utf-8")
@@ -249,6 +249,10 @@ def test_build_volume_localizes_assets_and_reports_missing_assets(tmp_path: Path
     assert '../assets/photo.png' in chapter
     assert missing_url in chapter
     assert '<item id="asset-0001" href="assets/photo.png" media-type="image/png"/>' in opf
+    assert (
+        '<item id="page-0001" href="text/0001-scp-001.xhtml" '
+        'media-type="application/xhtml+xml" properties="remote-resources"/>'
+    ) in opf
     report = json.loads((config.output_dir / "reports" / "test-volume-report.json").read_text(encoding="utf-8"))
     assert report["asset_urls"] == [good_url, missing_url]
     assert report["missing_assets"] == [missing_url]
@@ -262,13 +266,15 @@ def test_build_volume_force_rebuilds_existing_manifest_from_refreshed_sources(tm
     from scp_epub.manifest import write_manifest
 
     write_manifest(stale_manifest, config.manifest_dir / "test-volume.json")
+    asset_url = f"{BASE_URL}/images/refreshed.png"
     fetcher = FakeFetcher(
         tmp_path / "cache",
         {
             "scp-series-1-tales-edition": simple_index("scp-001", "scp-002"),
-            "scp-001": simple_page("SCP-001", "Refreshed hub"),
+            "scp-001": simple_page("SCP-001", 'Refreshed hub <img src="/images/refreshed.png"/>'),
             "scp-002": simple_page("SCP-002", "Refreshed article"),
         },
+        assets={asset_url: ("refreshed.png", b"png data", "image/png")},
     )
 
     output_path = build_volume(config, "001-099", fetcher=fetcher, force=True)
@@ -281,6 +287,7 @@ def test_build_volume_force_rebuilds_existing_manifest_from_refreshed_sources(tm
         "scp-002",
     ]
     assert all(force for _slug, _url, force in fetcher.calls)
+    assert fetcher.asset_calls == [(asset_url, True)]
     refreshed_manifest = json.loads((config.manifest_dir / "test-volume.json").read_text(encoding="utf-8"))
     assert [entry["slug"] for entry in refreshed_manifest] == ["scp-001", "scp-002"]
     report = json.loads((config.output_dir / "reports" / "test-volume-report.json").read_text(encoding="utf-8"))

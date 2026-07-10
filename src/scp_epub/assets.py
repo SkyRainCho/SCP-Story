@@ -20,13 +20,15 @@ class AssetRef:
 
 
 class AssetFetcher(Protocol):
-    def fetch_asset(self, url: str) -> FetchResult:
+    def fetch_asset(self, url: str, *, force: bool = False) -> FetchResult:
         ...
 
 
 def localize_assets(
     pages: list[ProcessedPage],
     fetcher: AssetFetcher,
+    *,
+    force: bool = False,
 ) -> tuple[list[ProcessedPage], list[AssetRef], list[str]]:
     localized_by_url: dict[str, AssetRef] = {}
     missing_assets: list[str] = []
@@ -35,7 +37,7 @@ def localize_assets(
 
     for url in _unique(value for page in pages for value in page.asset_urls):
         try:
-            result = fetcher.fetch_asset(url)
+            result = fetcher.fetch_asset(url, force=force)
         except Exception:
             if url not in seen_missing:
                 seen_missing.add(url)
@@ -53,6 +55,18 @@ def localize_assets(
 
     localized_pages = [_rewrite_page_assets(page, localized_by_url) for page in pages]
     return localized_pages, list(localized_by_url.values()), missing_assets
+
+
+def remote_resource_page_slugs(pages: list[ProcessedPage], missing_asset_urls: list[str] | tuple[str, ...]) -> set[str]:
+    missing_urls = set(missing_asset_urls)
+    if not missing_urls:
+        return set()
+
+    slugs: set[str] = set()
+    for page in pages:
+        if _page_references_any_asset(page, missing_urls):
+            slugs.add(page.entry.slug)
+    return slugs
 
 
 def _asset_href(url: str, path: Path, used_hrefs: set[str]) -> str:
@@ -93,6 +107,22 @@ def _rewrite_page_assets(page: ProcessedPage, localized_by_url: dict[str, AssetR
 
     xhtml = "".join(str(child) for child in root.contents).strip()
     return replace(page, xhtml=xhtml)
+
+
+def _page_references_any_asset(page: ProcessedPage, asset_urls: set[str]) -> bool:
+    soup = BeautifulSoup(f"<root>{page.xhtml}</root>", "html.parser")
+    root = soup.find("root")
+    if root is None:
+        return False
+
+    for tag in root.find_all(ASSET_ATTRIBUTES.keys()):
+        if not isinstance(tag, Tag):
+            continue
+        attribute = ASSET_ATTRIBUTES[str(tag.name)]
+        raw_url = tag.get(attribute)
+        if isinstance(raw_url, str) and raw_url in asset_urls:
+            return True
+    return False
 
 
 def _unique(values) -> list[str]:

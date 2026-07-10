@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scp_epub.assets import localize_assets
+from scp_epub.assets import localize_assets, remote_resource_page_slugs
 from scp_epub.models import FetchResult, PageRef, ProcessedPage
 
 
@@ -11,10 +11,10 @@ class FakeAssetFetcher:
         self.root = root
         self.assets = assets
         self.failures = failures or set()
-        self.calls: list[str] = []
+        self.calls: list[tuple[str, bool]] = []
 
-    def fetch_asset(self, url: str) -> FetchResult:
-        self.calls.append(url)
+    def fetch_asset(self, url: str, *, force: bool = False) -> FetchResult:
+        self.calls.append((url, force))
         if url in self.failures:
             raise RuntimeError(f"missing {url}")
         filename, content = self.assets[url]
@@ -87,7 +87,7 @@ def test_localize_assets_fetches_unique_assets_rewrites_xhtml_and_preserves_data
 
     localized_pages, assets, missing_assets = localize_assets(pages, fetcher)
 
-    assert fetcher.calls == [image_url, css_url]
+    assert fetcher.calls == [(image_url, False), (css_url, False)]
     assert missing_assets == []
     assert [asset.source_url for asset in assets] == [image_url, css_url]
     assert [asset.href for asset in assets] == ["assets/photo.png", "assets/page.css"]
@@ -121,3 +121,23 @@ def test_localize_assets_leaves_failed_assets_remote_and_reports_missing(tmp_pat
     assert missing_assets == [missing_url]
     assert '../assets/photo.png' in localized_pages[0].xhtml
     assert missing_url in localized_pages[0].xhtml
+
+
+def test_localize_assets_passes_force_to_fetcher(tmp_path: Path):
+    image_url = "https://scp-wiki-cn.wikidot.com/images/photo.png"
+    page = _page("scp-001", 1, f'<img src="{image_url}"/>', (image_url,))
+    fetcher = FakeAssetFetcher(tmp_path, {image_url: ("photo.png", b"image")})
+
+    localize_assets([page], fetcher, force=True)
+
+    assert fetcher.calls == [(image_url, True)]
+
+
+def test_remote_resource_page_slugs_returns_only_pages_with_missing_asset_refs():
+    missing_url = "https://scp-wiki-cn.wikidot.com/images/missing.png"
+    pages = [
+        _page("scp-001", 1, f'<img src="{missing_url}"/>', (missing_url,)),
+        _page("scp-002", 2, '<img src="../assets/photo.png"/>', ()),
+    ]
+
+    assert remote_resource_page_slugs(pages, [missing_url]) == {"scp-001"}

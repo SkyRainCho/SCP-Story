@@ -156,6 +156,42 @@ def test_write_epub_includes_localized_assets_in_archive_and_manifest(tmp_path: 
     assert '<item id="asset-0001" href="assets/photo.png" media-type="image/png"/>' in opf
 
 
+def test_write_epub_marks_only_pages_with_remote_resources(tmp_path: Path):
+    pages = [
+        _page(
+            "scp-001",
+            "SCP-001",
+            1,
+            xhtml='<p><img src="https://example.test/missing.png"/></p>',
+        ),
+        _page(
+            "scp-002",
+            "SCP-002",
+            2,
+            xhtml='<p><img src="../assets/photo.png"/></p>',
+        ),
+    ]
+    output_path = tmp_path / "series.epub"
+
+    write_epub(
+        pages,
+        output_path,
+        title="SCP",
+        language="zh-CN",
+        creator="SCP",
+        remote_resource_page_slugs={"scp-001"},
+    )
+
+    with zipfile.ZipFile(output_path) as archive:
+        opf = archive.read("OEBPS/content.opf").decode("utf-8")
+
+    assert (
+        '<item id="page-0001" href="text/0001-scp-001.xhtml" '
+        'media-type="application/xhtml+xml" properties="remote-resources"/>'
+    ) in opf
+    assert '<item id="page-0002" href="text/0002-scp-002.xhtml" media-type="application/xhtml+xml"/>' in opf
+
+
 def test_write_epub_rejects_empty_pages(tmp_path: Path):
     with pytest.raises(ValueError, match="at least one page"):
         write_epub([], tmp_path / "empty.epub", title="Empty", language="en", creator="Nobody")

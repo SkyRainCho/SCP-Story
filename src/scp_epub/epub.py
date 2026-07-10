@@ -23,6 +23,7 @@ class _ChapterEntry:
     href: str
     archive_path: str
     page: ProcessedPage
+    has_remote_resources: bool = False
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,7 @@ def write_epub(
     identifier: str | None = None,
     modified: datetime | str | None = None,
     assets: list[AssetRef] | tuple[AssetRef, ...] = (),
+    remote_resource_page_slugs: set[str] | tuple[str, ...] | list[str] = (),
 ) -> Path:
     ordered_pages = _ordered_pages(pages)
     if not ordered_pages:
@@ -51,7 +53,11 @@ def write_epub(
 
     book_identifier = identifier or f"urn:uuid:{uuid.uuid4()}"
     modified_value = _format_modified(modified)
-    page_entries = [_chapter_entry(page) for page in ordered_pages]
+    remote_slugs = set(remote_resource_page_slugs)
+    page_entries = [
+        _chapter_entry(page, has_remote_resources=page.entry.slug in remote_slugs)
+        for page in ordered_pages
+    ]
     asset_entries = _asset_entries(assets)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -114,13 +120,14 @@ def _ordered_pages(pages: list[ProcessedPage]) -> list[ProcessedPage]:
     return sorted(pages, key=lambda page: page.entry.order)
 
 
-def _chapter_entry(page: ProcessedPage) -> _ChapterEntry:
+def _chapter_entry(page: ProcessedPage, *, has_remote_resources: bool = False) -> _ChapterEntry:
     filename = f"{page.entry.order:04d}-{safe_filename(page.entry.slug)}.xhtml"
     return _ChapterEntry(
         id=f"page-{page.entry.order:04d}",
         href=f"text/{filename}",
         archive_path=f"OEBPS/text/{filename}",
         page=page,
+        has_remote_resources=has_remote_resources,
     )
 
 
@@ -183,11 +190,7 @@ def _content_opf(
     page_entries: list[_ChapterEntry],
     asset_entries: list[_AssetEntry],
 ) -> str:
-    page_manifest_items = "\n".join(
-        f'    <item id="{entry.id}" href="{escape(entry.href, quote=True)}" '
-        'media-type="application/xhtml+xml"/>'
-        for entry in page_entries
-    )
+    page_manifest_items = "\n".join(_page_manifest_item(entry) for entry in page_entries)
     asset_manifest_items = "\n".join(
         f'    <item id="{entry.id}" href="{escape(entry.href, quote=True)}" '
         f'media-type="{escape(entry.media_type, quote=True)}"/>'
@@ -213,6 +216,14 @@ def _content_opf(
   </spine>
 </package>
 """
+
+
+def _page_manifest_item(entry: _ChapterEntry) -> str:
+    properties = ' properties="remote-resources"' if entry.has_remote_resources else ""
+    return (
+        f'    <item id="{entry.id}" href="{escape(entry.href, quote=True)}" '
+        f'media-type="application/xhtml+xml"{properties}/>'
+    )
 
 
 def _nav_xhtml(*, title: str, language: str, page_entries: list[_ChapterEntry]) -> str:
