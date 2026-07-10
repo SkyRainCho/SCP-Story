@@ -15,6 +15,411 @@ from scp_epub.models import ProcessedPage
 from scp_epub.urls import safe_filename
 
 MIMETYPE = "application/epub+zip"
+BOOK_CSS = """body {
+  line-height: 1.6;
+}
+
+h1 {
+  color: #901;
+}
+
+h2 {
+  margin: 0.75em 0;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid #999;
+  margin: 1.5em 0;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+.content-panel {
+  margin: 1em 0;
+  padding: 1em 1.25em;
+  border: 1px solid #999;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.content-panel p:first-child {
+  margin-top: 0;
+}
+
+.content-panel p:last-child {
+  margin-bottom: 0;
+}
+
+.yui-navset {
+  margin: 0.25em 0;
+}
+
+.yui-navset .yui-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.2em 0.8em;
+  margin: 0 0 1em;
+  padding: 0;
+  list-style: none;
+}
+
+.yui-navset .yui-nav li {
+  margin: 0;
+  padding: 0;
+}
+
+.yui-navset .yui-nav a {
+  color: #901;
+  text-decoration: none;
+}
+
+.yui-navset .yui-nav a em {
+  font-style: normal;
+}
+
+.yui-navset .yui-nav .selected a {
+  color: #111;
+  font-weight: bold;
+}
+
+.yui-navset .yui-content {
+  padding: 0.25em 0;
+  text-align: center;
+}
+
+.yui-navset .yui-content > div > p:empty {
+  display: none;
+}
+
+.yui-navset .yui-content p {
+  margin: 0.65em 0;
+}
+
+.yui-navset .yui-content a {
+  color: #b00020;
+  text-decoration: none;
+}
+
+.yui-navset .yui-content a.newpage {
+  color: #d35400;
+}
+
+.yui-navset .divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  margin: 1em 0 0.45em;
+  color: #aaa;
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: bold;
+}
+
+.yui-navset .divider::before,
+.yui-navset .divider::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid #ddd;
+}
+
+blockquote,
+.blockquote {
+  margin: 1em 3em;
+  padding: 0.75em 1em;
+  border: 1px dashed #999;
+  background: #f8f8f8;
+}
+
+blockquote p:first-child,
+.blockquote p:first-child {
+  margin-top: 0;
+}
+
+blockquote p:last-child,
+.blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+table.wiki-content-table {
+  border-collapse: collapse;
+  margin: 1em auto;
+}
+
+table.wiki-content-table th,
+table.wiki-content-table td {
+  border: 1px solid #888;
+  padding: 0.4em 0.65em;
+  vertical-align: top;
+}
+
+table.wiki-content-table th {
+  background: #eee;
+  font-weight: bold;
+  text-align: center;
+}
+
+.scp-image-block {
+  width: 300px;
+  max-width: 100%;
+  margin: 0.75em 0 1em;
+  border: 1px solid #666;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.scp-image-block.block-right {
+  float: right;
+  clear: right;
+  margin: 0 0 1em 1.5em;
+}
+
+.scp-image-block.block-left {
+  float: left;
+  clear: left;
+  margin: 0 1.5em 1em 0;
+}
+
+.scp-image-block.block-center {
+  clear: both;
+  margin: 1em auto;
+}
+
+.scp-image-block img {
+  display: block;
+  width: 100%;
+}
+
+.scp-image-caption {
+  border-top: 1px solid #666;
+  padding: 0.25em 0.5em;
+  text-align: center;
+  font-size: 0.9em;
+  font-weight: bold;
+}
+
+.scp-image-caption p {
+  margin: 0;
+}
+
+.anom-bar-container {
+  max-width: 100%;
+  margin: 1.2em 0;
+  padding: 0.65em 0.8em;
+  border: 2px solid #a21b2d;
+  background: #d9e1e4;
+  color: #111;
+  box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.anom-bar-container .lang-tr {
+  display: none;
+}
+
+.anom-bar-container .top-box {
+  display: grid;
+  grid-template-columns: minmax(7em, auto) 1fr minmax(5em, auto);
+  gap: 0.75em;
+  align-items: center;
+  padding: 0.55em 0;
+  border-top: 0.45em solid #111;
+  border-bottom: 0.45em solid #111;
+}
+
+.anom-bar-container .top-left-box .item {
+  margin-right: 0.45em;
+  font-size: 0.95em;
+}
+
+.anom-bar-container .top-left-box .number {
+  font-size: 2em;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.anom-bar-container .top-center-box {
+  display: grid;
+  gap: 0.25em;
+  align-content: center;
+}
+
+.anom-bar-container .top-center-box > div {
+  display: none;
+  min-height: 0.45em;
+  background: #c40233;
+}
+
+.anom-bar-container.clear-1 .top-center-box .bar-one,
+.anom-bar-container.clear-2 .top-center-box .bar-one,
+.anom-bar-container.clear-2 .top-center-box .bar-two,
+.anom-bar-container.clear-3 .top-center-box .bar-one,
+.anom-bar-container.clear-3 .top-center-box .bar-two,
+.anom-bar-container.clear-3 .top-center-box .bar-three,
+.anom-bar-container.clear-4 .top-center-box .bar-one,
+.anom-bar-container.clear-4 .top-center-box .bar-two,
+.anom-bar-container.clear-4 .top-center-box .bar-three,
+.anom-bar-container.clear-4 .top-center-box .bar-four,
+.anom-bar-container.clear-5 .top-center-box .bar-one,
+.anom-bar-container.clear-5 .top-center-box .bar-two,
+.anom-bar-container.clear-5 .top-center-box .bar-three,
+.anom-bar-container.clear-5 .top-center-box .bar-four,
+.anom-bar-container.clear-5 .top-center-box .bar-five,
+.anom-bar-container.clear-6 .top-center-box .bar-one,
+.anom-bar-container.clear-6 .top-center-box .bar-two,
+.anom-bar-container.clear-6 .top-center-box .bar-three,
+.anom-bar-container.clear-6 .top-center-box .bar-four,
+.anom-bar-container.clear-6 .top-center-box .bar-five,
+.anom-bar-container.clear-6 .top-center-box .bar-six {
+  display: block;
+}
+
+.anom-bar-container .top-right-box {
+  text-align: center;
+}
+
+.anom-bar-container .top-right-box .level {
+  font-size: 1.75em;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.anom-bar-container .top-right-box .clearance::before {
+  content: "TOP SECRET";
+  display: block;
+  margin-top: 0.2em;
+  font-size: 0.78em;
+  font-weight: 700;
+}
+
+.anom-bar-container.clear-1 .top-right-box .clearance::before {
+  content: "PUBLIC";
+}
+
+.anom-bar-container.clear-2 .top-right-box .clearance::before {
+  content: "RESTRICTED";
+}
+
+.anom-bar-container.clear-3 .top-right-box .clearance::before {
+  content: "CONFIDENTIAL";
+}
+
+.anom-bar-container.clear-4 .top-right-box .clearance::before {
+  content: "SECRET";
+}
+
+.anom-bar-container.clear-6 .top-right-box .clearance::before {
+  content: "COSMIC TOP SECRET";
+}
+
+.anom-bar-container .bottom-box {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 8.5em;
+  gap: 0.75em;
+  align-items: stretch;
+  margin-top: 0.55em;
+}
+
+.anom-bar-container .text-part {
+  display: grid;
+  gap: 0.3em;
+}
+
+.anom-bar-container .main-class {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3em;
+}
+
+.anom-bar-container .contain-class,
+.anom-bar-container .second-class,
+.anom-bar-container .disrupt-class,
+.anom-bar-container .risk-class {
+  min-height: 2em;
+  padding: 0.35em 0.55em;
+  border-left: 0.55em solid #c40233;
+  background: rgba(196, 2, 51, 0.14);
+  box-sizing: border-box;
+}
+
+.anom-bar-container .class-category {
+  font-size: 0.78em;
+}
+
+.anom-bar-container .class-text {
+  font-size: 1.35em;
+  font-weight: 800;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.anom-bar-container .second-class .class-text,
+.anom-bar-container .disrupt-class .class-text,
+.anom-bar-container .risk-class .class-text {
+  font-size: 1.1em;
+}
+
+.anom-bar-container .diamond-part {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.anom-bar-container .danger-diamond {
+  position: relative;
+  width: 6.5em;
+  height: 6.5em;
+  border: 0.25em solid #111;
+  background:
+    linear-gradient(135deg, transparent 48%, #111 49%, #111 51%, transparent 52%),
+    linear-gradient(45deg, transparent 48%, #111 49%, #111 51%, transparent 52%);
+  transform: rotate(45deg);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.anom-bar-container .danger-diamond a,
+.anom-bar-container .danger-diamond br,
+.anom-bar-container .danger-diamond .arrows,
+.anom-bar-container .danger-diamond .octagon,
+.anom-bar-container .danger-diamond .quadrants,
+.anom-bar-container .danger-diamond .top-icon,
+.anom-bar-container .danger-diamond .right-icon,
+.anom-bar-container .danger-diamond .left-icon,
+.anom-bar-container .danger-diamond .bottom-icon {
+  display: none;
+}
+
+@media (max-width: 480px) {
+  .scp-image-block,
+  .scp-image-block.block-left,
+  .scp-image-block.block-right {
+    float: none;
+    clear: both;
+    margin: 1em auto;
+  }
+
+  .anom-bar-container .top-box,
+  .anom-bar-container .bottom-box,
+  .anom-bar-container .main-class {
+    grid-template-columns: 1fr;
+  }
+
+  .anom-bar-container .top-right-box {
+    text-align: left;
+  }
+
+  .anom-bar-container .danger-diamond {
+    width: 5em;
+    height: 5em;
+  }
+}
+"""
 
 
 @dataclass(frozen=True)
@@ -86,6 +491,7 @@ def write_epub(
         )
         archive.writestr("OEBPS/nav.xhtml", _nav_xhtml(title=title, language=language, page_entries=page_entries))
         archive.writestr("OEBPS/toc.ncx", _toc_ncx(title=title, identifier=book_identifier, page_entries=page_entries))
+        archive.writestr("OEBPS/styles/book.css", BOOK_CSS)
         for entry in page_entries:
             archive.writestr(entry.archive_path, _page_xhtml(entry.page, language=language))
         for entry in asset_entries:
@@ -217,6 +623,7 @@ def _content_opf(
   <manifest>
     <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
     <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+    <item id="book-css" href="styles/book.css" media-type="text/css"/>
 {manifest_items}
   </manifest>
   <spine toc="ncx">
@@ -376,6 +783,7 @@ def _page_xhtml(page: ProcessedPage, *, language: str) -> str:
   <head>
     <meta charset="utf-8"/>
     <title>{page_title}</title>
+    <link rel="stylesheet" type="text/css" href="../styles/book.css"/>
   </head>
   <body>
     <h1>{page_title}</h1>

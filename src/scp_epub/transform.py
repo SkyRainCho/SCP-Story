@@ -11,6 +11,51 @@ from scp_epub.urls import normalize_url, slug_from_url
 
 NON_DOWNLOADABLE_ASSET_SCHEMES = {"data", "mailto", "tel"}
 UNWANTED_TAGS = {"script", "style", "iframe", "nav", "aside"}
+SAFE_STYLE_PROPERTIES = {
+    "background",
+    "background-color",
+    "border",
+    "border-bottom",
+    "border-left",
+    "border-radius",
+    "border-right",
+    "border-top",
+    "box-shadow",
+    "clear",
+    "color",
+    "float",
+    "font-size",
+    "font-style",
+    "font-weight",
+    "height",
+    "margin",
+    "margin-bottom",
+    "margin-left",
+    "margin-right",
+    "margin-top",
+    "max-height",
+    "max-width",
+    "min-height",
+    "min-width",
+    "opacity",
+    "padding",
+    "padding-bottom",
+    "padding-left",
+    "padding-right",
+    "padding-top",
+    "text-align",
+    "text-decoration",
+    "width",
+}
+UNSAFE_STYLE_VALUE_TOKENS = ("behavior:", "expression(", "javascript:", "-moz-binding", "url(")
+CSS_CODE_MARKERS = (
+    "@import",
+    ":root",
+    "#page-content",
+    "blankstyle css",
+    "variables",
+    "--logo-img",
+)
 UNWANTED_IDS = {
     "action-area",
     "edit-page-form",
@@ -21,11 +66,20 @@ UNWANTED_IDS = {
     "side-bar",
     "top-bar",
     "toc",
+    "u-credit-view",
+    "u-author_block",
 }
 UNWANTED_CLASSES = {
+    "creditbutton",
+    "creditbuttonstandalone",
+    "creditbottomrate",
+    "creditrate",
     "footer-wikiwalk-nav",
+    "info-container",
     "license-area",
     "licensebox",
+    "modalbox",
+    "modalcontainer",
     "page-options",
     "page-options-area",
     "page-options-bottom",
@@ -36,6 +90,8 @@ UNWANTED_CLASSES = {
     "rate-box-with-credit-button",
     "rating-box",
     "toc",
+    "translation_block",
+    "u-faq",
 }
 ASSET_ATTRIBUTES = {
     "img": "src",
@@ -155,6 +211,9 @@ def _is_unwanted_element(tag: Tag) -> bool:
     if classes & UNWANTED_CLASSES:
         return True
 
+    if _is_hidden_css_code_container(tag) or _is_css_code_collapsible(tag):
+        return True
+
     if any(
         token.startswith("page-options") or token.startswith("page-rate-") or token.startswith("rate-box")
         for token in classes
@@ -174,6 +233,40 @@ def _class_tokens(tag: Tag) -> set[str]:
     return set()
 
 
+def _is_hidden_css_code_container(tag: Tag) -> bool:
+    if not _is_hidden_by_style(tag):
+        return False
+    return _contains_code_block(tag) and _looks_like_css_code(tag.get_text("\n", strip=True))
+
+
+def _is_css_code_collapsible(tag: Tag) -> bool:
+    classes = _class_tokens(tag)
+    if "collapsible-block" not in classes:
+        return False
+    link_text = " ".join(
+        link.get_text(" ", strip=True).replace("\xa0", " ")
+        for link in tag.select(".collapsible-block-link")
+    ).upper()
+    if "CODE" not in link_text:
+        return False
+    return _contains_code_block(tag) and _looks_like_css_code(tag.get_text("\n", strip=True))
+
+
+def _is_hidden_by_style(tag: Tag) -> bool:
+    style = tag.get("style")
+    return isinstance(style, str) and "display" in style.lower() and "none" in style.lower()
+
+
+def _contains_code_block(tag: Tag) -> bool:
+    return tag.find("pre") is not None or tag.find(class_="code") is not None
+
+
+def _looks_like_css_code(text: str) -> bool:
+    normalized = text.lower()
+    hits = sum(1 for marker in CSS_CODE_MARKERS if marker in normalized)
+    return hits >= 2
+
+
 def _is_stylesheet_link(tag: Tag) -> bool:
     rel = tag.get("rel", [])
     if isinstance(rel, str):
@@ -190,8 +283,39 @@ def _has_non_downloadable_asset_scheme(url: str) -> bool:
 def _sanitize_attributes(tag: Tag) -> None:
     for attribute in list(tag.attrs):
         lowered = attribute.lower()
-        if lowered == "style" or lowered.startswith("on"):
+        if lowered.startswith("on"):
             tag.attrs.pop(attribute, None)
+            continue
+        if lowered == "style":
+            sanitized_style = _sanitize_style_value(str(tag.attrs[attribute]))
+            if sanitized_style:
+                tag.attrs[attribute] = sanitized_style
+            else:
+                tag.attrs.pop(attribute, None)
+
+
+def _sanitize_style_value(style: str) -> str:
+    declarations: list[str] = []
+    for raw_declaration in style.split(";"):
+        property_name, separator, raw_value = raw_declaration.partition(":")
+        if not separator:
+            continue
+
+        normalized_property = property_name.strip().lower()
+        value = raw_value.strip()
+        if normalized_property not in SAFE_STYLE_PROPERTIES:
+            continue
+        if not value or _has_unsafe_style_value(value):
+            continue
+
+        declarations.append(f"{normalized_property}: {value}")
+
+    return "; ".join(declarations)
+
+
+def _has_unsafe_style_value(value: str) -> bool:
+    lowered = value.lower()
+    return any(token in lowered for token in UNSAFE_STYLE_VALUE_TOKENS)
 
 
 def _should_ignore_url(raw_url: str) -> bool:

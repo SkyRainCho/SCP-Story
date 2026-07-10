@@ -4,6 +4,7 @@ language: zh-CN
 creator: SCP Wiki CN
 base_url: https://scp-wiki-cn.wikidot.com
 index_path: /scp-series-1-tales-edition
+series_index_path: /scp-series
 scp001_path: /scp-001
 cache_dir: data/raw
 manifest_dir: data/manifests

@@ -44,6 +44,17 @@ def test_transforms_only_page_content_and_removes_wikidot_chrome():
     assert "授权 / 引用" not in page_text
     assert "请按如下方式引用此页" not in page_text
     assert "授权指南" not in page_text
+    assert "著作信息" not in page_text
+    assert "Captain Kirby的提案" not in page_text
+    assert "我们只是人类而已" not in page_text
+    assert "该作者的更多作品" not in page_text
+    assert "其他语言" not in page_text
+    assert "常见问题" not in page_text
+    assert "VARIABLES" not in page_text
+    assert "BLANKSTYLE CSS" not in page_text
+    assert "+\xa0CODE" not in page_text
+    assert "-\xa0CODE" not in page_text
+    assert "article code should stay" in page_text
 
     assert soup.find("script") is None
     assert soup.find("style") is None
@@ -55,6 +66,13 @@ def test_transforms_only_page_content_and_removes_wikidot_chrome():
     assert soup.find("nav") is None
     assert soup.find(class_="footer-wikiwalk-nav") is None
     assert soup.find(class_="licensebox") is None
+    assert soup.find(id="u-credit-view") is None
+    assert soup.find(class_="modalcontainer") is None
+    assert soup.find(class_="creditRate") is None
+    assert soup.find(class_="info-container") is None
+    assert soup.find(id="u-author_block") is None
+    assert soup.find(class_="translation_block") is None
+    assert soup.find(class_="u-faq") is None
 
 
 def test_normalizes_and_deduplicates_assets_in_encounter_order():
@@ -107,18 +125,27 @@ def test_classifies_internal_and_external_links_and_ignores_fragment_and_javascr
     assert "javascript:void(0)" not in hrefs
 
 
-def test_strips_event_handlers_and_inline_styles_but_keeps_harmless_attributes():
+def test_strips_event_handlers_and_sanitizes_inline_styles_but_keeps_harmless_attributes():
     result = transformed({"scp-002", "old:kalinins-proposal"})
     soup = soup_fragment(result.xhtml)
 
     assert not soup.find_all(attrs={"onclick": True})
-    assert not soup.find_all(attrs={"style": True})
     image = soup.find("img")
     paragraph = soup.find("p")
+    heading = soup.find("h1")
+    struck = soup.find("span", string="Struck proposal")
+    notice = soup.find(class_="notice")
     assert image["alt"] == "Specimen photo"
     assert image["title"] == "Photo title"
     assert image["class"] == "image"
+    assert image["style"] == "width: 100px"
     assert paragraph["class"] == "main-text"
+    assert paragraph["style"] == "font-size: 24px"
+    assert heading["style"] == "color: red"
+    assert struck["style"] == "text-decoration: line-through"
+    assert notice["style"] == "border: solid 1px #999999; background: #f2f2c2; padding: 5px"
+    assert "behavior" not in result.xhtml
+    assert "javascript:alert" not in result.xhtml
 
 
 def test_missing_page_content_raises_value_error():

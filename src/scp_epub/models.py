@@ -22,6 +22,7 @@ class AppConfig:
     creator: str
     base_url: str
     index_path: str
+    series_index_path: str
     scp001_path: str
     cache_dir: Path
     manifest_dir: Path
@@ -35,6 +36,10 @@ class AppConfig:
     @property
     def index_url(self) -> str:
         return f"{self.base_url.rstrip('/')}/{self.index_path.lstrip('/')}"
+
+    @property
+    def series_index_url(self) -> str:
+        return f"{self.base_url.rstrip('/')}/{self.series_index_path.lstrip('/')}"
 
     @property
     def scp001_url(self) -> str:

@@ -38,6 +38,7 @@ def app_config(
         creator="Test Creator",
         base_url=BASE_URL,
         index_path="/scp-series-1-tales-edition",
+        series_index_path="/scp-series",
         scp001_path="/scp-001",
         cache_dir=tmp_path / "data" / "raw",
         manifest_dir=tmp_path / "data" / "manifests",
@@ -138,28 +139,53 @@ def simple_index(*slugs: str) -> str:
 """
 
 
+def simple_series_index(*slugs: str) -> str:
+    items = "\n".join(
+        f'<li><a href="/{slug}">{slug.upper()}</a> - Title {slug}</li>'
+        for slug in slugs
+    )
+    return f"""
+<html>
+  <body>
+    <div id="page-content">
+      <h1>SCP系列</h1>
+      <ul>{items}</ul>
+    </div>
+  </body>
+</html>
+"""
+
+
 def test_build_manifest_uses_tales_index_links_by_default(tmp_path: Path):
     config = app_config(tmp_path)
     pages = {
         "scp-series-1-tales-edition": Path("tests/fixtures/index_sample.html").read_text(encoding="utf-8"),
+        "scp-series": simple_series_index("scp-001", "scp-002", "scp-019", "scp-020", "scp-099"),
     }
     fetcher = FakeFetcher(tmp_path / "cache", pages)
 
     manifest = build_manifest(config, "001-099", fetcher=fetcher)
 
-    assert [slug for slug, _url, _force in fetcher.calls] == ["scp-series-1-tales-edition"]
+    assert [slug for slug, _url, _force in fetcher.calls] == [
+        "scp-series-1-tales-edition",
+        "scp-series",
+    ]
     assert [entry.slug for entry in manifest[:3]] == ["scp-001", "spc-001", "scp-002"]
+    assert "scp-019" in [entry.slug for entry in manifest]
+    assert "scp-020" in [entry.slug for entry in manifest]
     assert "dr-clef-s-proposal" not in [entry.slug for entry in manifest]
     manifest_path = config.manifest_dir / "test-volume.json"
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert payload[0]["slug"] == "scp-001"
     assert payload[1]["slug"] == "spc-001"
+    assert payload[[entry["slug"] for entry in payload].index("scp-019")]["title"] == "SCP-019 - Title scp-019"
 
 
 def test_build_manifest_can_merge_scp001_proposals_when_enabled(tmp_path: Path):
     config = app_config(tmp_path, include_scp001_proposals=True)
     pages = {
         "scp-series-1-tales-edition": Path("tests/fixtures/index_sample.html").read_text(encoding="utf-8"),
+        "scp-series": simple_series_index("scp-001", "scp-002", "scp-099"),
         "scp-001": Path("tests/fixtures/scp001_sample.html").read_text(encoding="utf-8"),
     }
     fetcher = FakeFetcher(tmp_path / "cache", pages)
@@ -168,6 +194,7 @@ def test_build_manifest_can_merge_scp001_proposals_when_enabled(tmp_path: Path):
 
     assert [slug for slug, _url, _force in fetcher.calls] == [
         "scp-series-1-tales-edition",
+        "scp-series",
         "scp-001",
     ]
     assert [entry.slug for entry in manifest[:5]] == [
@@ -295,6 +322,7 @@ def test_build_volume_force_rebuilds_existing_manifest_from_refreshed_sources(tm
         tmp_path / "cache",
         {
             "scp-series-1-tales-edition": simple_index("scp-001", "scp-002"),
+            "scp-series": simple_series_index("scp-001", "scp-002"),
             "scp-001": simple_page("SCP-001", 'Refreshed hub <img src="/images/refreshed.png"/>'),
             "scp-002": simple_page("SCP-002", "Refreshed article"),
         },
@@ -306,6 +334,7 @@ def test_build_volume_force_rebuilds_existing_manifest_from_refreshed_sources(tm
     assert output_path == config.output_dir / "epub" / "test-volume.epub"
     assert [slug for slug, _url, _force in fetcher.calls] == [
         "scp-series-1-tales-edition",
+        "scp-series",
         "scp-001",
         "scp-002",
     ]

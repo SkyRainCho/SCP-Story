@@ -5,7 +5,7 @@ import warnings
 from collections.abc import Iterable
 from urllib.parse import urlparse
 
-from bs4 import BeautifulSoup, FeatureNotFound, Tag
+from bs4 import BeautifulSoup, FeatureNotFound, NavigableString, Tag
 
 from .models import PageRef
 from .urls import normalize_url, slug_from_url
@@ -62,6 +62,43 @@ def parse_tales_index(html: str, base_url: str, start: int, end: int) -> list[Pa
         _with_order(entry, order)
         for order, entry in enumerate(entries, start=1)
     ]
+
+
+def parse_series_index(html: str, base_url: str, start: int, end: int) -> list[PageRef]:
+    if start > end:
+        raise ValueError("start must be <= end")
+
+    soup = _parse_html(html)
+    content = soup.select_one("#page-content")
+    if content is None:
+        raise ValueError("Series page does not contain #page-content")
+
+    entries: list[PageRef] = []
+    seen_slugs: set[str] = set()
+    for anchor in content.find_all("a", href=True):
+        href = anchor.get("href")
+        if not isinstance(href, str) or not _is_page_href(href):
+            continue
+
+        url = normalize_url(base_url, href)
+        slug = slug_from_url(url)
+        scp_number = _scp_number(slug)
+        if scp_number is None or not start <= scp_number <= end or slug in seen_slugs:
+            continue
+
+        seen_slugs.add(slug)
+        entries.append(
+            PageRef(
+                title=_title_for_series_anchor(anchor) or slug.upper(),
+                url=url,
+                slug=slug,
+                level=1,
+                role="scp",
+                source="series-index",
+            )
+        )
+
+    return [_with_order(entry, order) for order, entry in enumerate(entries, start=1)]
 
 
 def parse_scp001_proposals(html: str, base_url: str) -> list[PageRef]:
@@ -152,12 +189,14 @@ def _parse_ul(ul: Tag, base_url: str, level: int, parent_slug: str | None) -> li
     for li in ul.find_all("li", recursive=False):
         anchor = _first_anchor(li)
         current_parent_slug = parent_slug
-        if anchor is not None and not _is_newpage_anchor(anchor) and _is_page_href(anchor["href"]):
+        if anchor is not None and _is_newpage_anchor(anchor):
+            continue
+        if anchor is not None and _is_page_href(anchor["href"]):
             url = normalize_url(base_url, anchor["href"])
             slug = slug_from_url(url)
             entries.append(
                 PageRef(
-                    title=anchor.get_text(" ", strip=True) or slug,
+                    title=_li_entry_title(li, anchor) or slug,
                     url=url,
                     slug=slug,
                     level=level,
@@ -187,6 +226,37 @@ def _first_anchor(li: Tag) -> Tag | None:
             return anchor
     anchor = li.find("a", href=True, recursive=False)
     return anchor if isinstance(anchor, Tag) else None
+
+
+def _li_entry_title(li: Tag, anchor: Tag) -> str:
+    text_parts: list[str] = []
+    for child in li.children:
+        if isinstance(child, NavigableString):
+            text_parts.append(str(child))
+            continue
+        if not isinstance(child, Tag):
+            continue
+        if child.name == "ul":
+            break
+        text_parts.append(child.get_text(" ", strip=True))
+
+    title = " ".join(part.strip() for part in text_parts if part.strip())
+    title = re.sub(r"\s+", " ", title).strip()
+    return title or anchor.get_text(" ", strip=True)
+
+
+def _title_for_series_anchor(anchor: Tag) -> str:
+    parent = anchor.parent
+    if isinstance(parent, Tag) and parent.name == "li":
+        return _li_entry_title(parent, anchor)
+    return anchor.get_text(" ", strip=True)
+
+
+def _scp_number(slug: str) -> int | None:
+    match = SCP_RE.match(slug)
+    if not match:
+        return None
+    return int(slug.rsplit("-", 1)[1])
 
 
 def _is_page_href(href: str) -> bool:

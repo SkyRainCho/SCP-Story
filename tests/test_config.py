@@ -12,6 +12,7 @@ language: {language}
 creator: {creator}
 base_url: {base_url}
 index_path: {index_path}
+series_index_path: {series_index_path}
 scp001_path: {scp001_path}
 cache_dir: {cache_dir}
 manifest_dir: {manifest_dir}
@@ -36,6 +37,7 @@ def write_config(config_path: Path, **overrides: str) -> None:
         "creator": "Test Creator",
         "base_url": "https://example.test",
         "index_path": "/index",
+        "series_index_path": "/series",
         "scp001_path": "/scp-001",
         "cache_dir": "data/raw",
         "manifest_dir": "data/manifests",
@@ -59,6 +61,7 @@ def test_load_config_builds_absolute_urls_and_paths(tmp_path: Path):
     config = load_config(config_path)
 
     assert config.index_url == "https://example.test/index"
+    assert config.series_index_url == "https://example.test/series"
     assert config.scp001_url == "https://example.test/scp-001"
     assert config.cache_dir == tmp_path / "data/raw"
     assert config.manifest_dir == tmp_path / "data/manifests"
@@ -199,6 +202,7 @@ language: zh-CN
 creator: Test Creator
 base_url: https://example.test
 index_path: /index
+series_index_path: /series
 scp001_path: /scp-001
 cache_dir: data/raw
 manifest_dir: data/manifests

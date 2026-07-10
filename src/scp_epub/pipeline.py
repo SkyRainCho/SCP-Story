@@ -9,8 +9,8 @@ from .cache import CacheStore
 from .config import load_config
 from .epub import write_build_report, write_epub
 from .fetcher import Fetcher
-from .indexer import parse_scp001_proposals, parse_tales_index
-from .manifest import read_manifest, merge_manifest, write_manifest
+from .indexer import parse_scp001_proposals, parse_series_index, parse_tales_index
+from .manifest import read_manifest, merge_manifest, supplement_missing_scp_entries, write_manifest
 from .models import AppConfig, FetchResult, PageRef, ProcessedPage, VolumeSpec
 from .transform import transform_page
 from .urls import safe_filename, slug_from_url
@@ -42,6 +42,19 @@ def build_manifest(
         volume.start,
         volume.end,
     )
+
+    series_index_result = active_fetcher.fetch_page(
+        slug_from_url(config.series_index_url),
+        config.series_index_url,
+        force=force,
+    )
+    series_entries = parse_series_index(
+        series_index_result.path.read_text(encoding="utf-8"),
+        config.base_url,
+        volume.start,
+        volume.end,
+    )
+    index_entries = supplement_missing_scp_entries(index_entries, series_entries)
 
     scp001_proposals: list[PageRef] = []
     if config.include_scp001_proposals and volume.start <= 1 <= volume.end:

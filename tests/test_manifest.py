@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from scp_epub.manifest import merge_manifest
+from scp_epub.manifest import merge_manifest, supplement_missing_scp_entries
 from scp_epub.models import PageRef
 
 
@@ -205,6 +205,51 @@ def test_merge_deduplicates_repeated_proposals_with_first_occurrence_winning():
 
     by_slug = {entry.slug: entry for entry in manifest}
     assert by_slug["alpha-proposal"].title == "First Alpha"
+
+
+def test_supplement_missing_scp_entries_inserts_numbered_items_without_flattening_children():
+    tales_entries = [
+        page_ref("scp-018", title="SCP-018 - 弹力球", order=1),
+        page_ref(
+            "story-018",
+            title="故事 018",
+            level=2,
+            role="related",
+            parent_slug="scp-018",
+            order=2,
+        ),
+        page_ref("scp-021", title="SCP-021 - 寄生纹身", order=3),
+        page_ref(
+            "story-021",
+            title="故事 021",
+            level=2,
+            role="related",
+            parent_slug="scp-021",
+            order=4,
+        ),
+    ]
+    series_entries = [
+        page_ref("scp-018", title="SCP-018 - 弹力球", source="series-index"),
+        page_ref("scp-019", title="SCP-019 - 怪物罐", source="series-index"),
+        page_ref("scp-020", title="SCP-020 - 隐形霉菌", source="series-index"),
+        page_ref("scp-021", title="SCP-021 - 寄生纹身", source="series-index"),
+    ]
+
+    manifest = supplement_missing_scp_entries(tales_entries, series_entries)
+
+    assert [entry.slug for entry in manifest] == [
+        "scp-018",
+        "story-018",
+        "scp-019",
+        "scp-020",
+        "scp-021",
+        "story-021",
+    ]
+    assert [entry.order for entry in manifest] == [1, 2, 3, 4, 5, 6]
+    assert manifest[2].title == "SCP-019 - 怪物罐"
+    assert manifest[2].source == "series-index"
+    assert manifest[3].level == 1
+    assert manifest[5].parent_slug == "scp-021"
 
 
 def test_write_and_read_manifest_round_trips_utf8_json(tmp_path):

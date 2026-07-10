@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 
 from .models import PageRef
 
@@ -15,6 +16,37 @@ MANIFEST_FIELDS = (
     "source",
     "order",
 )
+SCP_SLUG_RE = re.compile(r"^scp-(?P<number>\d{3,4})$", re.IGNORECASE)
+
+
+def supplement_missing_scp_entries(
+    index_entries: list[PageRef],
+    series_entries: list[PageRef],
+) -> list[PageRef]:
+    existing_slugs = {entry.slug for entry in index_entries}
+    missing = [
+        entry
+        for entry in series_entries
+        if entry.slug not in existing_slugs and _scp_number(entry.slug) is not None
+    ]
+    missing.sort(key=lambda entry: _scp_number(entry.slug) or 0)
+    if not missing:
+        return _dedupe_and_renumber(index_entries)
+
+    grouped_entries = _top_level_groups(index_entries)
+    output: list[PageRef] = []
+    missing_index = 0
+
+    for group in grouped_entries:
+        root_number = _scp_number(group[0].slug)
+        if root_number is not None:
+            while missing_index < len(missing) and (_scp_number(missing[missing_index].slug) or 0) < root_number:
+                output.append(missing[missing_index])
+                missing_index += 1
+        output.extend(group)
+
+    output.extend(missing[missing_index:])
+    return _dedupe_and_renumber(output)
 
 
 def merge_manifest(
@@ -74,6 +106,35 @@ def _dedupe_and_renumber(entries: list[PageRef]) -> list[PageRef]:
         manifest.append(_with_order(entry, len(manifest) + 1))
 
     return manifest
+
+
+def _top_level_groups(entries: list[PageRef]) -> list[list[PageRef]]:
+    groups: list[list[PageRef]] = []
+    current_group: list[PageRef] = []
+
+    for entry in entries:
+        if entry.level == 1 and entry.parent_slug is None:
+            if current_group:
+                groups.append(current_group)
+            current_group = [entry]
+            continue
+
+        if not current_group:
+            current_group = [entry]
+            continue
+
+        current_group.append(entry)
+
+    if current_group:
+        groups.append(current_group)
+    return groups
+
+
+def _scp_number(slug: str) -> int | None:
+    match = SCP_SLUG_RE.match(slug)
+    if not match:
+        return None
+    return int(match.group("number"))
 
 
 def _with_order(entry: PageRef, order: int) -> PageRef:
