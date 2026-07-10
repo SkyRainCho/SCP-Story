@@ -59,6 +59,10 @@ def load_config(path: str | Path) -> AppConfig:
             data["request_delay_seconds"], "request_delay_seconds"
         ),
         retry_count=_minimum_integer(data["retry_count"], "retry_count", 1),
+        include_scp001_proposals=_optional_bool(
+            data.get("include_scp001_proposals", False),
+            "include_scp001_proposals",
+        ),
         volumes=volumes,
     )
 
@@ -167,6 +171,18 @@ def _positive_integer(value: Any, name: str) -> int:
     if integer <= 0:
         raise ValueError(f"{name} must be positive")
     return integer
+
+
+def _optional_bool(value: Any, name: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "yes", "1"}:
+            return True
+        if normalized in {"false", "no", "0"}:
+            return False
+    raise ValueError(f"{name} must be a boolean")
 
 
 def _mapping(value: Any, name: str) -> dict[str, Any]:

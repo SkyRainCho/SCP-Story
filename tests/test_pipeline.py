@@ -17,7 +17,12 @@ from scp_epub.pipeline import (
 BASE_URL = "https://scp-wiki-cn.wikidot.com"
 
 
-def app_config(tmp_path: Path, *, volume_key: str = "001-099") -> AppConfig:
+def app_config(
+    tmp_path: Path,
+    *,
+    volume_key: str = "001-099",
+    include_scp001_proposals: bool = False,
+) -> AppConfig:
     volume = VolumeSpec(
         key=volume_key,
         start=1,
@@ -40,6 +45,7 @@ def app_config(tmp_path: Path, *, volume_key: str = "001-099") -> AppConfig:
         output_dir=tmp_path / "output",
         request_delay_seconds=0,
         retry_count=1,
+        include_scp001_proposals=include_scp001_proposals,
         volumes={volume_key: volume},
     )
 
@@ -132,8 +138,26 @@ def simple_index(*slugs: str) -> str:
 """
 
 
-def test_build_manifest_fetches_sources_merges_scp001_and_writes_manifest(tmp_path: Path):
+def test_build_manifest_uses_tales_index_links_by_default(tmp_path: Path):
     config = app_config(tmp_path)
+    pages = {
+        "scp-series-1-tales-edition": Path("tests/fixtures/index_sample.html").read_text(encoding="utf-8"),
+    }
+    fetcher = FakeFetcher(tmp_path / "cache", pages)
+
+    manifest = build_manifest(config, "001-099", fetcher=fetcher)
+
+    assert [slug for slug, _url, _force in fetcher.calls] == ["scp-series-1-tales-edition"]
+    assert [entry.slug for entry in manifest[:3]] == ["scp-001", "spc-001", "scp-002"]
+    assert "dr-clef-s-proposal" not in [entry.slug for entry in manifest]
+    manifest_path = config.manifest_dir / "test-volume.json"
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert payload[0]["slug"] == "scp-001"
+    assert payload[1]["slug"] == "spc-001"
+
+
+def test_build_manifest_can_merge_scp001_proposals_when_enabled(tmp_path: Path):
+    config = app_config(tmp_path, include_scp001_proposals=True)
     pages = {
         "scp-series-1-tales-edition": Path("tests/fixtures/index_sample.html").read_text(encoding="utf-8"),
         "scp-001": Path("tests/fixtures/scp001_sample.html").read_text(encoding="utf-8"),
@@ -282,7 +306,6 @@ def test_build_volume_force_rebuilds_existing_manifest_from_refreshed_sources(tm
     assert output_path == config.output_dir / "epub" / "test-volume.epub"
     assert [slug for slug, _url, _force in fetcher.calls] == [
         "scp-series-1-tales-edition",
-        "scp-001",
         "scp-001",
         "scp-002",
     ]

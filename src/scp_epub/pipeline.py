@@ -44,7 +44,7 @@ def build_manifest(
     )
 
     scp001_proposals: list[PageRef] = []
-    if volume.start <= 1 <= volume.end:
+    if config.include_scp001_proposals and volume.start <= 1 <= volume.end:
         scp001_result = active_fetcher.fetch_page(
             slug_from_url(config.scp001_url),
             config.scp001_url,

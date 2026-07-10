@@ -11,6 +11,7 @@ processed_dir: data/processed
 output_dir: output
 request_delay_seconds: 0.5
 retry_count: 3
+include_scp001_proposals: false
 volumes:
   "001-099":
     start: 1

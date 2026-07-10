@@ -35,6 +35,12 @@ class _AssetEntry:
     media_type: str
 
 
+@dataclass(frozen=True)
+class _NavNode:
+    entry: _ChapterEntry
+    children: tuple["_NavNode", ...] = ()
+
+
 def write_epub(
     pages: list[ProcessedPage],
     output_path: Path,
@@ -79,6 +85,7 @@ def write_epub(
             ),
         )
         archive.writestr("OEBPS/nav.xhtml", _nav_xhtml(title=title, language=language, page_entries=page_entries))
+        archive.writestr("OEBPS/toc.ncx", _toc_ncx(title=title, identifier=book_identifier, page_entries=page_entries))
         for entry in page_entries:
             archive.writestr(entry.archive_path, _page_xhtml(entry.page, language=language))
         for entry in asset_entries:
@@ -209,9 +216,10 @@ def _content_opf(
   </metadata>
   <manifest>
     <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
 {manifest_items}
   </manifest>
-  <spine>
+  <spine toc="ncx">
 {spine_items}
   </spine>
 </package>
@@ -227,7 +235,7 @@ def _page_manifest_item(entry: _ChapterEntry) -> str:
 
 
 def _nav_xhtml(*, title: str, language: str, page_entries: list[_ChapterEntry]) -> str:
-    nav_items = _nav_items(page_entries)
+    nav_items = _nav_items(_nav_tree(page_entries))
     escaped_language = escape(language, quote=True)
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
@@ -248,7 +256,7 @@ def _nav_xhtml(*, title: str, language: str, page_entries: list[_ChapterEntry]) 
 """
 
 
-def _nav_items(page_entries: list[_ChapterEntry]) -> str:
+def _nav_tree(page_entries: list[_ChapterEntry]) -> list[_NavNode]:
     entries_by_slug = {entry.page.entry.slug: entry for entry in page_entries}
     children_by_parent: dict[str, list[_ChapterEntry]] = {}
     roots: list[_ChapterEntry] = []
@@ -260,36 +268,45 @@ def _nav_items(page_entries: list[_ChapterEntry]) -> str:
         else:
             roots.append(entry)
 
-    rendered: list[str] = []
     visited: set[str] = set()
-    for entry in roots:
-        rendered.append(_nav_item(entry, children_by_parent, visited, indent=8))
-    return "\n".join(rendered)
+    return [
+        node
+        for entry in roots
+        if (node := _nav_node(entry, children_by_parent, visited)) is not None
+    ]
 
 
-def _nav_item(
+def _nav_node(
     entry: _ChapterEntry,
     children_by_parent: dict[str, list[_ChapterEntry]],
     visited: set[str],
-    *,
-    indent: int,
-) -> str:
+) -> _NavNode | None:
     slug = entry.page.entry.slug
     if slug in visited:
-        return ""
+        return None
     visited.add(slug)
 
+    children = tuple(
+        node
+        for child in children_by_parent.get(slug, [])
+        if (node := _nav_node(child, children_by_parent, visited)) is not None
+    )
+    return _NavNode(entry=entry, children=children)
+
+
+def _nav_items(nodes: list[_NavNode] | tuple[_NavNode, ...]) -> str:
+    return "\n".join(_nav_item(node, indent=8) for node in nodes)
+
+
+def _nav_item(node: _NavNode, *, indent: int) -> str:
+    entry = node.entry
     level = max(entry.page.entry.level, 1)
     padding = " " * indent
     link = (
         f'{padding}<li class="level-{level}"><a href="{escape(entry.href, quote=True)}">'
         f"{escape(entry.page.entry.title)}</a>"
     )
-    child_items = [
-        item
-        for child in children_by_parent.get(slug, [])
-        if (item := _nav_item(child, children_by_parent, visited, indent=indent + 4))
-    ]
+    child_items = [_nav_item(child, indent=indent + 4) for child in node.children]
     if not child_items:
         return f"{link}</li>"
 
@@ -303,6 +320,51 @@ def _nav_item(
             f"{padding}</li>",
         ]
     )
+
+
+def _toc_ncx(*, title: str, identifier: str, page_entries: list[_ChapterEntry]) -> str:
+    nodes = _nav_tree(page_entries)
+    play_order = [0]
+    nav_points = "\n".join(_ncx_nav_point(node, play_order=play_order, indent=4) for node in nodes)
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE ncx PUBLIC "-//NISO//DTD ncx 2005-1//EN" "http://www.daisy.org/z3986/2005/ncx-2005-1.dtd">
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+  <head>
+    <meta name="dtb:uid" content="{escape(identifier, quote=True)}"/>
+    <meta name="dtb:depth" content="{_nav_depth(nodes)}"/>
+    <meta name="dtb:totalPageCount" content="0"/>
+    <meta name="dtb:maxPageNumber" content="0"/>
+  </head>
+  <docTitle><text>{escape(title)}</text></docTitle>
+  <navMap>
+{nav_points}
+  </navMap>
+</ncx>
+"""
+
+
+def _ncx_nav_point(node: _NavNode, *, play_order: list[int], indent: int) -> str:
+    play_order[0] += 1
+    order = play_order[0]
+    padding = " " * indent
+    child_items = [
+        _ncx_nav_point(child, play_order=play_order, indent=indent + 2)
+        for child in node.children
+    ]
+    lines = [
+        f'{padding}<navPoint id="navPoint-{order:04d}" playOrder="{order}">',
+        f"{padding}  <navLabel><text>{escape(node.entry.page.entry.title)}</text></navLabel>",
+        f'{padding}  <content src="{escape(node.entry.href, quote=True)}"/>',
+    ]
+    lines.extend(child_items)
+    lines.append(f"{padding}</navPoint>")
+    return "\n".join(lines)
+
+
+def _nav_depth(nodes: list[_NavNode] | tuple[_NavNode, ...]) -> int:
+    if not nodes:
+        return 0
+    return max(1 + _nav_depth(node.children) for node in nodes)
 
 
 def _page_xhtml(page: ProcessedPage, *, language: str) -> str:

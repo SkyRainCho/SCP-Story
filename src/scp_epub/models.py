@@ -29,6 +29,7 @@ class AppConfig:
     output_dir: Path
     request_delay_seconds: float
     retry_count: int
+    include_scp001_proposals: bool
     volumes: dict[str, VolumeSpec]
 
     @property

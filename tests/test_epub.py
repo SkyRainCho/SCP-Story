@@ -65,6 +65,7 @@ def test_write_epub_creates_epub_zip_with_required_files(tmp_path: Path):
         assert "META-INF/container.xml" in names
         assert "OEBPS/content.opf" in names
         assert "OEBPS/nav.xhtml" in names
+        assert "OEBPS/toc.ncx" in names
         assert "OEBPS/text/0001-old_kalinins-proposal.xhtml" in names
         assert "OEBPS/text/0002-scp-002.xhtml" in names
 
@@ -96,8 +97,10 @@ def test_write_epub_opf_manifest_spine_and_metadata_are_ordered(tmp_path: Path):
     assert 'xmlns:dcterms="http://purl.org/dc/terms/"' in opf
     assert '<meta property="dcterms:modified">2026-07-10T12:34:56Z</meta>' in opf
     assert '<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>' in opf
+    assert '<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>' in opf
     assert '<item id="page-0001" href="text/0001-scp-001.xhtml" media-type="application/xhtml+xml"/>' in opf
     assert '<item id="page-0002" href="text/0002-scp-002.xhtml" media-type="application/xhtml+xml"/>' in opf
+    assert "<spine toc=\"ncx\">" in opf
     assert opf.index('<itemref idref="page-0001"/>') < opf.index('<itemref idref="page-0002"/>')
 
 
@@ -136,6 +139,7 @@ def test_write_epub_nav_preserves_hierarchical_manifest_structure(tmp_path: Path
 
     with zipfile.ZipFile(output_path) as archive:
         nav = archive.read("OEBPS/nav.xhtml").decode("utf-8")
+        ncx = archive.read("OEBPS/toc.ncx").decode("utf-8")
 
     scp001 = '<li class="level-1"><a href="text/0001-scp-001.xhtml">SCP-001</a>'
     spc001 = '<li class="level-2"><a href="text/0002-spc-001.xhtml">SPC-001</a>'
@@ -146,6 +150,18 @@ def test_write_epub_nav_preserves_hierarchical_manifest_structure(tmp_path: Path
     assert (
         f"{scp001}\n          <ol>\n            {spc001}\n              <ol>\n                {ouroborealis}\n"
         in nav
+    )
+    assert (
+        '<navPoint id="navPoint-0001" playOrder="1">\n'
+        "      <navLabel><text>SCP-001</text></navLabel>\n"
+        '      <content src="text/0001-scp-001.xhtml"/>\n'
+        '      <navPoint id="navPoint-0002" playOrder="2">\n'
+        "        <navLabel><text>SPC-001</text></navLabel>\n"
+        '        <content src="text/0002-spc-001.xhtml"/>\n'
+        '        <navPoint id="navPoint-0003" playOrder="3">\n'
+        "          <navLabel><text>衔尾鲨</text></navLabel>\n"
+        '          <content src="text/0003-ouroborealis.xhtml"/>\n'
+        in ncx
     )
 
 
