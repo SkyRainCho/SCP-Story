@@ -23,6 +23,9 @@ UNWANTED_IDS = {
     "toc",
 }
 UNWANTED_CLASSES = {
+    "footer-wikiwalk-nav",
+    "license-area",
+    "licensebox",
     "page-options",
     "page-options-area",
     "page-options-bottom",

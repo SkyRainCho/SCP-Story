@@ -40,6 +40,10 @@ def test_transforms_only_page_content_and_removes_wikidot_chrome():
     assert "Main article text" in page_text
     assert "Threat rating: green." in page_text
     assert "Rating note is article content." in page_text
+    assert "SCP-002 | SCP-003 | SCP-004" not in page_text
+    assert "授权 / 引用" not in page_text
+    assert "请按如下方式引用此页" not in page_text
+    assert "授权指南" not in page_text
 
     assert soup.find("script") is None
     assert soup.find("style") is None
@@ -49,6 +53,8 @@ def test_transforms_only_page_content_and_removes_wikidot_chrome():
     assert soup.find(class_="rate-box-with-credit-button") is None
     assert soup.find(id="page-info") is None
     assert soup.find("nav") is None
+    assert soup.find(class_="footer-wikiwalk-nav") is None
+    assert soup.find(class_="licensebox") is None
 
 
 def test_normalizes_and_deduplicates_assets_in_encounter_order():
