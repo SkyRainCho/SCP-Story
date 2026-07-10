@@ -152,7 +152,7 @@ def _parse_ul(ul: Tag, base_url: str, level: int, parent_slug: str | None) -> li
     for li in ul.find_all("li", recursive=False):
         anchor = _first_anchor(li)
         current_parent_slug = parent_slug
-        if anchor is not None and _is_page_href(anchor["href"]):
+        if anchor is not None and not _is_newpage_anchor(anchor) and _is_page_href(anchor["href"]):
             url = normalize_url(base_url, anchor["href"])
             slug = slug_from_url(url)
             entries.append(
@@ -233,8 +233,12 @@ def _is_scp001_code_name_text(anchor_text: str) -> bool:
     return bool(SCP_001_CODE_NAME_RE.match(anchor_text.strip()))
 
 
+def _is_newpage_anchor(anchor: Tag) -> bool:
+    return "newpage" in _tag_class_tokens(anchor)
+
+
 def _is_ignored_scp001_anchor(anchor: Tag, content: Tag) -> bool:
-    if "newpage" in _tag_class_tokens(anchor):
+    if _is_newpage_anchor(anchor):
         return True
 
     for parent in anchor.parents:
