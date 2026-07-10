@@ -15,6 +15,7 @@ def _page(
     order: int,
     *,
     level: int = 1,
+    parent_slug: str | None = None,
     xhtml: str = "<p>Body</p>",
     asset_urls: tuple[str, ...] = (),
     internal_links: tuple[str, ...] = (),
@@ -26,6 +27,7 @@ def _page(
         slug=slug,
         level=level,
         role="page",
+        parent_slug=parent_slug,
         order=order,
     )
     return ProcessedPage(
@@ -119,6 +121,32 @@ def test_write_epub_xhtml_pages_include_title_body_and_safe_filename(tmp_path: P
     assert "<title>旧案: Kalinin &amp; Friends</title>" in chapter
     assert "<h1>旧案: Kalinin &amp; Friends</h1>" in chapter
     assert "<p>Transformed <strong>body</strong></p>" in chapter
+
+
+def test_write_epub_nav_preserves_hierarchical_manifest_structure(tmp_path: Path):
+    pages = [
+        _page("scp-001", "SCP-001", 1, level=1),
+        _page("spc-001", "SPC-001", 2, level=2, parent_slug="scp-001"),
+        _page("ouroborealis", "衔尾鲨", 3, level=3, parent_slug="spc-001"),
+        _page("scp-002", "SCP-002", 4, level=1),
+    ]
+    output_path = tmp_path / "series.epub"
+
+    write_epub(pages, output_path, title="SCP", language="zh-CN", creator="SCP")
+
+    with zipfile.ZipFile(output_path) as archive:
+        nav = archive.read("OEBPS/nav.xhtml").decode("utf-8")
+
+    scp001 = '<li class="level-1"><a href="text/0001-scp-001.xhtml">SCP-001</a>'
+    spc001 = '<li class="level-2"><a href="text/0002-spc-001.xhtml">SPC-001</a>'
+    ouroborealis = '<li class="level-3"><a href="text/0003-ouroborealis.xhtml">衔尾鲨</a></li>'
+    scp002 = '<li class="level-1"><a href="text/0004-scp-002.xhtml">SCP-002</a></li>'
+
+    assert nav.index(scp001) < nav.index(spc001) < nav.index(ouroborealis) < nav.index(scp002)
+    assert (
+        f"{scp001}\n          <ol>\n            {spc001}\n              <ol>\n                {ouroborealis}\n"
+        in nav
+    )
 
 
 def test_write_epub_includes_localized_assets_in_archive_and_manifest(tmp_path: Path):

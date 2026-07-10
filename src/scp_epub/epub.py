@@ -227,7 +227,7 @@ def _page_manifest_item(entry: _ChapterEntry) -> str:
 
 
 def _nav_xhtml(*, title: str, language: str, page_entries: list[_ChapterEntry]) -> str:
-    nav_items = "\n".join(_nav_item(entry) for entry in page_entries)
+    nav_items = _nav_items(page_entries)
     escaped_language = escape(language, quote=True)
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
@@ -248,11 +248,60 @@ def _nav_xhtml(*, title: str, language: str, page_entries: list[_ChapterEntry]) 
 """
 
 
-def _nav_item(entry: _ChapterEntry) -> str:
+def _nav_items(page_entries: list[_ChapterEntry]) -> str:
+    entries_by_slug = {entry.page.entry.slug: entry for entry in page_entries}
+    children_by_parent: dict[str, list[_ChapterEntry]] = {}
+    roots: list[_ChapterEntry] = []
+
+    for entry in page_entries:
+        parent_slug = entry.page.entry.parent_slug
+        if parent_slug and parent_slug in entries_by_slug:
+            children_by_parent.setdefault(parent_slug, []).append(entry)
+        else:
+            roots.append(entry)
+
+    rendered: list[str] = []
+    visited: set[str] = set()
+    for entry in roots:
+        rendered.append(_nav_item(entry, children_by_parent, visited, indent=8))
+    return "\n".join(rendered)
+
+
+def _nav_item(
+    entry: _ChapterEntry,
+    children_by_parent: dict[str, list[_ChapterEntry]],
+    visited: set[str],
+    *,
+    indent: int,
+) -> str:
+    slug = entry.page.entry.slug
+    if slug in visited:
+        return ""
+    visited.add(slug)
+
     level = max(entry.page.entry.level, 1)
-    return (
-        f'        <li class="level-{level}"><a href="{escape(entry.href, quote=True)}">'
-        f"{escape(entry.page.entry.title)}</a></li>"
+    padding = " " * indent
+    link = (
+        f'{padding}<li class="level-{level}"><a href="{escape(entry.href, quote=True)}">'
+        f"{escape(entry.page.entry.title)}</a>"
+    )
+    child_items = [
+        item
+        for child in children_by_parent.get(slug, [])
+        if (item := _nav_item(child, children_by_parent, visited, indent=indent + 4))
+    ]
+    if not child_items:
+        return f"{link}</li>"
+
+    child_padding = " " * (indent + 2)
+    return "\n".join(
+        [
+            link,
+            f"{child_padding}<ol>",
+            *child_items,
+            f"{child_padding}</ol>",
+            f"{padding}</li>",
+        ]
     )
 
 
