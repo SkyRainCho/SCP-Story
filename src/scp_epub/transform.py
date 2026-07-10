@@ -214,7 +214,7 @@ def _is_unwanted_element(tag: Tag) -> bool:
     if classes & UNWANTED_CLASSES:
         return True
 
-    if _is_hidden_css_code_container(tag) or _is_css_code_collapsible(tag):
+    if _is_hidden_css_code_container(tag) or _is_hidden_scp_image_container(tag) or _is_css_code_collapsible(tag):
         return True
 
     if any(
@@ -240,6 +240,15 @@ def _is_hidden_css_code_container(tag: Tag) -> bool:
     if not _is_hidden_by_style(tag):
         return False
     return _contains_code_block(tag) and _looks_like_css_code(tag.get_text("\n", strip=True))
+
+
+def _is_hidden_scp_image_container(tag: Tag) -> bool:
+    if not _is_hidden_by_style(tag):
+        return False
+    classes = _class_tokens(tag)
+    if "collapsible-block-unfolded" in classes:
+        return False
+    return tag.find(class_="scp-image-block") is not None
 
 
 def _is_css_code_collapsible(tag: Tag) -> bool:

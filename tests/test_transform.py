@@ -192,6 +192,30 @@ def test_removes_unfolded_collapsible_links_but_keeps_single_folded_label_and_co
     assert "第一段正文" in soup.get_text(" ", strip=True)
 
 
+def test_removes_hidden_scp_image_blocks_that_would_become_visible_after_style_sanitization():
+    html = """
+    <html><body><div id="page-content">
+      <div style="display: none;">
+        <div class="scp-image-block block-right" style="width:300px;">
+          <img src="/local--files/numerus/numerus_background_header_image.png" alt="hidden header"/>
+          <div class="scp-image-caption"><p>.</p></div>
+        </div>
+      </div>
+      <p>正文内容</p>
+      <img src="/images/visible.png" alt="visible"/>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    assert "hidden header" not in result.xhtml
+    assert "numerus_background_header_image.png" not in result.xhtml
+    assert "正文内容" in soup.get_text(" ", strip=True)
+    assert [img["src"] for img in soup.find_all("img")] == ["https://scp-wiki-cn.wikidot.com/images/visible.png"]
+    assert result.asset_urls == ("https://scp-wiki-cn.wikidot.com/images/visible.png",)
+
+
 def test_missing_page_content_raises_value_error():
     with pytest.raises(ValueError, match="#page-content"):
         transform_page(page_ref(), "<html><body><p>No content</p></body></html>", BASE_URL)
