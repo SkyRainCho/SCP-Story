@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from urllib.parse import urlparse
 
@@ -56,6 +57,7 @@ CSS_CODE_MARKERS = (
     "variables",
     "--logo-img",
 )
+CSS_CUSTOM_PROPERTY_RE = re.compile(r"--\s*[a-z0-9_-]+\s*:", re.IGNORECASE)
 UNWANTED_IDS = {
     "action-area",
     "edit-page-form",
@@ -74,6 +76,7 @@ UNWANTED_CLASSES = {
     "creditbuttonstandalone",
     "creditbottomrate",
     "creditrate",
+    "collapsible-block-unfolded-link",
     "footer-wikiwalk-nav",
     "info-container",
     "license-area",
@@ -264,7 +267,11 @@ def _contains_code_block(tag: Tag) -> bool:
 def _looks_like_css_code(text: str) -> bool:
     normalized = text.lower()
     hits = sum(1 for marker in CSS_CODE_MARKERS if marker in normalized)
-    return hits >= 2
+    if hits >= 2:
+        return True
+
+    custom_property_hits = len(CSS_CUSTOM_PROPERTY_RE.findall(normalized))
+    return ":root" in normalized and custom_property_hits >= 2
 
 
 def _is_stylesheet_link(tag: Tag) -> bool:

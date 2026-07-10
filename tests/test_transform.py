@@ -148,6 +148,50 @@ def test_strips_event_handlers_and_sanitizes_inline_styles_but_keeps_harmless_at
     assert "javascript:alert" not in result.xhtml
 
 
+def test_removes_hidden_css_code_with_split_highlight_tokens():
+    html = """
+    <html><body><div id="page-content">
+      <div style="display: none;">
+        <div class="code"><pre><span>:root</span> {
+          <span>--</span><span>accent:</span> var(--acc-spc);
+          <span>--</span><span>header-title:</span> "SPC 数据库";
+        }</pre></div>
+      </div>
+      <p>正文内容</p>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+
+    assert ":root" not in result.xhtml
+    assert "--" not in result.xhtml
+    assert "SPC 数据库" not in result.xhtml
+    assert "正文内容" in result.xhtml
+
+
+def test_removes_unfolded_collapsible_links_but_keeps_single_folded_label_and_content():
+    html = """
+    <html><body><div id="page-content">
+      <div class="collapsible-block">
+        <div class="collapsible-block-folded"><a class="collapsible-block-link" href="javascript:;">1</a></div>
+        <div class="collapsible-block-unfolded" style="display:none">
+          <div class="collapsible-block-unfolded-link"><a class="collapsible-block-link" href="javascript:;">1</a></div>
+          <div class="collapsible-block-content"><p>第一段正文</p></div>
+          <div class="collapsible-block-unfolded-link"><a class="collapsible-block-link" href="javascript:;">1</a></div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(class_="collapsible-block-unfolded-link") is None
+    links = soup.find_all(class_="collapsible-block-link")
+    assert [link.get_text(strip=True) for link in links] == ["1"]
+    assert "第一段正文" in soup.get_text(" ", strip=True)
+
+
 def test_missing_page_content_raises_value_error():
     with pytest.raises(ValueError, match="#page-content"):
         transform_page(page_ref(), "<html><body><p>No content</p></body></html>", BASE_URL)
