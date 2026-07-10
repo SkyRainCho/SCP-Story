@@ -2,6 +2,7 @@
 .worktrees/
 data/raw/
 data/processed/
+data/manifests/
 output/
 
 # Python build/test artifacts
