@@ -82,11 +82,11 @@ def build_volume(
 ) -> Path:
     volume = volume_for_key(config, volume_key)
     active_fetcher = fetcher or make_fetcher(config)
-    manifest_path = manifest_path_for_volume(config, volume)
-    manifest = (
-        read_manifest(manifest_path)
-        if manifest_path.exists()
-        else build_manifest(config, volume_key, fetcher=active_fetcher, force=force)
+    manifest = _load_or_build_manifest(
+        config,
+        volume_key,
+        active_fetcher,
+        force=force,
     )
     fetch_results = fetch_manifest_pages(
         config,
@@ -96,7 +96,7 @@ def build_volume(
     )
     processed_pages = _process_pages(config, volume, manifest, fetch_results)
 
-    output_path = config.output_dir / f"{volume.output_slug}.epub"
+    output_path = config.output_dir / "epub" / f"{volume.output_slug}.epub"
     write_epub(
         processed_pages,
         output_path,
@@ -106,7 +106,7 @@ def build_volume(
         identifier=f"urn:{config.series_id}:{volume.output_slug}",
     )
     write_build_report(
-        config.output_dir / f"{volume.output_slug}-report.json",
+        config.output_dir / "reports" / f"{volume.output_slug}-report.json",
         pages=processed_pages,
         output_path=output_path,
     )
@@ -128,17 +128,7 @@ def run_command(args: Namespace) -> None:
         return
 
     if command == "fetch":
-        volume = volume_for_key(config, args.volume)
-        manifest_path = manifest_path_for_volume(config, volume)
-        manifest = (
-            read_manifest(manifest_path)
-            if manifest_path.exists()
-            else (
-                build_manifest(config, args.volume, force=True)
-                if force
-                else build_manifest(config, args.volume)
-            )
-        )
+        manifest = _load_or_build_manifest(config, args.volume, None, force=force)
         results = (
             fetch_manifest_pages(config, manifest, force=True)
             if force
@@ -183,6 +173,20 @@ def volume_for_key(config: AppConfig, volume_key: str) -> VolumeSpec:
     except KeyError:
         choices = ", ".join(sorted(config.volumes)) or "<none>"
         raise ValueError(f"Unknown volume {volume_key!r}; available volumes: {choices}") from None
+
+
+def _load_or_build_manifest(
+    config: AppConfig,
+    volume_key: str,
+    fetcher: PageFetcher | None,
+    *,
+    force: bool,
+) -> list[PageRef]:
+    volume = volume_for_key(config, volume_key)
+    manifest_path = manifest_path_for_volume(config, volume)
+    if force or not manifest_path.exists():
+        return build_manifest(config, volume_key, fetcher=fetcher, force=force)
+    return read_manifest(manifest_path)
 
 
 def _process_pages(

@@ -84,6 +84,23 @@ def simple_page(title: str, body: str = "Body") -> str:
 """
 
 
+def simple_index(*slugs: str) -> str:
+    items = "\n".join(
+        f'<li><a href="/{slug}">{slug.upper()}</a></li>'
+        for slug in slugs
+    )
+    return f"""
+<html>
+  <body>
+    <div id="page-content">
+      <h1>001到099</h1>
+      <ul>{items}</ul>
+    </div>
+  </body>
+</html>
+"""
+
+
 def test_build_manifest_fetches_sources_merges_scp001_and_writes_manifest(tmp_path: Path):
     config = app_config(tmp_path)
     pages = {
@@ -153,7 +170,7 @@ def test_build_volume_fetches_transforms_and_writes_epub_report_and_processed_fi
 
     output_path = build_volume(config, "001-099", fetcher=fetcher)
 
-    assert output_path == config.output_dir / "test-volume.epub"
+    assert output_path == config.output_dir / "epub" / "test-volume.epub"
     assert output_path.exists()
     with zipfile.ZipFile(output_path) as archive:
         names = archive.namelist()
@@ -162,10 +179,44 @@ def test_build_volume_fetches_transforms_and_writes_epub_report_and_processed_fi
     processed_dir = config.processed_dir / "test-volume"
     assert (processed_dir / "0001-scp-001.xhtml").exists()
     assert "Hub body" in (processed_dir / "0001-scp-001.xhtml").read_text(encoding="utf-8")
-    report = json.loads((config.output_dir / "test-volume-report.json").read_text(encoding="utf-8"))
+    report_path = config.output_dir / "reports" / "test-volume-report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
     assert report["page_count"] == 2
     assert report["output_path"] == str(output_path)
     assert report["internal_links"] == [f"{BASE_URL}/scp-001"]
+
+
+def test_build_volume_force_rebuilds_existing_manifest_from_refreshed_sources(tmp_path: Path):
+    config = app_config(tmp_path)
+    stale_manifest = [
+        PageRef("Stale Page", f"{BASE_URL}/stale-page", "stale-page", 1, "scp", order=1),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(stale_manifest, config.manifest_dir / "test-volume.json")
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-series-1-tales-edition": simple_index("scp-001", "scp-002"),
+            "scp-001": simple_page("SCP-001", "Refreshed hub"),
+            "scp-002": simple_page("SCP-002", "Refreshed article"),
+        },
+    )
+
+    output_path = build_volume(config, "001-099", fetcher=fetcher, force=True)
+
+    assert output_path == config.output_dir / "epub" / "test-volume.epub"
+    assert [slug for slug, _url, _force in fetcher.calls] == [
+        "scp-series-1-tales-edition",
+        "scp-001",
+        "scp-001",
+        "scp-002",
+    ]
+    assert all(force for _slug, _url, force in fetcher.calls)
+    refreshed_manifest = json.loads((config.manifest_dir / "test-volume.json").read_text(encoding="utf-8"))
+    assert [entry["slug"] for entry in refreshed_manifest] == ["scp-001", "scp-002"]
+    report = json.loads((config.output_dir / "reports" / "test-volume-report.json").read_text(encoding="utf-8"))
+    assert report["slugs"] == ["scp-001", "scp-002"]
 
 
 def test_unknown_volume_key_raises_value_error(tmp_path: Path):
