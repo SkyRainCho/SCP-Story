@@ -91,6 +91,18 @@ def test_series_1_config_defines_all_volume_ranges():
     assert config.volumes["900-999"].end == 999
 
 
+def test_series_2_config_defines_all_volume_ranges():
+    config = load_config(Path("config/series-2.yaml"))
+
+    expected_keys = [f"{start}-{start + 99}" for start in range(1000, 2000, 100)]
+    assert config.series_id == "scp-series-2"
+    assert config.index_path == "/scp-series-2-tales-edition"
+    assert config.series_index_path == "/scp-series-2"
+    assert list(config.volumes) == expected_keys
+    assert config.volumes["1000-1099"].start == 1000
+    assert config.volumes["1900-1999"].end == 1999
+
+
 def test_load_config_under_config_dir_uses_parent_workspace(tmp_path: Path):
     config_dir = tmp_path / "config"
     config_dir.mkdir()
