@@ -90,6 +90,28 @@ def test_parse_tales_index_matches_repeated_scp_prefix_range_heading():
     assert [entry.slug for entry in entries] == ["scp-002"]
 
 
+def test_parse_tales_index_matches_four_digit_range_heading():
+    html = """
+<div id="page-content">
+  <div class="content-panel">
+    <h1>SCP-1000到SCP-1099</h1>
+    <ul>
+      <li><a href="/scp-1000">SCP-1000</a>
+        <ul><li><a href="/story-1000">Story 1000</a></li></ul>
+      </li>
+    </ul>
+    <h1>SCP-1100到SCP-1199</h1>
+    <ul><li><a href="/scp-1100">SCP-1100</a></li></ul>
+  </div>
+</div>
+"""
+
+    entries = parse_tales_index(html, BASE_URL, start=1000, end=1099)
+
+    assert [entry.slug for entry in entries] == ["scp-1000", "story-1000"]
+    assert entries[1].parent_slug == "scp-1000"
+
+
 def test_parse_tales_index_includes_lower_heading_content_until_same_level_boundary():
     html = """
 <div id="page-content">
@@ -142,3 +164,24 @@ def test_parse_series_index_extracts_scp_items_in_range_with_titles():
     assert {entry.role for entry in entries} == {"scp"}
     assert {entry.source for entry in entries} == {"series-index"}
     assert [entry.order for entry in entries] == [1, 2, 3, 4]
+
+
+def test_parse_series_index_extracts_four_digit_scp_items():
+    html = """
+<div id="page-content">
+  <ul>
+    <li><a href="/scp-0999">SCP-999</a> - Outside</li>
+    <li><a href="/scp-1000">SCP-1000</a> - Bigfoot</li>
+    <li><a href="/scp-1001">SCP-1001</a> - Ya-Te-Veo</li>
+    <li><a href="/scp-1100">SCP-1100</a> - Outside</li>
+  </ul>
+</div>
+"""
+
+    entries = parse_series_index(html, BASE_URL, start=1000, end=1099)
+
+    assert [entry.slug for entry in entries] == ["scp-1000", "scp-1001"]
+    assert [entry.title for entry in entries] == [
+        "SCP-1000 - Bigfoot",
+        "SCP-1001 - Ya-Te-Veo",
+    ]
