@@ -13,12 +13,12 @@ from .urls import normalize_url, slug_from_url
 
 HEADING_NAMES = frozenset(f"h{level}" for level in range(1, 7))
 SECTION_RANGE_RE = re.compile(
-    r"(?:SCP[-\s]*)?(?P<start>\d{1,3})\s*"
+    r"(?:SCP[-\s]*)?(?P<start>\d{1,4})\s*"
     r"(?:到|至|--|—|–|-|~)\s*"
-    r"(?:SCP[-\s]*)?(?P<end>\d{1,3})",
+    r"(?:SCP[-\s]*)?(?P<end>\d{1,4})",
     re.IGNORECASE,
 )
-SCP_RE = re.compile(r"^scp-\d{3}$", re.IGNORECASE)
+SCP_RE = re.compile(r"^scp-\d{3,4}$", re.IGNORECASE)
 SCP_001_PROPOSAL_RE = re.compile(r"(?<!\d)0*1(?!\d).*提案")
 SCP_001_PROPOSAL_SLUG_RE = re.compile(
     r"^(?:[a-z0-9][a-z0-9-]*:)?[a-z0-9][a-z0-9-]*"
