@@ -102,13 +102,12 @@ def build_volume(
         active_fetcher,
         force=force,
     )
-    fetch_results = fetch_manifest_pages(
-        config,
+    available_manifest, fetch_results, missing_pages = fetch_build_pages(
         manifest,
-        fetcher=active_fetcher,
+        active_fetcher,
         force=force,
     )
-    processed_pages = _process_pages(config, volume, manifest, fetch_results)
+    processed_pages = _process_pages(config, volume, available_manifest, fetch_results)
     localized_pages, localized_assets, missing_assets = localize_assets(
         processed_pages,
         active_fetcher,
@@ -132,8 +131,38 @@ def build_volume(
         pages=processed_pages,
         output_path=output_path,
         missing_assets=missing_assets,
+        missing_pages=missing_pages,
     )
     return output_path
+
+
+def fetch_build_pages(
+    manifest: list[PageRef],
+    fetcher: PageFetcher,
+    *,
+    force: bool = False,
+) -> tuple[list[PageRef], list[FetchResult], list[dict[str, str]]]:
+    available_manifest: list[PageRef] = []
+    fetch_results: list[FetchResult] = []
+    missing_pages: list[dict[str, str]] = []
+
+    for entry in manifest:
+        try:
+            result = fetcher.fetch_page(entry.slug, entry.url, force=force)
+        except Exception as exc:
+            missing_pages.append(
+                {
+                    "slug": entry.slug,
+                    "title": entry.title,
+                    "url": entry.url,
+                    "reason": str(exc),
+                }
+            )
+            continue
+        available_manifest.append(entry)
+        fetch_results.append(result)
+
+    return available_manifest, fetch_results, missing_pages
 
 
 def run_command(args: Namespace) -> None:
@@ -181,7 +210,10 @@ def make_fetcher(config: AppConfig) -> Fetcher:
     return Fetcher(
         CacheStore(config.cache_dir),
         retry_count=config.retry_count,
+        asset_retry_count=config.asset_retry_count,
         request_delay_seconds=config.request_delay_seconds,
+        request_timeout_seconds=config.request_timeout_seconds,
+        asset_timeout_seconds=config.asset_timeout_seconds,
     )
 
 

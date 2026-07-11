@@ -20,6 +20,9 @@ processed_dir: {processed_dir}
 output_dir: {output_dir}
 request_delay_seconds: {request_delay_seconds}
 retry_count: {retry_count}
+request_timeout_seconds: {request_timeout_seconds}
+asset_timeout_seconds: {asset_timeout_seconds}
+asset_retry_count: {asset_retry_count}
 volumes:
   "001-099":
     start: {start}
@@ -45,6 +48,9 @@ def write_config(config_path: Path, **overrides: str) -> None:
         "output_dir": "output",
         "request_delay_seconds": "0.1",
         "retry_count": "2",
+        "request_timeout_seconds": "30",
+        "asset_timeout_seconds": "5",
+        "asset_retry_count": "1",
         "start": "1",
         "end": "99",
         "volume_title": "Volume Title",
@@ -67,8 +73,22 @@ def test_load_config_builds_absolute_urls_and_paths(tmp_path: Path):
     assert config.manifest_dir == tmp_path / "data/manifests"
     assert config.processed_dir == tmp_path / "data/processed"
     assert config.output_dir == tmp_path / "output"
+    assert config.request_timeout_seconds == 30
+    assert config.asset_timeout_seconds == 5
+    assert config.asset_retry_count == 1
     assert config.volumes["001-099"].start == 1
     assert config.workspace == tmp_path
+
+
+def test_series_1_config_defines_all_volume_ranges():
+    config = load_config(Path("config/series-1.yaml"))
+
+    expected_keys = ["001-099"] + [
+        f"{start:03d}-{start + 99:03d}" for start in range(100, 1000, 100)
+    ]
+    assert list(config.volumes) == expected_keys
+    assert config.volumes["001-099"].start == 1
+    assert config.volumes["900-999"].end == 999
 
 
 def test_load_config_under_config_dir_uses_parent_workspace(tmp_path: Path):
@@ -146,6 +166,8 @@ def test_load_config_rejects_invalid_top_level_strings(
         ("retry_count", '"2.9"', "retry_count must be an integer"),
         ("retry_count", "true", "retry_count must be an integer"),
         ("retry_count", "0", "retry_count must be at least 1"),
+        ("asset_retry_count", "none", "asset_retry_count must be an integer"),
+        ("asset_retry_count", "0", "asset_retry_count must be at least 1"),
         (
             "request_delay_seconds",
             "soon",
@@ -155,6 +177,16 @@ def test_load_config_rejects_invalid_top_level_strings(
             "request_delay_seconds",
             "-0.1",
             "request_delay_seconds must be non-negative",
+        ),
+        (
+            "request_timeout_seconds",
+            "0",
+            "request_timeout_seconds must be positive",
+        ),
+        (
+            "asset_timeout_seconds",
+            "-1",
+            "asset_timeout_seconds must be positive",
         ),
     ],
 )

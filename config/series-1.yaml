@@ -11,7 +11,10 @@ manifest_dir: data/manifests
 processed_dir: data/processed
 output_dir: output
 request_delay_seconds: 0.5
+request_timeout_seconds: 30
 retry_count: 3
+asset_timeout_seconds: 5
+asset_retry_count: 1
 include_scp001_proposals: false
 volumes:
   "001-099":
@@ -19,3 +22,48 @@ volumes:
     end: 99
     title: SCP Series 1 Tales Edition 001-099
     output_slug: scp-series-1-001-099-tales
+  "100-199":
+    start: 100
+    end: 199
+    title: SCP Series 1 Tales Edition 100-199
+    output_slug: scp-series-1-100-199-tales
+  "200-299":
+    start: 200
+    end: 299
+    title: SCP Series 1 Tales Edition 200-299
+    output_slug: scp-series-1-200-299-tales
+  "300-399":
+    start: 300
+    end: 399
+    title: SCP Series 1 Tales Edition 300-399
+    output_slug: scp-series-1-300-399-tales
+  "400-499":
+    start: 400
+    end: 499
+    title: SCP Series 1 Tales Edition 400-499
+    output_slug: scp-series-1-400-499-tales
+  "500-599":
+    start: 500
+    end: 599
+    title: SCP Series 1 Tales Edition 500-599
+    output_slug: scp-series-1-500-599-tales
+  "600-699":
+    start: 600
+    end: 699
+    title: SCP Series 1 Tales Edition 600-699
+    output_slug: scp-series-1-600-699-tales
+  "700-799":
+    start: 700
+    end: 799
+    title: SCP Series 1 Tales Edition 700-799
+    output_slug: scp-series-1-700-799-tales
+  "800-899":
+    start: 800
+    end: 899
+    title: SCP Series 1 Tales Edition 800-899
+    output_slug: scp-series-1-800-899-tales
+  "900-999":
+    start: 900
+    end: 999
+    title: SCP Series 1 Tales Edition 900-999
+    output_slug: scp-series-1-900-999-tales

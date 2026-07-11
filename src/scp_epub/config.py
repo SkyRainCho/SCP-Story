@@ -60,7 +60,20 @@ def load_config(path: str | Path) -> AppConfig:
         request_delay_seconds=_non_negative_number(
             data["request_delay_seconds"], "request_delay_seconds"
         ),
+        request_timeout_seconds=_positive_number(
+            data.get("request_timeout_seconds", 30),
+            "request_timeout_seconds",
+        ),
         retry_count=_minimum_integer(data["retry_count"], "retry_count", 1),
+        asset_timeout_seconds=_positive_number(
+            data.get("asset_timeout_seconds", data.get("request_timeout_seconds", 30)),
+            "asset_timeout_seconds",
+        ),
+        asset_retry_count=_minimum_integer(
+            data.get("asset_retry_count", data["retry_count"]),
+            "asset_retry_count",
+            1,
+        ),
         include_scp001_proposals=_optional_bool(
             data.get("include_scp001_proposals", False),
             "include_scp001_proposals",
@@ -158,6 +171,13 @@ def _non_negative_number(value: Any, name: str) -> float:
     number = _number(value, name)
     if number < 0:
         raise ValueError(f"{name} must be non-negative")
+    return number
+
+
+def _positive_number(value: Any, name: str) -> float:
+    number = _number(value, name)
+    if number <= 0:
+        raise ValueError(f"{name} must be positive")
     return number
 
 
