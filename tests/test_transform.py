@@ -248,6 +248,41 @@ def test_preserves_document_styles_that_target_page_content():
     assert soup.find(class_="blankframe") is not None
 
 
+def test_skips_unsupported_anomaly_bar_document_styles():
+    html = """
+    <html>
+      <head>
+        <style>
+          .blankframe { border: double 3px #555; padding: 1em; }
+          .anom-bar-container { display: flex; width: 100%; }
+          .danger-diamond > .arrows { position: absolute; mask-image: url("data:image/svg+xml,AAAA"); }
+          .text-part .risk-class::before { position: absolute; background-color: #222; }
+        </style>
+      </head>
+      <body>
+        <div id="page-content">
+          <div class="blankframe">移动设备报告</div>
+          <div class="anom-bar-container">
+            <div class="danger-diamond"><div class="arrows"></div></div>
+            <div class="text-part"><div class="risk-class">危急</div></div>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    style = soup.find("style")
+    assert style is not None
+    style_text = style.get_text()
+    assert ".blankframe" in style_text
+    assert ".anom-bar-container" not in style_text
+    assert ".danger-diamond" not in style_text
+    assert ".risk-class" not in style_text
+
+
 def test_missing_page_content_raises_value_error():
     with pytest.raises(ValueError, match="#page-content"):
         transform_page(page_ref(), "<html><body><p>No content</p></body></html>", BASE_URL)

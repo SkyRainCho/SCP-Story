@@ -63,6 +63,33 @@ CSS_RULE_RE = re.compile(r"(?P<selectors>[^{}@][^{}]*)\{(?P<body>[^{}]*)\}")
 CSS_PSEUDO_RE = re.compile(r"::?[a-zA-Z-]+(?:\([^)]*\))?")
 CSS_CLASS_SELECTOR_RE = re.compile(r"\.([_a-zA-Z][-_a-zA-Z0-9]*)")
 CSS_ID_SELECTOR_RE = re.compile(r"#([_a-zA-Z][-_a-zA-Z0-9]*)")
+UNSUPPORTED_PAGE_STYLE_SELECTOR_FRAGMENTS = (
+    ".anom-bar",
+    ".anom-bar-container",
+    ".arrows",
+    ".bottom-box",
+    ".bottom-icon",
+    ".class-category",
+    ".class-text",
+    ".clearance",
+    ".contain-class",
+    ".danger-diamond",
+    ".diamond-part",
+    ".disrupt-class",
+    ".left-icon",
+    ".main-class",
+    ".octagon",
+    ".quadrants",
+    ".right-icon",
+    ".risk-class",
+    ".second-class",
+    ".text-part",
+    ".top-box",
+    ".top-center-box",
+    ".top-icon",
+    ".top-left-box",
+    ".top-right-box",
+)
 UNWANTED_IDS = {
     "action-area",
     "edit-page-form",
@@ -315,9 +342,22 @@ def _matching_css_rules(css_text: str, targets: tuple[set[str], set[str]]) -> li
         if not selector_text or not body:
             continue
         selectors = [selector.strip() for selector in selector_text.split(",") if selector.strip()]
-        if any(_selector_targets_page_content(selector, targets) for selector in selectors):
-            rules.append(f"{selector_text} {{{body}}}")
+        supported_selectors = [
+            selector for selector in selectors if not _is_unsupported_page_style_selector(selector)
+        ]
+        matching_selectors = [
+            selector
+            for selector in supported_selectors
+            if _selector_targets_page_content(selector, targets)
+        ]
+        if matching_selectors:
+            rules.append(f"{', '.join(matching_selectors)} {{{body}}}")
     return rules
+
+
+def _is_unsupported_page_style_selector(selector: str) -> bool:
+    lowered = selector.lower()
+    return any(fragment in lowered for fragment in UNSUPPORTED_PAGE_STYLE_SELECTOR_FRAGMENTS)
 
 
 def _selector_targets_page_content(selector: str, targets: tuple[set[str], set[str]]) -> bool:
