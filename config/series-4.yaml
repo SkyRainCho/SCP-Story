@@ -1,0 +1,69 @@
+series_id: scp-series-4
+title: SCP Series 4 Tales Edition
+language: zh-CN
+creator: SCP Wiki CN
+base_url: https://scp-wiki-cn.wikidot.com
+index_path: /scp-series-4-tales-edition
+series_index_path: /scp-series-4
+scp001_path: /scp-001
+cache_dir: data/raw
+manifest_dir: data/manifests
+processed_dir: data/processed
+output_dir: output
+request_delay_seconds: 0.5
+request_timeout_seconds: 30
+retry_count: 3
+asset_timeout_seconds: 15
+asset_retry_count: 2
+include_scp001_proposals: false
+volumes:
+  "3000-3099":
+    start: 3000
+    end: 3099
+    title: SCP Series 4 Tales Edition 3000-3099
+    output_slug: scp-series-4-3000-3099-tales
+  "3100-3199":
+    start: 3100
+    end: 3199
+    title: SCP Series 4 Tales Edition 3100-3199
+    output_slug: scp-series-4-3100-3199-tales
+  "3200-3299":
+    start: 3200
+    end: 3299
+    title: SCP Series 4 Tales Edition 3200-3299
+    output_slug: scp-series-4-3200-3299-tales
+  "3300-3399":
+    start: 3300
+    end: 3399
+    title: SCP Series 4 Tales Edition 3300-3399
+    output_slug: scp-series-4-3300-3399-tales
+  "3400-3499":
+    start: 3400
+    end: 3499
+    title: SCP Series 4 Tales Edition 3400-3499
+    output_slug: scp-series-4-3400-3499-tales
+  "3500-3599":
+    start: 3500
+    end: 3599
+    title: SCP Series 4 Tales Edition 3500-3599
+    output_slug: scp-series-4-3500-3599-tales
+  "3600-3699":
+    start: 3600
+    end: 3699
+    title: SCP Series 4 Tales Edition 3600-3699
+    output_slug: scp-series-4-3600-3699-tales
+  "3700-3799":
+    start: 3700
+    end: 3799
+    title: SCP Series 4 Tales Edition 3700-3799
+    output_slug: scp-series-4-3700-3799-tales
+  "3800-3899":
+    start: 3800
+    end: 3899
+    title: SCP Series 4 Tales Edition 3800-3899
+    output_slug: scp-series-4-3800-3899-tales
+  "3900-3999":
+    start: 3900
+    end: 3999
+    title: SCP Series 4 Tales Edition 3900-3999
+    output_slug: scp-series-4-3900-3999-tales

@@ -103,6 +103,29 @@ def test_series_2_config_defines_all_volume_ranges():
     assert config.volumes["1900-1999"].end == 1999
 
 
+@pytest.mark.parametrize(
+    ("series_number", "start"),
+    [
+        (3, 2000),
+        (4, 3000),
+        (5, 4000),
+        (6, 5000),
+        (7, 6000),
+        (8, 7000),
+    ],
+)
+def test_later_series_configs_define_all_volume_ranges(series_number: int, start: int):
+    config = load_config(Path(f"config/series-{series_number}.yaml"))
+
+    expected_keys = [f"{value}-{value + 99}" for value in range(start, start + 1000, 100)]
+    assert config.series_id == f"scp-series-{series_number}"
+    assert config.index_path == f"/scp-series-{series_number}-tales-edition"
+    assert config.series_index_path == f"/scp-series-{series_number}"
+    assert list(config.volumes) == expected_keys
+    assert config.volumes[f"{start}-{start + 99}"].start == start
+    assert config.volumes[f"{start + 900}-{start + 999}"].end == start + 999
+
+
 def test_load_config_under_config_dir_uses_parent_workspace(tmp_path: Path):
     config_dir = tmp_path / "config"
     config_dir.mkdir()
