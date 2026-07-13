@@ -136,6 +136,12 @@ UNWANTED_CLASSES = {
     "translation_block",
     "u-faq",
 }
+FLOAT_CLEAR_TARGET_CLASSES = {
+    "blockquote",
+    "collapsible-block",
+    "collapsible-block-content",
+    "content-panel",
+}
 ASSET_ATTRIBUTES = {
     "img": "src",
     "source": "src",
@@ -174,6 +180,7 @@ def transform_page(
 
     _materialize_generated_before_content(soup, page_content, page_styles)
     _convert_grid_tables(soup, page_content)
+    _stabilize_float_layout(soup, page_content)
 
     asset_urls: list[str] = []
     seen_assets: set[str] = set()
@@ -456,6 +463,69 @@ def _convert_grid_tables(soup: BeautifulSoup, page_content: Tag) -> None:
 def _move_children(source: Tag, destination: Tag) -> None:
     for child in list(source.contents):
         destination.append(child.extract())
+
+
+def _stabilize_float_layout(soup: BeautifulSoup, page_content: Tag) -> None:
+    for tag in page_content.find_all(True):
+        if _should_clear_before_float_sensitive_block(tag):
+            _append_style_declaration(tag, "clear", "both")
+
+    for image_block in page_content.find_all(_is_floated_image_block):
+        container = image_block.parent
+        if not isinstance(container, Tag) or container is page_content:
+            continue
+        if _last_child_clears_floats(container):
+            continue
+        clearer = soup.new_tag("div")
+        clearer["style"] = "clear: both"
+        container.append(clearer)
+
+
+def _should_clear_before_float_sensitive_block(tag: Tag) -> bool:
+    if tag.name == "blockquote":
+        return True
+
+    classes = _class_tokens(tag)
+    if classes & FLOAT_CLEAR_TARGET_CLASSES:
+        return True
+
+    style = tag.get("style")
+    if tag.name == "div" and isinstance(style, str):
+        lowered = style.lower()
+        return "border" in lowered and "dashed" in lowered
+
+    return False
+
+
+def _append_style_declaration(tag: Tag, property_name: str, value: str) -> None:
+    style = str(tag.get("style", "")).strip()
+    declarations = [declaration.strip() for declaration in style.split(";") if declaration.strip()]
+    normalized_property = property_name.lower()
+    declarations = [
+        declaration
+        for declaration in declarations
+        if declaration.partition(":")[0].strip().lower() != normalized_property
+    ]
+    declarations.append(f"{property_name}: {value}")
+    tag["style"] = "; ".join(declarations)
+
+
+def _is_floated_image_block(tag: Tag) -> bool:
+    if tag.name != "div":
+        return False
+    classes = _class_tokens(tag)
+    return "scp-image-block" in classes and bool(classes & {"block-left", "block-right"})
+
+
+def _last_child_clears_floats(tag: Tag) -> bool:
+    for child in reversed(tag.contents):
+        if not isinstance(child, Tag):
+            if str(child).strip():
+                return False
+            continue
+        style = child.get("style")
+        return isinstance(style, str) and "clear" in style.lower() and "both" in style.lower()
+    return False
 
 
 def _css_content_value(style_body: str) -> str | None:

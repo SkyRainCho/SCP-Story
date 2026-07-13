@@ -382,6 +382,61 @@ def test_converts_css_grid_tables_to_epub_tables():
     assert table.find("a", href="https://scp-wiki-cn.wikidot.com/scp-1048") is not None
 
 
+def test_clears_floats_before_framed_blocks_without_clearing_plain_paragraphs():
+    html = """
+    <html><body><div id="page-content">
+      <div class="scp-image-block block-right" style="width:300px;">
+        <img src="/images/right.png" alt="right"/>
+      </div>
+      <p>这段文字仍然可以绕排图片。</p>
+      <div style="border: 1px dashed #999; padding: 1em;">记录框不能被图片覆盖。</div>
+      <blockquote><p>引用框也不能被图片覆盖。</p></blockquote>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find("p", string="这段文字仍然可以绕排图片。").get("style") is None
+    framed = soup.find("div", string="记录框不能被图片覆盖。")
+    assert "clear: both" in framed["style"]
+    blockquote = soup.find("blockquote")
+    assert "clear: both" in blockquote["style"]
+
+
+def test_contains_floated_images_inside_collapsible_content():
+    html = """
+    <html><body><div id="page-content">
+      <div class="collapsible-block">
+        <div class="collapsible-block-folded"><a class="collapsible-block-link">记录1</a></div>
+        <div class="collapsible-block-unfolded">
+          <div class="collapsible-block-content">
+            <div class="scp-image-block block-right" style="width:300px;">
+              <img src="/images/cover.png" alt="cover"/>
+            </div>
+            <p>项目编号：SCP-001</p>
+          </div>
+        </div>
+      </div>
+      <div class="collapsible-block">
+        <div class="collapsible-block-folded"><a class="collapsible-block-link">记录2</a></div>
+        <div class="collapsible-block-unfolded">
+          <div class="collapsible-block-content"><blockquote><p>下一段记录。</p></blockquote></div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    first_content = soup.find(class_="collapsible-block-content")
+    clearers = first_content.find_all("div", style="clear: both")
+    assert len(clearers) == 1
+    assert first_content.contents[-1] is clearers[0]
+    assert "clear: both" in soup.find(class_="collapsible-block")["style"]
+
+
 def test_missing_page_content_raises_value_error():
     with pytest.raises(ValueError, match="#page-content"):
         transform_page(page_ref(), "<html><body><p>No content</p></body></html>", BASE_URL)
