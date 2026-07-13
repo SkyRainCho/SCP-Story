@@ -322,6 +322,66 @@ def test_materializes_page_style_before_content_labels():
     assert blank_label.get_text(strip=True) == "📱 Blank，Harold R.博士"
 
 
+def test_does_not_materialize_complex_generated_before_selectors():
+    html = """
+    <html>
+      <head>
+        <style>
+          .speaker::before { content: "发言人"; font-weight: bold; }
+          .grid-table > *:nth-child(3n-2)::before { content: "SCP"; display: block; }
+        </style>
+      </head>
+      <body>
+        <div id="page-content">
+          <div class="speaker">正文</div>
+          <div class="grid-table">
+            <div>A</div><div>B</div><div>C</div>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(class_="speaker").find(class_="generated-before").get_text(strip=True) == "发言人"
+    assert soup.find(class_="grid-table").find(class_="generated-before") is None
+
+
+def test_converts_css_grid_tables_to_epub_tables():
+    html = """
+    <html><body><div id="page-content">
+      <div class="grid-table">
+        <div class="title"><p>SCP描述</p></div>
+        <div class="title"><p>001-K描述</p></div>
+        <div class="title"><p>收容方式</p></div>
+        <div><p><a href="/scp-1048">SCP-1048</a> - 泰迪熊。</p></div>
+        <div><p><a href="/scp-1054-ru">K-1054-RU</a> - 飞机引擎。</p></div>
+        <div><p>互相制衡。</p></div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL, {"scp-1048", "scp-1054-ru"})
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find("div", class_="grid-table") is None
+    table = soup.find("table", class_="grid-table-epub")
+    assert table is not None
+    assert [cell.get_text(" ", strip=True) for cell in table.find_all("th")] == [
+        "SCP描述",
+        "001-K描述",
+        "收容方式",
+    ]
+    rows = table.find_all("tr")
+    assert len(rows) == 2
+    assert [cell.name for cell in rows[1].find_all(["td", "th"])] == ["td", "td", "td"]
+    assert "background-color: #ff1d45" in table.find("th")["style"]
+    assert "background-color: #21252E" in table.find("td")["style"]
+    assert table.find("a", href="https://scp-wiki-cn.wikidot.com/scp-1048") is not None
+
+
 def test_missing_page_content_raises_value_error():
     with pytest.raises(ValueError, match="#page-content"):
         transform_page(page_ref(), "<html><body><p>No content</p></body></html>", BASE_URL)

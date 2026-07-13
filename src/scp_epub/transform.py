@@ -18,6 +18,7 @@ SAFE_STYLE_PROPERTIES = {
     "background-color",
     "border",
     "border-bottom",
+    "border-collapse",
     "border-left",
     "border-radius",
     "border-right",
@@ -45,8 +46,10 @@ SAFE_STYLE_PROPERTIES = {
     "padding-left",
     "padding-right",
     "padding-top",
+    "table-layout",
     "text-align",
     "text-decoration",
+    "vertical-align",
     "width",
 }
 UNSAFE_STYLE_VALUE_TOKENS = ("behavior:", "expression(", "javascript:", "-moz-binding", "url(")
@@ -139,6 +142,18 @@ ASSET_ATTRIBUTES = {
     "link": "href",
     "object": "data",
 }
+GRID_TABLE_STYLE = (
+    "width: 100%; border-collapse: collapse; table-layout: fixed; "
+    "background-color: #21252E; color: #EDEDED; margin: 1em 0"
+)
+GRID_TABLE_HEADER_STYLE = (
+    "border: solid 1px #ff1d45; background-color: #ff1d45; color: #21252E; "
+    "padding: 0.625em; text-align: center; font-weight: bold; vertical-align: middle"
+)
+GRID_TABLE_CELL_STYLE = (
+    "border: solid 1px #ff1d45; background-color: #21252E; color: #EDEDED; "
+    "padding: 0.625em; vertical-align: middle"
+)
 
 
 def transform_page(
@@ -158,6 +173,7 @@ def transform_page(
         tag.decompose()
 
     _materialize_generated_before_content(soup, page_content, page_styles)
+    _convert_grid_tables(soup, page_content)
 
     asset_urls: list[str] = []
     seen_assets: set[str] = set()
@@ -387,7 +403,7 @@ def _materialize_generated_before_content(
             base_selector = CSS_PSEUDO_RE.sub("", selector).strip()
             if base_selector.startswith("#page-content "):
                 base_selector = base_selector[len("#page-content ") :].strip()
-            if not base_selector:
+            if not base_selector or not _is_simple_generated_before_selector(base_selector):
                 continue
 
             for target in page_content.select(base_selector):
@@ -399,6 +415,47 @@ def _materialize_generated_before_content(
                     label["style"] = label_style
                 label.string = content_value
                 target.insert(0, label)
+
+
+def _is_simple_generated_before_selector(selector: str) -> bool:
+    if any(token in selector for token in (">", "+", "~", "*", "[", "]", ":")):
+        return False
+    return re.search(r"\s", selector) is None
+
+
+def _convert_grid_tables(soup: BeautifulSoup, page_content: Tag) -> None:
+    for grid_table in list(page_content.select(".grid-table")):
+        cells = [child for child in grid_table.find_all(recursive=False) if isinstance(child, Tag)]
+        if len(cells) < 3 or not all("title" in _class_tokens(cell) for cell in cells[:3]):
+            continue
+
+        table = soup.new_tag("table")
+        table["class"] = "grid-table-epub"
+        table["style"] = GRID_TABLE_STYLE
+
+        header_row = soup.new_tag("tr")
+        for cell in cells[:3]:
+            header = soup.new_tag("th")
+            header["style"] = GRID_TABLE_HEADER_STYLE
+            _move_children(cell, header)
+            header_row.append(header)
+        table.append(header_row)
+
+        for index in range(3, len(cells), 3):
+            row = soup.new_tag("tr")
+            for cell in cells[index : index + 3]:
+                table_cell = soup.new_tag("td")
+                table_cell["style"] = GRID_TABLE_CELL_STYLE
+                _move_children(cell, table_cell)
+                row.append(table_cell)
+            table.append(row)
+
+        grid_table.replace_with(table)
+
+
+def _move_children(source: Tag, destination: Tag) -> None:
+    for child in list(source.contents):
+        destination.append(child.extract())
 
 
 def _css_content_value(style_body: str) -> str | None:
