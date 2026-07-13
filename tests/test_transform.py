@@ -216,6 +216,368 @@ def test_removes_hidden_scp_image_blocks_that_would_become_visible_after_style_s
     assert result.asset_urls == ("https://scp-wiki-cn.wikidot.com/images/visible.png",)
 
 
+def test_removes_authorbox_list_pages_metadata_without_removing_article_body():
+    html = """
+    <html><body><div id="page-content">
+      <div class="limit">
+        <div class="anchor">
+          <div class="authorbox">
+            <div class="list-pages-box">
+              <div class="list-pages-item">
+                <table class="wiki-content-table">
+                  <tr><th>Illac</th></tr>
+                  <tr>
+                    <td>
+                      <strong>By:</strong>
+                      <span class="printuser avatarhover">
+                        <a href="/user:leebr"><img class="small" src="/avatar.png" alt="LeeBr"/></a>
+                        <a href="/user:leebr">LeeBr</a>
+                      </span>
+                    </td>
+                  </tr>
+                  <tr><th>Published on 09 Mar 2023 09:11</th></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <h1>Illac</h1>
+      <p>四千年之前，当我们搭上人类最后一艘幸存的星际飞船。</p>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(class_="authorbox") is None
+    assert soup.find("img", alt="LeeBr") is None
+    page_text = soup.get_text(" ", strip=True)
+    assert "Published on" not in page_text
+    assert "LeeBr" not in page_text
+    assert soup.find("h1").get_text(strip=True) == "Illac"
+    assert "四千年之前" in page_text
+    assert result.asset_urls == ()
+
+
+def test_keeps_scene_break_scp_logo_small_and_centered():
+    html = """
+    <html><body><div id="page-content">
+      <p>其后，我们决定进入低温休眠。</p>
+      <div class="image-container aligncenter">
+        <img class="scene-break" src="/local--files/theme:classic/scp_foundation_logo.png" alt="scp_foundation_logo.png"/>
+      </div>
+      <p>当我们在十六亿光年外的目的地醒来时。</p>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    image = soup.find("img", class_="scene-break")
+    assert image is not None
+    assert image["src"] == "https://scp-wiki-cn.wikidot.com/local--files/theme:classic/scp_foundation_logo.png"
+    assert "width: 96px" in image["style"]
+    assert "max-width: 40%" in image["style"]
+    assert "text-align: center" in image.parent["style"]
+    assert result.asset_urls == ("https://scp-wiki-cn.wikidot.com/local--files/theme:classic/scp_foundation_logo.png",)
+
+
+def test_preserves_document_styles_that_target_page_content():
+    html = """
+    <html>
+      <head>
+        <style>
+          .blankframe { border: double 3px #555; padding: 1em; }
+          div.console::before { content: "43NET"; display: block; }
+          .unused-site-chrome { color: red; }
+        </style>
+      </head>
+      <body>
+        <div id="page-content">
+          <div class="blankframe">
+            <div class="console">移动设备报告</div>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    style = soup.find("style")
+    assert style is not None
+    style_text = style.get_text()
+    assert ".blankframe" in style_text
+    assert "div.console::before" in style_text
+    assert ".unused-site-chrome" not in style_text
+    assert soup.find(class_="blankframe") is not None
+
+
+def test_skips_unsupported_anomaly_bar_document_styles():
+    html = """
+    <html>
+      <head>
+        <style>
+          .blankframe { border: double 3px #555; padding: 1em; }
+          .anom-bar-container { display: flex; width: 100%; }
+          .danger-diamond > .arrows { position: absolute; mask-image: url("data:image/svg+xml,AAAA"); }
+          .text-part .risk-class::before { position: absolute; background-color: #222; }
+        </style>
+      </head>
+      <body>
+        <div id="page-content">
+          <div class="blankframe">移动设备报告</div>
+          <div class="anom-bar-container">
+            <div class="danger-diamond"><div class="arrows"></div></div>
+            <div class="text-part"><div class="risk-class">危急</div></div>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    style = soup.find("style")
+    assert style is not None
+    style_text = style.get_text()
+    assert ".blankframe" in style_text
+    assert ".anom-bar-container" not in style_text
+    assert ".danger-diamond" not in style_text
+    assert ".risk-class" not in style_text
+
+
+def test_materializes_page_style_before_content_labels():
+    html = """
+    <html>
+      <head>
+        <style>
+          #page-content .clioframe::before {
+            content: "𓏢 CLIOMETRIA.AIC";
+            display: block;
+            font-weight: bold;
+          }
+          #page-content .blankframe::before {
+            content: "📱 Blank，Harold R.博士";
+            display: block;
+            font-weight: bold;
+          }
+        </style>
+      </head>
+      <body>
+        <div id="page-content">
+          <div class="clioframe"><div class="cliomain">时刻都在。</div></div>
+          <div class="blankframe"><div class="blank">你在吗？</div></div>
+        </div>
+      </body>
+    </html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    clio_label = soup.find(class_="generated-before")
+    assert clio_label is not None
+    assert clio_label.get_text(strip=True) == "𓏢 CLIOMETRIA.AIC"
+    assert soup.find(class_="clioframe").find(class_="generated-before") is clio_label
+
+    blank_label = soup.find(class_="blankframe").find(class_="generated-before")
+    assert blank_label is not None
+    assert blank_label.get_text(strip=True) == "📱 Blank，Harold R.博士"
+
+
+def test_does_not_materialize_complex_generated_before_selectors():
+    html = """
+    <html>
+      <head>
+        <style>
+          .speaker::before { content: "发言人"; font-weight: bold; }
+          .grid-table > *:nth-child(3n-2)::before { content: "SCP"; display: block; }
+        </style>
+      </head>
+      <body>
+        <div id="page-content">
+          <div class="speaker">正文</div>
+          <div class="grid-table">
+            <div>A</div><div>B</div><div>C</div>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(class_="speaker").find(class_="generated-before").get_text(strip=True) == "发言人"
+    assert soup.find(class_="grid-table").find(class_="generated-before") is None
+
+
+def test_converts_css_grid_tables_to_epub_tables():
+    html = """
+    <html><body><div id="page-content">
+      <div class="grid-table">
+        <div class="title"><p>SCP描述</p></div>
+        <div class="title"><p>001-K描述</p></div>
+        <div class="title"><p>收容方式</p></div>
+        <div><p><a href="/scp-1048">SCP-1048</a> - 泰迪熊。</p></div>
+        <div><p><a href="/scp-1054-ru">K-1054-RU</a> - 飞机引擎。</p></div>
+        <div><p>互相制衡。</p></div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL, {"scp-1048", "scp-1054-ru"})
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find("div", class_="grid-table") is None
+    table = soup.find("table", class_="grid-table-epub")
+    assert table is not None
+    assert [cell.get_text(" ", strip=True) for cell in table.find_all("th")] == [
+        "SCP描述",
+        "001-K描述",
+        "收容方式",
+    ]
+    rows = table.find_all("tr")
+    assert len(rows) == 2
+    assert [cell.name for cell in rows[1].find_all(["td", "th"])] == ["td", "td", "td"]
+    assert "background-color: #ff1d45" in table.find("th")["style"]
+    assert "background-color: #21252E" in table.find("td")["style"]
+    assert table.find("a", href="https://scp-wiki-cn.wikidot.com/scp-1048") is not None
+
+
+def test_expands_wikidot_tabs_into_labeled_epub_sections():
+    html = """
+    <html><body><div id="page-content">
+      <div class="yui-navset" id="wiki-tabview-series">
+        <ul class="yui-nav">
+          <li class="selected"><a><em>斯洛斯皮特，威斯康星州</em></a></li>
+          <li><a><em>Site-87</em></a></li>
+          <li><a><em>林中之物</em></a></li>
+        </ul>
+        <div class="yui-content">
+          <div><p>斯洛斯皮特的介绍。</p></div>
+          <div style="display: none;">
+            <div class="scp-image-block block-right">
+              <img src="/local--files/site-87/photo.png" alt="Site-87"/>
+            </div>
+            <p>Site-87 的介绍。</p>
+          </div>
+          <div><p>林中之物的介绍。</p></div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(class_="yui-navset") is None
+    assert soup.find(class_="yui-nav") is None
+    assert soup.find(class_="yui-content") is None
+
+    tabview = soup.find("div", class_="tabview-epub")
+    assert tabview is not None
+    sections = tabview.find_all("section", class_="tabview-panel-epub", recursive=False)
+    assert [section.find("h3").get_text(strip=True) for section in sections] == [
+        "标签：斯洛斯皮特，威斯康星州",
+        "标签：Site-87",
+        "标签：林中之物",
+    ]
+    assert [section.find("p").get_text(strip=True) for section in sections] == [
+        "斯洛斯皮特的介绍。",
+        "Site-87 的介绍。",
+        "林中之物的介绍。",
+    ]
+    assert sections[1].find("img", alt="Site-87") is not None
+
+
+def test_keeps_scp001_wikidot_tabs_unchanged():
+    html = """
+    <html><body><div id="page-content">
+      <div class="content-panel">
+        <div class="yui-navset" id="wiki-tabview-scp001">
+          <ul class="yui-nav">
+            <li class="selected"><a><em>随机排序</em></a></li>
+            <li><a><em>按时间顺序展示</em></a></li>
+          </ul>
+          <div class="yui-content">
+            <div><p>随机列表。</p></div>
+            <div><p>时间顺序列表。</p></div>
+          </div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+    entry = PageRef(title="SCP-001", url="https://scp-wiki-cn.wikidot.com/scp-001", slug="scp-001", level=1, role="scp")
+
+    result = transform_page(entry, html, entry.url)
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(class_="tabview-epub") is None
+    assert soup.find("div", class_="yui-navset") is not None
+    assert soup.find("ul", class_="yui-nav") is not None
+    assert soup.find("div", class_="yui-content") is not None
+
+
+def test_clears_floats_before_framed_blocks_without_clearing_plain_paragraphs():
+    html = """
+    <html><body><div id="page-content">
+      <div class="scp-image-block block-right" style="width:300px;">
+        <img src="/images/right.png" alt="right"/>
+      </div>
+      <p>这段文字仍然可以绕排图片。</p>
+      <div style="border: 1px dashed #999; padding: 1em;">记录框不能被图片覆盖。</div>
+      <blockquote><p>引用框也不能被图片覆盖。</p></blockquote>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find("p", string="这段文字仍然可以绕排图片。").get("style") is None
+    framed = soup.find("div", string="记录框不能被图片覆盖。")
+    assert "clear: both" in framed["style"]
+    blockquote = soup.find("blockquote")
+    assert "clear: both" in blockquote["style"]
+
+
+def test_contains_floated_images_inside_collapsible_content():
+    html = """
+    <html><body><div id="page-content">
+      <div class="collapsible-block">
+        <div class="collapsible-block-folded"><a class="collapsible-block-link">记录1</a></div>
+        <div class="collapsible-block-unfolded">
+          <div class="collapsible-block-content">
+            <div class="scp-image-block block-right" style="width:300px;">
+              <img src="/images/cover.png" alt="cover"/>
+            </div>
+            <p>项目编号：SCP-001</p>
+          </div>
+        </div>
+      </div>
+      <div class="collapsible-block">
+        <div class="collapsible-block-folded"><a class="collapsible-block-link">记录2</a></div>
+        <div class="collapsible-block-unfolded">
+          <div class="collapsible-block-content"><blockquote><p>下一段记录。</p></blockquote></div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    first_content = soup.find(class_="collapsible-block-content")
+    clearers = first_content.find_all("div", style="clear: both")
+    assert len(clearers) == 1
+    assert first_content.contents[-1] is clearers[0]
+    assert "clear: both" in soup.find(class_="collapsible-block")["style"]
+
+
 def test_missing_page_content_raises_value_error():
     with pytest.raises(ValueError, match="#page-content"):
         transform_page(page_ref(), "<html><body><p>No content</p></body></html>", BASE_URL)

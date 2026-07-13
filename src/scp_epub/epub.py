@@ -128,6 +128,35 @@ img {
   border-top: 1px solid #ddd;
 }
 
+.tabview-epub {
+  margin: 1em 0;
+}
+
+.tabview-panel-epub {
+  margin: 1em 0;
+  padding: 0.9em 1.1em;
+  border: 1px solid #999;
+  border-left: 4px solid #901;
+  border-radius: 4px;
+  background: #fbfbfb;
+}
+
+.tabview-panel-title {
+  margin: 0 0 0.75em;
+  padding-bottom: 0.35em;
+  border-bottom: 1px solid #ddd;
+  color: #901;
+  font-size: 1.05em;
+}
+
+.tabview-panel-epub > p:first-of-type {
+  margin-top: 0;
+}
+
+.tabview-panel-epub > p:last-child {
+  margin-bottom: 0;
+}
+
 blockquote,
 .blockquote {
   margin: 1em 3em;
