@@ -449,6 +449,80 @@ def test_converts_css_grid_tables_to_epub_tables():
     assert table.find("a", href="https://scp-wiki-cn.wikidot.com/scp-1048") is not None
 
 
+def test_expands_wikidot_tabs_into_labeled_epub_sections():
+    html = """
+    <html><body><div id="page-content">
+      <div class="yui-navset" id="wiki-tabview-series">
+        <ul class="yui-nav">
+          <li class="selected"><a><em>斯洛斯皮特，威斯康星州</em></a></li>
+          <li><a><em>Site-87</em></a></li>
+          <li><a><em>林中之物</em></a></li>
+        </ul>
+        <div class="yui-content">
+          <div><p>斯洛斯皮特的介绍。</p></div>
+          <div style="display: none;">
+            <div class="scp-image-block block-right">
+              <img src="/local--files/site-87/photo.png" alt="Site-87"/>
+            </div>
+            <p>Site-87 的介绍。</p>
+          </div>
+          <div><p>林中之物的介绍。</p></div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(class_="yui-navset") is None
+    assert soup.find(class_="yui-nav") is None
+    assert soup.find(class_="yui-content") is None
+
+    tabview = soup.find("div", class_="tabview-epub")
+    assert tabview is not None
+    sections = tabview.find_all("section", class_="tabview-panel-epub", recursive=False)
+    assert [section.find("h3").get_text(strip=True) for section in sections] == [
+        "标签：斯洛斯皮特，威斯康星州",
+        "标签：Site-87",
+        "标签：林中之物",
+    ]
+    assert [section.find("p").get_text(strip=True) for section in sections] == [
+        "斯洛斯皮特的介绍。",
+        "Site-87 的介绍。",
+        "林中之物的介绍。",
+    ]
+    assert sections[1].find("img", alt="Site-87") is not None
+
+
+def test_keeps_scp001_wikidot_tabs_unchanged():
+    html = """
+    <html><body><div id="page-content">
+      <div class="content-panel">
+        <div class="yui-navset" id="wiki-tabview-scp001">
+          <ul class="yui-nav">
+            <li class="selected"><a><em>随机排序</em></a></li>
+            <li><a><em>按时间顺序展示</em></a></li>
+          </ul>
+          <div class="yui-content">
+            <div><p>随机列表。</p></div>
+            <div><p>时间顺序列表。</p></div>
+          </div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+    entry = PageRef(title="SCP-001", url="https://scp-wiki-cn.wikidot.com/scp-001", slug="scp-001", level=1, role="scp")
+
+    result = transform_page(entry, html, entry.url)
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(class_="tabview-epub") is None
+    assert soup.find("div", class_="yui-navset") is not None
+    assert soup.find("ul", class_="yui-nav") is not None
+    assert soup.find("div", class_="yui-content") is not None
+
+
 def test_clears_floats_before_framed_blocks_without_clearing_plain_paragraphs():
     html = """
     <html><body><div id="page-content">

@@ -300,6 +300,9 @@ def test_write_epub_includes_book_styles_for_wikidot_tabbed_series_lists(tmp_pat
     assert ".yui-navset .yui-content" in css
     assert ".yui-navset .divider::before" in css
     assert ".yui-navset .yui-content p" in css
+    assert ".tabview-epub" in css
+    assert ".tabview-panel-epub" in css
+    assert ".tabview-panel-title" in css
 
 
 def test_write_epub_nav_preserves_hierarchical_manifest_structure(tmp_path: Path):

@@ -189,6 +189,8 @@ def transform_page(
     _convert_grid_tables(soup, page_content)
     _stabilize_float_layout(soup, page_content)
     _normalize_scene_break_images(page_content)
+    if entry.slug != "scp-001":
+        _expand_wikidot_tabs(soup, page_content)
 
     asset_urls: list[str] = []
     seen_assets: set[str] = set()
@@ -322,7 +324,13 @@ def _is_hidden_scp_image_container(tag: Tag) -> bool:
     classes = _class_tokens(tag)
     if "collapsible-block-unfolded" in classes:
         return False
+    if _is_inside_wikidot_tab_content(tag):
+        return False
     return tag.find(class_="scp-image-block") is not None
+
+
+def _is_inside_wikidot_tab_content(tag: Tag) -> bool:
+    return tag.find_parent("div", class_="yui-content") is not None
 
 
 def _is_css_code_collapsible(tag: Tag) -> bool:
@@ -500,6 +508,45 @@ def _normalize_scene_break_images(page_content: Tag) -> None:
         parent = image.parent
         if isinstance(parent, Tag) and "image-container" in _class_tokens(parent):
             _append_style_declaration(parent, "text-align", "center")
+
+
+def _expand_wikidot_tabs(soup: BeautifulSoup, page_content: Tag) -> None:
+    for tabview in list(page_content.select("div.yui-navset")):
+        nav = tabview.find("ul", class_="yui-nav", recursive=False)
+        content = tabview.find("div", class_="yui-content", recursive=False)
+        if nav is None or content is None:
+            continue
+
+        labels = _tab_labels(nav)
+        panels = [child for child in content.find_all(recursive=False) if isinstance(child, Tag)]
+        if not labels or not panels:
+            continue
+
+        expanded = soup.new_tag("div")
+        expanded["class"] = "tabview-epub"
+
+        for index, panel in enumerate(panels):
+            label = labels[index] if index < len(labels) else f"标签 {index + 1}"
+            section = soup.new_tag("section")
+            section["class"] = "tabview-panel-epub"
+
+            heading = soup.new_tag("h3")
+            heading["class"] = "tabview-panel-title"
+            heading.string = f"标签：{label}"
+            section.append(heading)
+
+            _move_children(panel, section)
+            expanded.append(section)
+
+        tabview.replace_with(expanded)
+
+
+def _tab_labels(nav: Tag) -> list[str]:
+    labels: list[str] = []
+    for item in nav.find_all("li", recursive=False):
+        label = item.get_text(" ", strip=True)
+        labels.append(label or f"标签 {len(labels) + 1}")
+    return labels
 
 
 def _should_clear_before_float_sensitive_block(tag: Tag) -> bool:
