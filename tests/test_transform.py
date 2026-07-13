@@ -283,6 +283,45 @@ def test_skips_unsupported_anomaly_bar_document_styles():
     assert ".risk-class" not in style_text
 
 
+def test_materializes_page_style_before_content_labels():
+    html = """
+    <html>
+      <head>
+        <style>
+          #page-content .clioframe::before {
+            content: "𓏢 CLIOMETRIA.AIC";
+            display: block;
+            font-weight: bold;
+          }
+          #page-content .blankframe::before {
+            content: "📱 Blank，Harold R.博士";
+            display: block;
+            font-weight: bold;
+          }
+        </style>
+      </head>
+      <body>
+        <div id="page-content">
+          <div class="clioframe"><div class="cliomain">时刻都在。</div></div>
+          <div class="blankframe"><div class="blank">你在吗？</div></div>
+        </div>
+      </body>
+    </html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    clio_label = soup.find(class_="generated-before")
+    assert clio_label is not None
+    assert clio_label.get_text(strip=True) == "𓏢 CLIOMETRIA.AIC"
+    assert soup.find(class_="clioframe").find(class_="generated-before") is clio_label
+
+    blank_label = soup.find(class_="blankframe").find(class_="generated-before")
+    assert blank_label is not None
+    assert blank_label.get_text(strip=True) == "📱 Blank，Harold R.博士"
+
+
 def test_missing_page_content_raises_value_error():
     with pytest.raises(ValueError, match="#page-content"):
         transform_page(page_ref(), "<html><body><p>No content</p></body></html>", BASE_URL)

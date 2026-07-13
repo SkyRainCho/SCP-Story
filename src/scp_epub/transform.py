@@ -60,6 +60,11 @@ CSS_CODE_MARKERS = (
 )
 CSS_CUSTOM_PROPERTY_RE = re.compile(r"--\s*[a-z0-9_-]+\s*:", re.IGNORECASE)
 CSS_RULE_RE = re.compile(r"(?P<selectors>[^{}@][^{}]*)\{(?P<body>[^{}]*)\}")
+CSS_CONTENT_PROPERTY_RE = re.compile(
+    r"""(?:^|;)\s*content\s*:\s*(?P<value>"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')\s*(?=;|$)""",
+    re.IGNORECASE | re.DOTALL,
+)
+CSS_ESCAPED_CHAR_RE = re.compile(r"\\(?P<escape>[0-9a-fA-F]{1,6}\s?|.)", re.DOTALL)
 CSS_PSEUDO_RE = re.compile(r"::?[a-zA-Z-]+(?:\([^)]*\))?")
 CSS_CLASS_SELECTOR_RE = re.compile(r"\.([_a-zA-Z][-_a-zA-Z0-9]*)")
 CSS_ID_SELECTOR_RE = re.compile(r"#([_a-zA-Z][-_a-zA-Z0-9]*)")
@@ -151,6 +156,8 @@ def transform_page(
 
     for tag in list(page_content.find_all(_is_unwanted_element)):
         tag.decompose()
+
+    _materialize_generated_before_content(soup, page_content, page_styles)
 
     asset_urls: list[str] = []
     seen_assets: set[str] = set()
@@ -358,6 +365,70 @@ def _matching_css_rules(css_text: str, targets: tuple[set[str], set[str]]) -> li
 def _is_unsupported_page_style_selector(selector: str) -> bool:
     lowered = selector.lower()
     return any(fragment in lowered for fragment in UNSUPPORTED_PAGE_STYLE_SELECTOR_FRAGMENTS)
+
+
+def _materialize_generated_before_content(
+    soup: BeautifulSoup,
+    page_content: Tag,
+    page_styles: str,
+) -> None:
+    for match in CSS_RULE_RE.finditer(page_styles):
+        content_value = _css_content_value(match.group("body"))
+        if content_value is None:
+            continue
+
+        label_style = _sanitize_style_value(_style_without_content(match.group("body")))
+        selectors = [
+            selector.strip()
+            for selector in match.group("selectors").split(",")
+            if "::before" in selector.lower()
+        ]
+        for selector in selectors:
+            base_selector = CSS_PSEUDO_RE.sub("", selector).strip()
+            if base_selector.startswith("#page-content "):
+                base_selector = base_selector[len("#page-content ") :].strip()
+            if not base_selector:
+                continue
+
+            for target in page_content.select(base_selector):
+                if target.find(class_="generated-before", recursive=False) is not None:
+                    continue
+                label = soup.new_tag("div")
+                label["class"] = "generated-before"
+                if label_style:
+                    label["style"] = label_style
+                label.string = content_value
+                target.insert(0, label)
+
+
+def _css_content_value(style_body: str) -> str | None:
+    match = CSS_CONTENT_PROPERTY_RE.search(style_body)
+    if match is None:
+        return None
+
+    return _decode_css_string(match.group("value"))
+
+
+def _decode_css_string(value: str) -> str:
+    text = value[1:-1]
+
+    def replace_escape(match: re.Match[str]) -> str:
+        escaped = match.group("escape")
+        stripped = escaped.strip()
+        if stripped and all(char in "0123456789abcdefABCDEF" for char in stripped):
+            return chr(int(stripped, 16))
+        return escaped
+
+    return CSS_ESCAPED_CHAR_RE.sub(replace_escape, text)
+
+
+def _style_without_content(style_body: str) -> str:
+    declarations = [
+        declaration.strip()
+        for declaration in style_body.split(";")
+        if not declaration.strip().lower().startswith("content:")
+    ]
+    return "; ".join(declarations)
 
 
 def _selector_targets_page_content(selector: str, targets: tuple[set[str], set[str]]) -> bool:
