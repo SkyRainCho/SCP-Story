@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
+from html import escape
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup, Tag
@@ -58,6 +59,10 @@ CSS_CODE_MARKERS = (
     "--logo-img",
 )
 CSS_CUSTOM_PROPERTY_RE = re.compile(r"--\s*[a-z0-9_-]+\s*:", re.IGNORECASE)
+CSS_RULE_RE = re.compile(r"(?P<selectors>[^{}@][^{}]*)\{(?P<body>[^{}]*)\}")
+CSS_PSEUDO_RE = re.compile(r"::?[a-zA-Z-]+(?:\([^)]*\))?")
+CSS_CLASS_SELECTOR_RE = re.compile(r"\.([_a-zA-Z][-_a-zA-Z0-9]*)")
+CSS_ID_SELECTOR_RE = re.compile(r"#([_a-zA-Z][-_a-zA-Z0-9]*)")
 UNWANTED_IDS = {
     "action-area",
     "edit-page-form",
@@ -115,6 +120,8 @@ def transform_page(
     if page_content is None:
         raise ValueError("missing #page-content")
 
+    page_styles = _applicable_page_styles(soup, page_content)
+
     for tag in list(page_content.find_all(_is_unwanted_element)):
         tag.decompose()
 
@@ -141,6 +148,8 @@ def transform_page(
         _sanitize_attributes(tag)
 
     xhtml = "".join(str(child) for child in page_content.contents).strip()
+    if page_styles:
+        xhtml = f"<style>{escape(page_styles)}</style>\n{xhtml}"
     return ProcessedPage(
         entry=entry,
         xhtml=xhtml,
@@ -281,6 +290,67 @@ def _looks_like_css_code(text: str) -> bool:
 
     custom_property_hits = len(CSS_CUSTOM_PROPERTY_RE.findall(normalized))
     return ":root" in normalized and custom_property_hits >= 2
+
+
+def _applicable_page_styles(soup: BeautifulSoup, page_content: Tag) -> str:
+    rules: list[str] = []
+    seen_rules: set[str] = set()
+    targets = _page_style_targets(page_content)
+
+    for style in soup.find_all("style"):
+        for rule in _matching_css_rules(style.get_text("\n", strip=True), targets):
+            if rule in seen_rules:
+                continue
+            seen_rules.add(rule)
+            rules.append(rule)
+
+    return "\n".join(rules)
+
+
+def _matching_css_rules(css_text: str, targets: tuple[set[str], set[str]]) -> list[str]:
+    rules: list[str] = []
+    for match in CSS_RULE_RE.finditer(css_text):
+        selector_text = re.sub(r"\s+", " ", match.group("selectors")).strip()
+        body = match.group("body").strip()
+        if not selector_text or not body:
+            continue
+        selectors = [selector.strip() for selector in selector_text.split(",") if selector.strip()]
+        if any(_selector_targets_page_content(selector, targets) for selector in selectors):
+            rules.append(f"{selector_text} {{{body}}}")
+    return rules
+
+
+def _selector_targets_page_content(selector: str, targets: tuple[set[str], set[str]]) -> bool:
+    page_classes, page_ids = targets
+    simplified = CSS_PSEUDO_RE.sub("", selector).strip()
+    if not simplified:
+        return False
+
+    selector_classes = {token.lower() for token in CSS_CLASS_SELECTOR_RE.findall(simplified)}
+    if selector_classes & page_classes:
+        return True
+
+    selector_ids = {token.lower() for token in CSS_ID_SELECTOR_RE.findall(simplified)}
+    if selector_ids & page_ids:
+        return True
+
+    if "#page-content" in simplified:
+        return True
+
+    return False
+
+
+def _page_style_targets(page_content: Tag) -> tuple[set[str], set[str]]:
+    classes: set[str] = set()
+    ids: set[str] = set()
+
+    for tag in [page_content, *page_content.find_all(True)]:
+        tag_id = tag.get("id")
+        if isinstance(tag_id, str) and tag_id:
+            ids.add(tag_id.lower())
+        classes.update(_class_tokens(tag))
+
+    return classes, ids
 
 
 def _is_stylesheet_link(tag: Tag) -> bool:

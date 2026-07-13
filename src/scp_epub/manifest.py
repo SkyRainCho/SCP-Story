@@ -57,25 +57,52 @@ def merge_manifest(
 
     If the SCP-001 hub is absent from the index sample, proposal pages are
     prepended so they remain discoverable at the beginning of the volume.
-    Proposal slugs already present in the index are left in index position.
+    SCP-001 proposal order follows the SCP-001 hub list. Proposal slugs already
+    present in the index keep their index metadata and child groups but move
+    into hub order.
     """
+    if not scp001_proposals:
+        return _dedupe_and_renumber(index_entries)
+
+    grouped_entries = _top_level_groups(index_entries)
+    indexed_groups_by_slug: dict[str, list[PageRef]] = {}
+    proposal_block: list[PageRef] = []
+    proposal_slugs: set[str] = set()
+
+    for proposal in scp001_proposals:
+        proposal_slugs.add(proposal.slug)
+
+    for group in grouped_entries:
+        root = group[0]
+        if root.slug in proposal_slugs:
+            indexed_groups_by_slug.setdefault(root.slug, group)
+
+    emitted_proposals: set[str] = set()
+    for proposal in scp001_proposals:
+        if proposal.slug in emitted_proposals:
+            continue
+        emitted_proposals.add(proposal.slug)
+        if proposal_group := indexed_groups_by_slug.get(proposal.slug):
+            proposal_block.append(_as_top_level_scp001_proposal(proposal_group[0]))
+            proposal_block.extend(proposal_group[1:])
+            continue
+        proposal_block.append(_as_top_level_scp001_proposal(proposal))
+
     merged: list[PageRef] = []
-    index_slugs = {entry.slug for entry in index_entries}
-    proposals_to_insert = [
-        proposal
-        for proposal in scp001_proposals
-        if proposal.slug not in index_slugs
-    ]
     inserted_proposals = False
 
-    for entry in index_entries:
-        merged.append(entry)
-        if entry.slug == "scp-001":
-            merged.extend(proposals_to_insert)
+    for group in grouped_entries:
+        root = group[0]
+        if root.slug in proposal_slugs:
+            continue
+
+        merged.extend(group)
+        if root.slug == "scp-001":
+            merged.extend(proposal_block)
             inserted_proposals = True
 
-    if proposals_to_insert and not inserted_proposals:
-        merged = [*proposals_to_insert, *merged]
+    if proposal_block and not inserted_proposals:
+        merged = [*proposal_block, *merged]
 
     return _dedupe_and_renumber(merged)
 
@@ -147,6 +174,20 @@ def _with_order(entry: PageRef, order: int) -> PageRef:
         parent_slug=entry.parent_slug,
         source=entry.source,
         order=order,
+        children=entry.children,
+    )
+
+
+def _as_top_level_scp001_proposal(entry: PageRef) -> PageRef:
+    return PageRef(
+        title=entry.title,
+        url=entry.url,
+        slug=entry.slug,
+        level=1,
+        role=entry.role,
+        parent_slug=None,
+        source=entry.source,
+        order=entry.order,
         children=entry.children,
     )
 

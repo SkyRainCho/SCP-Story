@@ -216,6 +216,38 @@ def test_removes_hidden_scp_image_blocks_that_would_become_visible_after_style_s
     assert result.asset_urls == ("https://scp-wiki-cn.wikidot.com/images/visible.png",)
 
 
+def test_preserves_document_styles_that_target_page_content():
+    html = """
+    <html>
+      <head>
+        <style>
+          .blankframe { border: double 3px #555; padding: 1em; }
+          div.console::before { content: "43NET"; display: block; }
+          .unused-site-chrome { color: red; }
+        </style>
+      </head>
+      <body>
+        <div id="page-content">
+          <div class="blankframe">
+            <div class="console">移动设备报告</div>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    style = soup.find("style")
+    assert style is not None
+    style_text = style.get_text()
+    assert ".blankframe" in style_text
+    assert "div.console::before" in style_text
+    assert ".unused-site-chrome" not in style_text
+    assert soup.find(class_="blankframe") is not None
+
+
 def test_missing_page_content_raises_value_error():
     with pytest.raises(ValueError, match="#page-content"):
         transform_page(page_ref(), "<html><body><p>No content</p></body></html>", BASE_URL)

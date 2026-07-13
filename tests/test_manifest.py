@@ -111,8 +111,8 @@ def test_merge_deduplicates_slugs_with_index_entries_winning():
 
     assert [entry.slug for entry in manifest] == [
         "scp-001",
-        "beta-proposal",
         "alpha-proposal",
+        "beta-proposal",
         "scp-002",
     ]
     assert [entry.order for entry in manifest] == [1, 2, 3, 4]
@@ -121,6 +121,174 @@ def test_merge_deduplicates_slugs_with_index_entries_winning():
     assert by_slug["alpha-proposal"].title == "Indexed Alpha"
     assert by_slug["alpha-proposal"].source == "tales-index"
     assert by_slug["scp-002"].title == "SCP-002"
+
+
+def test_merge_reorders_scp001_children_to_match_hub_proposal_order():
+    index_entries = [
+        page_ref("scp-001", title="SCP-001", order=1),
+        page_ref(
+            "beta-proposal",
+            title="Indexed Beta With Tales",
+            level=1,
+            role="related",
+            parent_slug=None,
+            source="tales-index",
+            order=2,
+        ),
+        page_ref(
+            "alpha-proposal",
+            title="Indexed Alpha With Tales",
+            level=1,
+            role="related",
+            parent_slug=None,
+            source="tales-index",
+            order=3,
+        ),
+        page_ref("scp-002", title="SCP-002", order=4),
+    ]
+    proposals = [
+        page_ref(
+            "alpha-proposal",
+            title="Hub Alpha",
+            level=2,
+            role="proposal",
+            parent_slug="scp-001",
+            source="scp-001",
+            order=1,
+        ),
+        page_ref(
+            "missing-proposal",
+            title="Hub Missing",
+            level=2,
+            role="proposal",
+            parent_slug="scp-001",
+            source="scp-001",
+            order=2,
+        ),
+        page_ref(
+            "beta-proposal",
+            title="Hub Beta",
+            level=2,
+            role="proposal",
+            parent_slug="scp-001",
+            source="scp-001",
+            order=3,
+        ),
+    ]
+
+    manifest = merge_manifest(index_entries, proposals)
+
+    assert [entry.slug for entry in manifest] == [
+        "scp-001",
+        "alpha-proposal",
+        "missing-proposal",
+        "beta-proposal",
+        "scp-002",
+    ]
+    by_slug = {entry.slug: entry for entry in manifest}
+    assert by_slug["alpha-proposal"].title == "Indexed Alpha With Tales"
+    assert by_slug["beta-proposal"].title == "Indexed Beta With Tales"
+    assert by_slug["missing-proposal"].title == "Hub Missing"
+    assert [entry.level for entry in manifest[1:4]] == [1, 1, 1]
+    assert [entry.parent_slug for entry in manifest[1:4]] == [
+        None,
+        None,
+        None,
+    ]
+
+
+def test_merge_reorders_scp001_proposal_groups_as_top_level_entries():
+    index_entries = [
+        page_ref("scp-001", title="SCP-001", order=1),
+        page_ref("spc-001", title="SPC-001", level=2, parent_slug="scp-001", order=2),
+        page_ref(
+            "beta-proposal",
+            title="Indexed Beta With Tales",
+            level=1,
+            role="related",
+            parent_slug=None,
+            source="tales-index",
+            order=3,
+        ),
+        page_ref(
+            "beta-story",
+            title="Beta Story",
+            level=2,
+            role="related",
+            parent_slug="beta-proposal",
+            source="tales-index",
+            order=4,
+        ),
+        page_ref(
+            "alpha-proposal",
+            title="Indexed Alpha With Tales",
+            level=1,
+            role="related",
+            parent_slug=None,
+            source="tales-index",
+            order=5,
+        ),
+        page_ref(
+            "alpha-story",
+            title="Alpha Story",
+            level=2,
+            role="related",
+            parent_slug="alpha-proposal",
+            source="tales-index",
+            order=6,
+        ),
+        page_ref("scp-002", title="SCP-002", order=7),
+    ]
+    proposals = [
+        page_ref(
+            "alpha-proposal",
+            title="Hub Alpha",
+            level=2,
+            role="proposal",
+            parent_slug="scp-001",
+            source="scp-001",
+            order=1,
+        ),
+        page_ref(
+            "missing-proposal",
+            title="Hub Missing",
+            level=2,
+            role="proposal",
+            parent_slug="scp-001",
+            source="scp-001",
+            order=2,
+        ),
+        page_ref(
+            "beta-proposal",
+            title="Hub Beta",
+            level=2,
+            role="proposal",
+            parent_slug="scp-001",
+            source="scp-001",
+            order=3,
+        ),
+    ]
+
+    manifest = merge_manifest(index_entries, proposals)
+
+    assert [entry.slug for entry in manifest] == [
+        "scp-001",
+        "spc-001",
+        "alpha-proposal",
+        "alpha-story",
+        "missing-proposal",
+        "beta-proposal",
+        "beta-story",
+        "scp-002",
+    ]
+    by_slug = {entry.slug: entry for entry in manifest}
+    assert by_slug["alpha-proposal"].title == "Indexed Alpha With Tales"
+    assert by_slug["beta-proposal"].title == "Indexed Beta With Tales"
+    assert by_slug["missing-proposal"].title == "Hub Missing"
+    assert [by_slug[slug].level for slug in ["alpha-proposal", "missing-proposal", "beta-proposal"]] == [1, 1, 1]
+    assert [by_slug[slug].parent_slug for slug in ["alpha-proposal", "missing-proposal", "beta-proposal"]] == [None, None, None]
+    assert by_slug["alpha-story"].parent_slug == "alpha-proposal"
+    assert by_slug["beta-story"].parent_slug == "beta-proposal"
 
 
 def test_merge_prepends_proposals_when_scp001_is_missing():
