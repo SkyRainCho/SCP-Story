@@ -204,18 +204,23 @@ def test_build_manifest_can_merge_scp001_proposals_when_enabled(tmp_path: Path):
         "scp-series",
         "scp-001",
     ]
-    assert [entry.slug for entry in manifest[:5]] == [
+    assert [entry.slug for entry in manifest[:6]] == [
         "scp-001",
+        "spc-001",
         "dr-clef-s-proposal",
         "djkaktus-s-proposal",
         "tuftos-proposal",
         "old:kalinins-proposal",
     ]
+    by_slug = {entry.slug: entry for entry in manifest}
+    assert by_slug["dr-clef-s-proposal"].level == 1
+    assert by_slug["dr-clef-s-proposal"].parent_slug is None
     assert "spc-001" in [entry.slug for entry in manifest]
     manifest_path = config.manifest_dir / "test-volume.json"
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert payload[0]["slug"] == "scp-001"
-    assert payload[1]["slug"] == "dr-clef-s-proposal"
+    assert payload[1]["slug"] == "spc-001"
+    assert payload[2]["slug"] == "dr-clef-s-proposal"
 
 
 def test_fetch_manifest_pages_fetches_each_manifest_entry(tmp_path: Path):

@@ -15,7 +15,7 @@ request_timeout_seconds: 30
 retry_count: 3
 asset_timeout_seconds: 5
 asset_retry_count: 1
-include_scp001_proposals: false
+include_scp001_proposals: true
 volumes:
   "001-099":
     start: 1

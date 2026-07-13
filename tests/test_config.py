@@ -91,6 +91,12 @@ def test_series_1_config_defines_all_volume_ranges():
     assert config.volumes["900-999"].end == 999
 
 
+def test_series_1_config_includes_scp001_proposals():
+    config = load_config(Path("config/series-1.yaml"))
+
+    assert config.include_scp001_proposals is True
+
+
 def test_series_2_config_defines_all_volume_ranges():
     config = load_config(Path("config/series-2.yaml"))
 
