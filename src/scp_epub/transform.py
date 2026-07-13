@@ -112,6 +112,7 @@ UNWANTED_IDS = {
     "u-author_block",
 }
 UNWANTED_CLASSES = {
+    "authorbox",
     "creditbutton",
     "creditbuttonstandalone",
     "creditbottomrate",
@@ -160,6 +161,12 @@ GRID_TABLE_CELL_STYLE = (
     "border: solid 1px #ff1d45; background-color: #21252E; color: #EDEDED; "
     "padding: 0.625em; vertical-align: middle"
 )
+SCENE_BREAK_IMAGE_STYLE = {
+    "width": "96px",
+    "max-width": "40%",
+    "margin-left": "auto",
+    "margin-right": "auto",
+}
 
 
 def transform_page(
@@ -181,6 +188,7 @@ def transform_page(
     _materialize_generated_before_content(soup, page_content, page_styles)
     _convert_grid_tables(soup, page_content)
     _stabilize_float_layout(soup, page_content)
+    _normalize_scene_break_images(page_content)
 
     asset_urls: list[str] = []
     seen_assets: set[str] = set()
@@ -479,6 +487,19 @@ def _stabilize_float_layout(soup: BeautifulSoup, page_content: Tag) -> None:
         clearer = soup.new_tag("div")
         clearer["style"] = "clear: both"
         container.append(clearer)
+
+
+def _normalize_scene_break_images(page_content: Tag) -> None:
+    for image in page_content.find_all("img"):
+        if "scene-break" not in _class_tokens(image):
+            continue
+
+        for property_name, value in SCENE_BREAK_IMAGE_STYLE.items():
+            _append_style_declaration(image, property_name, value)
+
+        parent = image.parent
+        if isinstance(parent, Tag) and "image-container" in _class_tokens(parent):
+            _append_style_declaration(parent, "text-align", "center")
 
 
 def _should_clear_before_float_sensitive_block(tag: Tag) -> bool:

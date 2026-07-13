@@ -216,6 +216,73 @@ def test_removes_hidden_scp_image_blocks_that_would_become_visible_after_style_s
     assert result.asset_urls == ("https://scp-wiki-cn.wikidot.com/images/visible.png",)
 
 
+def test_removes_authorbox_list_pages_metadata_without_removing_article_body():
+    html = """
+    <html><body><div id="page-content">
+      <div class="limit">
+        <div class="anchor">
+          <div class="authorbox">
+            <div class="list-pages-box">
+              <div class="list-pages-item">
+                <table class="wiki-content-table">
+                  <tr><th>Illac</th></tr>
+                  <tr>
+                    <td>
+                      <strong>By:</strong>
+                      <span class="printuser avatarhover">
+                        <a href="/user:leebr"><img class="small" src="/avatar.png" alt="LeeBr"/></a>
+                        <a href="/user:leebr">LeeBr</a>
+                      </span>
+                    </td>
+                  </tr>
+                  <tr><th>Published on 09 Mar 2023 09:11</th></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <h1>Illac</h1>
+      <p>四千年之前，当我们搭上人类最后一艘幸存的星际飞船。</p>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(class_="authorbox") is None
+    assert soup.find("img", alt="LeeBr") is None
+    page_text = soup.get_text(" ", strip=True)
+    assert "Published on" not in page_text
+    assert "LeeBr" not in page_text
+    assert soup.find("h1").get_text(strip=True) == "Illac"
+    assert "四千年之前" in page_text
+    assert result.asset_urls == ()
+
+
+def test_keeps_scene_break_scp_logo_small_and_centered():
+    html = """
+    <html><body><div id="page-content">
+      <p>其后，我们决定进入低温休眠。</p>
+      <div class="image-container aligncenter">
+        <img class="scene-break" src="/local--files/theme:classic/scp_foundation_logo.png" alt="scp_foundation_logo.png"/>
+      </div>
+      <p>当我们在十六亿光年外的目的地醒来时。</p>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    image = soup.find("img", class_="scene-break")
+    assert image is not None
+    assert image["src"] == "https://scp-wiki-cn.wikidot.com/local--files/theme:classic/scp_foundation_logo.png"
+    assert "width: 96px" in image["style"]
+    assert "max-width: 40%" in image["style"]
+    assert "text-align: center" in image.parent["style"]
+    assert result.asset_urls == ("https://scp-wiki-cn.wikidot.com/local--files/theme:classic/scp_foundation_logo.png",)
+
+
 def test_preserves_document_styles_that_target_page_content():
     html = """
     <html>
