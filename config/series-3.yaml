@@ -1,7 +1,7 @@
 series_id: scp-series-3
-title: SCP Series 3 Tales Edition
+title: SCP基金会档案：故事系列
 language: zh-CN
-creator: SCP Wiki CN
+creator: SCP基金会
 base_url: https://scp-wiki-cn.wikidot.com
 index_path: /scp-series-3-tales-edition
 series_index_path: /scp-series-3
@@ -17,53 +17,53 @@ asset_timeout_seconds: 15
 asset_retry_count: 2
 include_scp001_proposals: false
 volumes:
-  "2000-2099":
+  2000-2099:
     start: 2000
     end: 2099
-    title: SCP Series 3 Tales Edition 2000-2099
-    output_slug: scp-series-3-2000-2099-tales
-  "2100-2199":
+    title: SCP基金会档案：故事系列 第3卷-第1册
+    output_slug: SCP基金会档案-故事系列-第3卷-第1册
+  2100-2199:
     start: 2100
     end: 2199
-    title: SCP Series 3 Tales Edition 2100-2199
-    output_slug: scp-series-3-2100-2199-tales
-  "2200-2299":
+    title: SCP基金会档案：故事系列 第3卷-第2册
+    output_slug: SCP基金会档案-故事系列-第3卷-第2册
+  2200-2299:
     start: 2200
     end: 2299
-    title: SCP Series 3 Tales Edition 2200-2299
-    output_slug: scp-series-3-2200-2299-tales
-  "2300-2399":
+    title: SCP基金会档案：故事系列 第3卷-第3册
+    output_slug: SCP基金会档案-故事系列-第3卷-第3册
+  2300-2399:
     start: 2300
     end: 2399
-    title: SCP Series 3 Tales Edition 2300-2399
-    output_slug: scp-series-3-2300-2399-tales
-  "2400-2499":
+    title: SCP基金会档案：故事系列 第3卷-第4册
+    output_slug: SCP基金会档案-故事系列-第3卷-第4册
+  2400-2499:
     start: 2400
     end: 2499
-    title: SCP Series 3 Tales Edition 2400-2499
-    output_slug: scp-series-3-2400-2499-tales
-  "2500-2599":
+    title: SCP基金会档案：故事系列 第3卷-第5册
+    output_slug: SCP基金会档案-故事系列-第3卷-第5册
+  2500-2599:
     start: 2500
     end: 2599
-    title: SCP Series 3 Tales Edition 2500-2599
-    output_slug: scp-series-3-2500-2599-tales
-  "2600-2699":
+    title: SCP基金会档案：故事系列 第3卷-第6册
+    output_slug: SCP基金会档案-故事系列-第3卷-第6册
+  2600-2699:
     start: 2600
     end: 2699
-    title: SCP Series 3 Tales Edition 2600-2699
-    output_slug: scp-series-3-2600-2699-tales
-  "2700-2799":
+    title: SCP基金会档案：故事系列 第3卷-第7册
+    output_slug: SCP基金会档案-故事系列-第3卷-第7册
+  2700-2799:
     start: 2700
     end: 2799
-    title: SCP Series 3 Tales Edition 2700-2799
-    output_slug: scp-series-3-2700-2799-tales
-  "2800-2899":
+    title: SCP基金会档案：故事系列 第3卷-第8册
+    output_slug: SCP基金会档案-故事系列-第3卷-第8册
+  2800-2899:
     start: 2800
     end: 2899
-    title: SCP Series 3 Tales Edition 2800-2899
-    output_slug: scp-series-3-2800-2899-tales
-  "2900-2999":
+    title: SCP基金会档案：故事系列 第3卷-第9册
+    output_slug: SCP基金会档案-故事系列-第3卷-第9册
+  2900-2999:
     start: 2900
     end: 2999
-    title: SCP Series 3 Tales Edition 2900-2999
-    output_slug: scp-series-3-2900-2999-tales
+    title: SCP基金会档案：故事系列 第3卷-第10册
+    output_slug: SCP基金会档案-故事系列-第3卷-第10册

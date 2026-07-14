@@ -1,6 +1,6 @@
 # SCP Story EPUB
 
-用于将 SCP Wiki CN 的 Tales Edition 目录页下载、清洗并打包为 EPUB 电子书的 Python 工具。当前仓库已支持按配置文件生成 Series 1 和 Series 2 的分卷 EPUB，并会在构建过程中缓存页面、下载正文图片等资源、生成中间 XHTML 与构建报告。
+用于将 SCP Wiki CN 的 Tales Edition 目录页下载、清洗并打包为 EPUB 电子书的 Python 工具。当前仓库已支持按配置文件生成 Series 1 到 Series 8 的分卷 EPUB，并会在构建过程中缓存页面、下载正文图片等资源、生成中间 XHTML 与构建报告。
 
 ## 功能概览
 
@@ -8,6 +8,8 @@
 - 下载页面 HTML，并复用 `data/raw/` 中的本地缓存。
 - 清洗页面正文，移除评分、导航、脚本、编辑区、授权区等不适合 EPUB 的内容。
 - 保留正文中的图片、常见内容块、表格、引用块和安全的内联样式。
+- 支持将 SCP-001 主页面中的提案列表补入 Series 1，并按主页面顺序排列。
+- 将部分 Wikidot 动态结构转换为适合 EPUB 阅读的静态结构，例如标签栏、CSS grid 表格和部分页面样式。
 - 将目录内页面链接识别为 EPUB 内部链接，并保留外部链接。
 - 按分卷生成 EPUB 3 文件和 JSON 构建报告。
 
@@ -44,11 +46,20 @@ python -m scp_epub --config config/series-1.yaml build --volume 001-099
 scp-epub --config config/series-1.yaml build --volume 001-099
 ```
 
-生成结果默认写入：
+生成结果默认写入。以 Series 1 的 `001-099` 分卷为例：
 
 ```text
-output/epub/scp-series-1-001-099-tales.epub
-output/reports/scp-series-1-001-099-tales-report.json
+output/epub/SCP基金会档案-故事系列-第1卷-第1册.epub
+output/reports/SCP基金会档案-故事系列-第1卷-第1册-report.json
+```
+
+构建 Series 1 的全部分卷：
+
+```powershell
+$volumes = @("001-099","100-199","200-299","300-399","400-499","500-599","600-699","700-799","800-899","900-999")
+foreach ($volume in $volumes) {
+  python -m scp_epub --config config/series-1.yaml build --volume $volume
+}
 ```
 
 ## 常用命令
@@ -85,19 +96,24 @@ python -m scp_epub --config config/series-1.yaml build --volume 001-099 --refres
 
 - `config/series-1.yaml`：Series 1，分卷范围为 `001-099` 到 `900-999`。
 - `config/series-2.yaml`：Series 2，分卷范围为 `1000-1099` 到 `1900-1999`。
+- `config/series-3.yaml` 到 `config/series-8.yaml`：后续系列分卷配置。
 
 配置中的关键字段包括：
 
 - `base_url`：SCP Wiki CN 根地址。
+- `title`：EPUB 主书名，当前统一为 `SCP基金会档案：故事系列`。
+- `creator`：EPUB 作者，当前统一为 `SCP基金会`。
 - `index_path`：Tales Edition 目录页路径。
 - `series_index_path`：主系列目录页路径，用于补齐缺失条目。
+- `scp001_path`：SCP-001 主页面路径，用于在启用时解析提案列表。
+- `include_scp001_proposals`：是否将 SCP-001 主页面中的提案补入清单。Series 1 当前启用该选项，提案会作为与 `SCP-001` 同层级的顶层目录项出现。
 - `cache_dir`：原始页面和资源缓存目录。
 - `manifest_dir`：页面清单输出目录。
 - `processed_dir`：清洗后的 XHTML 中间产物目录。
 - `output_dir`：EPUB 和报告输出目录。
 - `request_delay_seconds`、`request_timeout_seconds`、`retry_count`：页面请求节流、超时与重试设置。
 - `asset_timeout_seconds`、`asset_retry_count`：图片等资源下载的超时与重试设置。
-- `volumes`：分卷定义，包含起止编号、书名和输出文件名。
+- `volumes`：分卷定义，包含起止编号、书名和输出文件名。当前命名规则为 `SCP基金会档案：故事系列 第X卷-第Y册`，其中 `X` 是 Series 编号，`Y` 是该 Series 内的册序号；输出文件名使用 `SCP基金会档案-故事系列-第X卷-第Y册`。
 
 新增系列时，优先复制现有 YAML 配置并调整 `series_id`、目录路径和 `volumes`。
 
@@ -132,12 +148,24 @@ output/           生成的 EPUB 与报告，默认不提交
 1. 读取 YAML 配置并定位目标分卷。
 2. 从 Tales Edition 目录页解析分卷条目。
 3. 从主系列目录页补齐目录中可能缺失的 SCP 条目。
-4. 下载或读取缓存中的页面 HTML。
-5. 清洗正文，标准化资源 URL 与链接。
-6. 下载正文资源并写入 EPUB。
-7. 生成 EPUB 文件和 JSON 构建报告。
+4. 在启用 `include_scp001_proposals` 且目标分卷包含 SCP-001 时，从 SCP-001 主页面补入提案。
+5. 下载或读取缓存中的页面 HTML。
+6. 清洗正文，标准化资源 URL 与链接。
+7. 下载正文资源并写入 EPUB。
+8. 生成 EPUB 文件和 JSON 构建报告。
 
 如果某些页面或资源下载失败，构建报告会记录 `missing_pages` 和 `missing_assets`，便于后续排查。
+
+## EPUB 转换规则
+
+清洗和转换的目标是尽量保留正文可读性，同时避免网页交互结构在 EPUB 中失效或污染排版：
+
+- SCP-001 提案在目录中保持与 SCP-001 同层级，并遵循 SCP-001 主页面中的提案顺序。
+- 非 `scp-001` 页面中的 Wikidot `yui-navset` 标签栏会展开为带标题的静态分节；`scp-001` 本页的标签栏保持原结构。
+- CSS grid 风格表格会转换为 EPUB 友好的表格。
+- 浮动图片块会做排版稳定处理，避免覆盖后续虚线框、引用框或折叠内容。
+- 作者元数据卡片、评分区、授权区等页面外围内容会被移除。
+- `scene-break` SCP 图标会保持小尺寸居中，不按普通图片放大。
 
 ## 测试
 
@@ -157,6 +185,7 @@ pytest -q
 
 - `tests/test_indexer.py`
 - `tests/test_manifest.py`
+- `tests/test_scp001.py`
 - `tests/test_pipeline.py`
 
 修改 CLI 或配置加载时重点关注：
@@ -171,6 +200,7 @@ pytest -q
 - 处理 HTML 时优先使用 BeautifulSoup 和仓库内已有 URL 工具。
 - 生成大批量 EPUB 前，建议先构建单个分卷并检查报告中的缺失页面和缺失资源。
 - 对 SCP Wiki CN 发起请求时请保留合理延迟，避免过于频繁地刷新缓存。
+- 重试缺失资源时，避免把 HTML 404/错误页写入图片缓存。旧 `scp-wiki.net`、Wikimedia、Imgur、Pinterest 等外站资源可能因证书、超时或源站删除而失败。
 
 ## 内容来源说明
 

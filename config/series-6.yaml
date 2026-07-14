@@ -1,7 +1,7 @@
 series_id: scp-series-6
-title: SCP Series 6 Tales Edition
+title: SCP基金会档案：故事系列
 language: zh-CN
-creator: SCP Wiki CN
+creator: SCP基金会
 base_url: https://scp-wiki-cn.wikidot.com
 index_path: /scp-series-6-tales-edition
 series_index_path: /scp-series-6
@@ -17,53 +17,53 @@ asset_timeout_seconds: 15
 asset_retry_count: 2
 include_scp001_proposals: false
 volumes:
-  "5000-5099":
+  5000-5099:
     start: 5000
     end: 5099
-    title: SCP Series 6 Tales Edition 5000-5099
-    output_slug: scp-series-6-5000-5099-tales
-  "5100-5199":
+    title: SCP基金会档案：故事系列 第6卷-第1册
+    output_slug: SCP基金会档案-故事系列-第6卷-第1册
+  5100-5199:
     start: 5100
     end: 5199
-    title: SCP Series 6 Tales Edition 5100-5199
-    output_slug: scp-series-6-5100-5199-tales
-  "5200-5299":
+    title: SCP基金会档案：故事系列 第6卷-第2册
+    output_slug: SCP基金会档案-故事系列-第6卷-第2册
+  5200-5299:
     start: 5200
     end: 5299
-    title: SCP Series 6 Tales Edition 5200-5299
-    output_slug: scp-series-6-5200-5299-tales
-  "5300-5399":
+    title: SCP基金会档案：故事系列 第6卷-第3册
+    output_slug: SCP基金会档案-故事系列-第6卷-第3册
+  5300-5399:
     start: 5300
     end: 5399
-    title: SCP Series 6 Tales Edition 5300-5399
-    output_slug: scp-series-6-5300-5399-tales
-  "5400-5499":
+    title: SCP基金会档案：故事系列 第6卷-第4册
+    output_slug: SCP基金会档案-故事系列-第6卷-第4册
+  5400-5499:
     start: 5400
     end: 5499
-    title: SCP Series 6 Tales Edition 5400-5499
-    output_slug: scp-series-6-5400-5499-tales
-  "5500-5599":
+    title: SCP基金会档案：故事系列 第6卷-第5册
+    output_slug: SCP基金会档案-故事系列-第6卷-第5册
+  5500-5599:
     start: 5500
     end: 5599
-    title: SCP Series 6 Tales Edition 5500-5599
-    output_slug: scp-series-6-5500-5599-tales
-  "5600-5699":
+    title: SCP基金会档案：故事系列 第6卷-第6册
+    output_slug: SCP基金会档案-故事系列-第6卷-第6册
+  5600-5699:
     start: 5600
     end: 5699
-    title: SCP Series 6 Tales Edition 5600-5699
-    output_slug: scp-series-6-5600-5699-tales
-  "5700-5799":
+    title: SCP基金会档案：故事系列 第6卷-第7册
+    output_slug: SCP基金会档案-故事系列-第6卷-第7册
+  5700-5799:
     start: 5700
     end: 5799
-    title: SCP Series 6 Tales Edition 5700-5799
-    output_slug: scp-series-6-5700-5799-tales
-  "5800-5899":
+    title: SCP基金会档案：故事系列 第6卷-第8册
+    output_slug: SCP基金会档案-故事系列-第6卷-第8册
+  5800-5899:
     start: 5800
     end: 5899
-    title: SCP Series 6 Tales Edition 5800-5899
-    output_slug: scp-series-6-5800-5899-tales
-  "5900-5999":
+    title: SCP基金会档案：故事系列 第6卷-第9册
+    output_slug: SCP基金会档案-故事系列-第6卷-第9册
+  5900-5999:
     start: 5900
     end: 5999
-    title: SCP Series 6 Tales Edition 5900-5999
-    output_slug: scp-series-6-5900-5999-tales
+    title: SCP基金会档案：故事系列 第6卷-第10册
+    output_slug: SCP基金会档案-故事系列-第6卷-第10册

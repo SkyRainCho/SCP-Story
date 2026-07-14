@@ -1,7 +1,7 @@
 series_id: scp-series-5
-title: SCP Series 5 Tales Edition
+title: SCP基金会档案：故事系列
 language: zh-CN
-creator: SCP Wiki CN
+creator: SCP基金会
 base_url: https://scp-wiki-cn.wikidot.com
 index_path: /scp-series-5-tales-edition
 series_index_path: /scp-series-5
@@ -17,53 +17,53 @@ asset_timeout_seconds: 15
 asset_retry_count: 2
 include_scp001_proposals: false
 volumes:
-  "4000-4099":
+  4000-4099:
     start: 4000
     end: 4099
-    title: SCP Series 5 Tales Edition 4000-4099
-    output_slug: scp-series-5-4000-4099-tales
-  "4100-4199":
+    title: SCP基金会档案：故事系列 第5卷-第1册
+    output_slug: SCP基金会档案-故事系列-第5卷-第1册
+  4100-4199:
     start: 4100
     end: 4199
-    title: SCP Series 5 Tales Edition 4100-4199
-    output_slug: scp-series-5-4100-4199-tales
-  "4200-4299":
+    title: SCP基金会档案：故事系列 第5卷-第2册
+    output_slug: SCP基金会档案-故事系列-第5卷-第2册
+  4200-4299:
     start: 4200
     end: 4299
-    title: SCP Series 5 Tales Edition 4200-4299
-    output_slug: scp-series-5-4200-4299-tales
-  "4300-4399":
+    title: SCP基金会档案：故事系列 第5卷-第3册
+    output_slug: SCP基金会档案-故事系列-第5卷-第3册
+  4300-4399:
     start: 4300
     end: 4399
-    title: SCP Series 5 Tales Edition 4300-4399
-    output_slug: scp-series-5-4300-4399-tales
-  "4400-4499":
+    title: SCP基金会档案：故事系列 第5卷-第4册
+    output_slug: SCP基金会档案-故事系列-第5卷-第4册
+  4400-4499:
     start: 4400
     end: 4499
-    title: SCP Series 5 Tales Edition 4400-4499
-    output_slug: scp-series-5-4400-4499-tales
-  "4500-4599":
+    title: SCP基金会档案：故事系列 第5卷-第5册
+    output_slug: SCP基金会档案-故事系列-第5卷-第5册
+  4500-4599:
     start: 4500
     end: 4599
-    title: SCP Series 5 Tales Edition 4500-4599
-    output_slug: scp-series-5-4500-4599-tales
-  "4600-4699":
+    title: SCP基金会档案：故事系列 第5卷-第6册
+    output_slug: SCP基金会档案-故事系列-第5卷-第6册
+  4600-4699:
     start: 4600
     end: 4699
-    title: SCP Series 5 Tales Edition 4600-4699
-    output_slug: scp-series-5-4600-4699-tales
-  "4700-4799":
+    title: SCP基金会档案：故事系列 第5卷-第7册
+    output_slug: SCP基金会档案-故事系列-第5卷-第7册
+  4700-4799:
     start: 4700
     end: 4799
-    title: SCP Series 5 Tales Edition 4700-4799
-    output_slug: scp-series-5-4700-4799-tales
-  "4800-4899":
+    title: SCP基金会档案：故事系列 第5卷-第8册
+    output_slug: SCP基金会档案-故事系列-第5卷-第8册
+  4800-4899:
     start: 4800
     end: 4899
-    title: SCP Series 5 Tales Edition 4800-4899
-    output_slug: scp-series-5-4800-4899-tales
-  "4900-4999":
+    title: SCP基金会档案：故事系列 第5卷-第9册
+    output_slug: SCP基金会档案-故事系列-第5卷-第9册
+  4900-4999:
     start: 4900
     end: 4999
-    title: SCP Series 5 Tales Edition 4900-4999
-    output_slug: scp-series-5-4900-4999-tales
+    title: SCP基金会档案：故事系列 第5卷-第10册
+    output_slug: SCP基金会档案-故事系列-第5卷-第10册

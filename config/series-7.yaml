@@ -1,7 +1,7 @@
 series_id: scp-series-7
-title: SCP Series 7 Tales Edition
+title: SCP基金会档案：故事系列
 language: zh-CN
-creator: SCP Wiki CN
+creator: SCP基金会
 base_url: https://scp-wiki-cn.wikidot.com
 index_path: /scp-series-7-tales-edition
 series_index_path: /scp-series-7
@@ -17,53 +17,53 @@ asset_timeout_seconds: 15
 asset_retry_count: 2
 include_scp001_proposals: false
 volumes:
-  "6000-6099":
+  6000-6099:
     start: 6000
     end: 6099
-    title: SCP Series 7 Tales Edition 6000-6099
-    output_slug: scp-series-7-6000-6099-tales
-  "6100-6199":
+    title: SCP基金会档案：故事系列 第7卷-第1册
+    output_slug: SCP基金会档案-故事系列-第7卷-第1册
+  6100-6199:
     start: 6100
     end: 6199
-    title: SCP Series 7 Tales Edition 6100-6199
-    output_slug: scp-series-7-6100-6199-tales
-  "6200-6299":
+    title: SCP基金会档案：故事系列 第7卷-第2册
+    output_slug: SCP基金会档案-故事系列-第7卷-第2册
+  6200-6299:
     start: 6200
     end: 6299
-    title: SCP Series 7 Tales Edition 6200-6299
-    output_slug: scp-series-7-6200-6299-tales
-  "6300-6399":
+    title: SCP基金会档案：故事系列 第7卷-第3册
+    output_slug: SCP基金会档案-故事系列-第7卷-第3册
+  6300-6399:
     start: 6300
     end: 6399
-    title: SCP Series 7 Tales Edition 6300-6399
-    output_slug: scp-series-7-6300-6399-tales
-  "6400-6499":
+    title: SCP基金会档案：故事系列 第7卷-第4册
+    output_slug: SCP基金会档案-故事系列-第7卷-第4册
+  6400-6499:
     start: 6400
     end: 6499
-    title: SCP Series 7 Tales Edition 6400-6499
-    output_slug: scp-series-7-6400-6499-tales
-  "6500-6599":
+    title: SCP基金会档案：故事系列 第7卷-第5册
+    output_slug: SCP基金会档案-故事系列-第7卷-第5册
+  6500-6599:
     start: 6500
     end: 6599
-    title: SCP Series 7 Tales Edition 6500-6599
-    output_slug: scp-series-7-6500-6599-tales
-  "6600-6699":
+    title: SCP基金会档案：故事系列 第7卷-第6册
+    output_slug: SCP基金会档案-故事系列-第7卷-第6册
+  6600-6699:
     start: 6600
     end: 6699
-    title: SCP Series 7 Tales Edition 6600-6699
-    output_slug: scp-series-7-6600-6699-tales
-  "6700-6799":
+    title: SCP基金会档案：故事系列 第7卷-第7册
+    output_slug: SCP基金会档案-故事系列-第7卷-第7册
+  6700-6799:
     start: 6700
     end: 6799
-    title: SCP Series 7 Tales Edition 6700-6799
-    output_slug: scp-series-7-6700-6799-tales
-  "6800-6899":
+    title: SCP基金会档案：故事系列 第7卷-第8册
+    output_slug: SCP基金会档案-故事系列-第7卷-第8册
+  6800-6899:
     start: 6800
     end: 6899
-    title: SCP Series 7 Tales Edition 6800-6899
-    output_slug: scp-series-7-6800-6899-tales
-  "6900-6999":
+    title: SCP基金会档案：故事系列 第7卷-第9册
+    output_slug: SCP基金会档案-故事系列-第7卷-第9册
+  6900-6999:
     start: 6900
     end: 6999
-    title: SCP Series 7 Tales Edition 6900-6999
-    output_slug: scp-series-7-6900-6999-tales
+    title: SCP基金会档案：故事系列 第7卷-第10册
+    output_slug: SCP基金会档案-故事系列-第7卷-第10册

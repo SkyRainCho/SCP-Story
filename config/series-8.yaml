@@ -1,7 +1,7 @@
 series_id: scp-series-8
-title: SCP Series 8 Tales Edition
+title: SCP基金会档案：故事系列
 language: zh-CN
-creator: SCP Wiki CN
+creator: SCP基金会
 base_url: https://scp-wiki-cn.wikidot.com
 index_path: /scp-series-8-tales-edition
 series_index_path: /scp-series-8
@@ -17,53 +17,53 @@ asset_timeout_seconds: 15
 asset_retry_count: 2
 include_scp001_proposals: false
 volumes:
-  "7000-7099":
+  7000-7099:
     start: 7000
     end: 7099
-    title: SCP Series 8 Tales Edition 7000-7099
-    output_slug: scp-series-8-7000-7099-tales
-  "7100-7199":
+    title: SCP基金会档案：故事系列 第8卷-第1册
+    output_slug: SCP基金会档案-故事系列-第8卷-第1册
+  7100-7199:
     start: 7100
     end: 7199
-    title: SCP Series 8 Tales Edition 7100-7199
-    output_slug: scp-series-8-7100-7199-tales
-  "7200-7299":
+    title: SCP基金会档案：故事系列 第8卷-第2册
+    output_slug: SCP基金会档案-故事系列-第8卷-第2册
+  7200-7299:
     start: 7200
     end: 7299
-    title: SCP Series 8 Tales Edition 7200-7299
-    output_slug: scp-series-8-7200-7299-tales
-  "7300-7399":
+    title: SCP基金会档案：故事系列 第8卷-第3册
+    output_slug: SCP基金会档案-故事系列-第8卷-第3册
+  7300-7399:
     start: 7300
     end: 7399
-    title: SCP Series 8 Tales Edition 7300-7399
-    output_slug: scp-series-8-7300-7399-tales
-  "7400-7499":
+    title: SCP基金会档案：故事系列 第8卷-第4册
+    output_slug: SCP基金会档案-故事系列-第8卷-第4册
+  7400-7499:
     start: 7400
     end: 7499
-    title: SCP Series 8 Tales Edition 7400-7499
-    output_slug: scp-series-8-7400-7499-tales
-  "7500-7599":
+    title: SCP基金会档案：故事系列 第8卷-第5册
+    output_slug: SCP基金会档案-故事系列-第8卷-第5册
+  7500-7599:
     start: 7500
     end: 7599
-    title: SCP Series 8 Tales Edition 7500-7599
-    output_slug: scp-series-8-7500-7599-tales
-  "7600-7699":
+    title: SCP基金会档案：故事系列 第8卷-第6册
+    output_slug: SCP基金会档案-故事系列-第8卷-第6册
+  7600-7699:
     start: 7600
     end: 7699
-    title: SCP Series 8 Tales Edition 7600-7699
-    output_slug: scp-series-8-7600-7699-tales
-  "7700-7799":
+    title: SCP基金会档案：故事系列 第8卷-第7册
+    output_slug: SCP基金会档案-故事系列-第8卷-第7册
+  7700-7799:
     start: 7700
     end: 7799
-    title: SCP Series 8 Tales Edition 7700-7799
-    output_slug: scp-series-8-7700-7799-tales
-  "7800-7899":
+    title: SCP基金会档案：故事系列 第8卷-第8册
+    output_slug: SCP基金会档案-故事系列-第8卷-第8册
+  7800-7899:
     start: 7800
     end: 7899
-    title: SCP Series 8 Tales Edition 7800-7899
-    output_slug: scp-series-8-7800-7899-tales
-  "7900-7999":
+    title: SCP基金会档案：故事系列 第8卷-第9册
+    output_slug: SCP基金会档案-故事系列-第8卷-第9册
+  7900-7999:
     start: 7900
     end: 7999
-    title: SCP Series 8 Tales Edition 7900-7999
-    output_slug: scp-series-8-7900-7999-tales
+    title: SCP基金会档案：故事系列 第8卷-第10册
+    output_slug: SCP基金会档案-故事系列-第8卷-第10册

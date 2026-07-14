@@ -11,7 +11,7 @@
 - `transform.py`、`epub.py`：HTML 清洗与 EPUB 写入。
 - `models.py`、`config.py`、`urls.py`：数据模型、配置与 URL 工具。
 
-配置文件位于 `config/`，当前主要使用 `config/series-1.yaml`。测试位于 `tests/`，HTML 样例放在 `tests/fixtures/`。`data/raw/`、`data/processed/`、`output/` 是下载缓存或生成产物，不应提交到 Git。
+配置文件位于 `config/`，当前包含 `series-1.yaml` 到 `series-8.yaml`。测试位于 `tests/`，HTML 样例放在 `tests/fixtures/`。`data/raw/`、`data/processed/`、`output/` 是下载缓存或生成产物，不应提交到 Git。
 
 ## 构建、测试与开发命令
 
@@ -33,6 +33,17 @@ pytest -q
 python -m scp_epub --config config/series-1.yaml build --volume 001-099
 ```
 
+当前 EPUB 书名和输出文件名使用中文卷册命名：主标题为 `SCP基金会档案`，副标题为 `故事系列`，作者为 `SCP基金会`。`第X卷-第Y册` 中 `X` 是 Series 编号，`Y` 是该 Series 内册序号；例如 Series 1 的 `001-099` 输出为 `SCP基金会档案-故事系列-第1卷-第1册.epub`。
+
+构建 Series 1 的全部分卷：
+
+```powershell
+$volumes = @("001-099","100-199","200-299","300-399","400-499","500-599","600-699","700-799","800-899","900-999")
+foreach ($volume in $volumes) {
+  python -m scp_epub --config config/series-1.yaml build --volume $volume
+}
+```
+
 安装后也可使用控制台命令：
 
 ```powershell
@@ -45,7 +56,17 @@ scp-epub --config config/series-1.yaml build --volume 001-099
 
 ## 测试规范
 
-测试框架为 `pytest`，配置在 `pyproject.toml` 中，已设置 `pythonpath = ["src"]` 和 `testpaths = ["tests"]`。修改清洗规则时补充 `tests/test_transform.py`，修改 EPUB 输出时补充 `tests/test_epub.py`，修改目录解析时补充 `tests/test_indexer.py` 或 `tests/test_manifest.py`。测试命名使用 `test_<行为>`，fixture 应保持最小化。
+测试框架为 `pytest`，配置在 `pyproject.toml` 中，已设置 `pythonpath = ["src"]` 和 `testpaths = ["tests"]`。修改清洗规则时补充 `tests/test_transform.py`，修改 EPUB 输出时补充 `tests/test_epub.py`，修改目录解析时补充 `tests/test_indexer.py`、`tests/test_manifest.py` 或 `tests/test_scp001.py`。测试命名使用 `test_<行为>`，fixture 应保持最小化。
+
+SCP-001 提案补全由 `include_scp001_proposals` 控制；Series 1 当前启用该选项。提案在 EPUB 目录中应作为与 `SCP-001` 同层级的顶层条目出现，而不是 `SCP-001` 的子目录。修改相关逻辑时，需要覆盖提案顺序、子故事分组、缺失提案补入和导航层级。
+
+HTML 清洗逻辑需要特别注意以下已知模式：
+
+- Wikidot `yui-navset` 标签栏在非 `scp-001` 页面中会展开为静态 `tabview-epub` 分节；`scp-001` 本页保持原标签栏结构。
+- CSS grid 风格表格会转换为 EPUB 友好的表格。
+- 浮动图片块需要避免覆盖后续虚线框、引用框或折叠内容。
+- `authorbox` 等作者元数据卡片不应进入正文。
+- `scene-break` SCP 图标应保持小尺寸居中，不应按普通图片放大。
 
 ## 提交与 Pull Request 规范
 
@@ -54,3 +75,5 @@ scp-epub --config config/series-1.yaml build --volume 001-099
 ## 安全与配置提示
 
 不要提交下载页面、缓存资源、生成 EPUB 或报告。SCP Wiki 页面属于外部输入，清洗、链接重写、资源处理逻辑必须有测试覆盖。浏览器 fallback 依赖可选的 `browser` 依赖；缓存应保留在工作空间内，便于后续复用构建结果。
+
+缺失资源会记录在 `output/reports/*-report.json` 的 `missing_assets` 中。重试下载时优先在 `master` 主工作树中操作，并确认 `git status` 干净。部分外站资源可能因 Wikimedia/Imgur/Pinterest 超时、旧 `scp-wiki.net` 证书或源站 404 失败；不要把 HTML 错误页写入图片缓存。

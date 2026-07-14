@@ -97,6 +97,31 @@ def test_series_1_config_includes_scp001_proposals():
     assert config.include_scp001_proposals is True
 
 
+@pytest.mark.parametrize(
+    ("series_number", "first_key"),
+    [
+        (1, "001-099"),
+        (2, "1000-1099"),
+        (3, "2000-2099"),
+        (4, "3000-3099"),
+        (5, "4000-4099"),
+        (6, "5000-5099"),
+        (7, "6000-6099"),
+        (8, "7000-7099"),
+    ],
+)
+def test_series_configs_use_chinese_book_metadata_and_output_names(series_number: int, first_key: str):
+    config = load_config(Path(f"config/series-{series_number}.yaml"))
+
+    assert config.title == "SCP基金会档案：故事系列"
+    assert config.creator == "SCP基金会"
+
+    assert first_key in config.volumes
+    for book_number, volume in enumerate(config.volumes.values(), start=1):
+        assert volume.title == f"SCP基金会档案：故事系列 第{series_number}卷-第{book_number}册"
+        assert volume.output_slug == f"SCP基金会档案-故事系列-第{series_number}卷-第{book_number}册"
+
+
 def test_series_2_config_defines_all_volume_ranges():
     config = load_config(Path("config/series-2.yaml"))
 
