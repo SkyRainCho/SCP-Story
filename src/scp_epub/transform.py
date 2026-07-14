@@ -71,6 +71,10 @@ CSS_ESCAPED_CHAR_RE = re.compile(r"\\(?P<escape>[0-9a-fA-F]{1,6}\s?|.)", re.DOTA
 CSS_PSEUDO_RE = re.compile(r"::?[a-zA-Z-]+(?:\([^)]*\))?")
 CSS_CLASS_SELECTOR_RE = re.compile(r"\.([_a-zA-Z][-_a-zA-Z0-9]*)")
 CSS_ID_SELECTOR_RE = re.compile(r"#([_a-zA-Z][-_a-zA-Z0-9]*)")
+GENERATED_BEFORE_FONT_SIZE = "0.875em"
+POSITIONED_GENERATED_BEFORE_STYLE = (
+    "margin-top: -1.75em; margin-left: -0.5em; margin-bottom: 0.75em"
+)
 UNSUPPORTED_PAGE_STYLE_SELECTOR_FRAGMENTS = (
     ".anom-bar",
     ".anom-bar-container",
@@ -185,7 +189,7 @@ def transform_page(
     for tag in list(page_content.find_all(_is_unwanted_element)):
         tag.decompose()
 
-    _materialize_generated_before_content(soup, page_content, page_styles)
+    page_styles = _materialize_generated_before_content(soup, page_content, page_styles)
     _convert_grid_tables(soup, page_content)
     _stabilize_float_layout(soup, page_content)
     _normalize_scene_break_images(page_content)
@@ -410,40 +414,150 @@ def _materialize_generated_before_content(
     soup: BeautifulSoup,
     page_content: Tag,
     page_styles: str,
-) -> None:
+) -> str:
+    generated_labels: dict[int, dict[str, str | Tag | None]] = {}
+    generated_order: list[int] = []
+    materialized_rule_spans: list[tuple[int, int]] = []
+
     for match in CSS_RULE_RE.finditer(page_styles):
         content_value = _css_content_value(match.group("body"))
-        if content_value is None:
-            continue
-
         label_style = _sanitize_style_value(_style_without_content(match.group("body")))
         selectors = [
             selector.strip()
             for selector in match.group("selectors").split(",")
             if "::before" in selector.lower()
         ]
+        rule_was_materialized = False
+
         for selector in selectors:
             base_selector = CSS_PSEUDO_RE.sub("", selector).strip()
             if base_selector.startswith("#page-content "):
                 base_selector = base_selector[len("#page-content ") :].strip()
-            if not base_selector or not _is_simple_generated_before_selector(base_selector):
+            if not base_selector or not _is_supported_generated_before_selector(base_selector):
                 continue
 
             for target in page_content.select(base_selector):
-                if target.find(class_="generated-before", recursive=False) is not None:
-                    continue
-                label = soup.new_tag("div")
-                label["class"] = "generated-before"
+                target_id = id(target)
+                if target_id not in generated_labels:
+                    generated_labels[target_id] = {
+                        "target": target,
+                        "content": None,
+                        "style": "",
+                        "positioned": False,
+                    }
+                    generated_order.append(target_id)
+
+                state = generated_labels[target_id]
+                if content_value is not None:
+                    state["content"] = content_value
                 if label_style:
-                    label["style"] = label_style
-                label.string = content_value
-                target.insert(0, label)
+                    state["style"] = _merge_style_values(str(state["style"] or ""), label_style)
+                if _is_positioned_generated_before_rule(match.group("body")):
+                    state["positioned"] = True
+                rule_was_materialized = True
+
+        if rule_was_materialized and selectors:
+            materialized_rule_spans.append(match.span())
+
+    for target_id in generated_order:
+        state = generated_labels[target_id]
+        target = state["target"]
+        content = state["content"]
+        if not isinstance(target, Tag) or not isinstance(content, str) or not content.strip():
+            continue
+        if target.find(class_="generated-before", recursive=False) is not None:
+            continue
+
+        is_positioned = bool(state["positioned"])
+        label = soup.new_tag("div" if is_positioned else "span")
+        label["class"] = "generated-before"
+        label_style = state["style"]
+        if is_positioned:
+            label["style"] = POSITIONED_GENERATED_BEFORE_STYLE
+            badge = soup.new_tag("span")
+            badge["class"] = "generated-before-label"
+            if isinstance(label_style, str) and label_style:
+                badge["style"] = _normalize_generated_before_style(label_style)
+            badge.string = content
+            label.append(badge)
+        else:
+            if isinstance(label_style, str) and label_style:
+                label["style"] = _normalize_generated_before_style(label_style)
+            label.string = content
+        target.insert(0, label)
+
+    return _remove_css_rule_spans(page_styles, materialized_rule_spans)
 
 
-def _is_simple_generated_before_selector(selector: str) -> bool:
-    if any(token in selector for token in (">", "+", "~", "*", "[", "]", ":")):
+def _is_supported_generated_before_selector(selector: str) -> bool:
+    if any(token in selector for token in ("+", "~", "*", "[", "]", ":")):
         return False
-    return re.search(r"\s", selector) is None
+
+    parts = [part.strip() for part in selector.split(">")]
+    return all(part and re.search(r"\s", part) is None for part in parts)
+
+
+def _merge_style_values(base_style: str, override_style: str) -> str:
+    properties: list[str] = []
+    values: dict[str, str] = {}
+
+    for style in (base_style, override_style):
+        for declaration in style.split(";"):
+            property_name, separator, raw_value = declaration.partition(":")
+            if not separator:
+                continue
+
+            normalized_property = property_name.strip().lower()
+            value = raw_value.strip()
+            if not normalized_property or not value:
+                continue
+            if normalized_property not in values:
+                properties.append(normalized_property)
+            values[normalized_property] = value
+
+    return "; ".join(f"{property_name}: {values[property_name]}" for property_name in properties)
+
+
+def _is_positioned_generated_before_rule(style_body: str) -> bool:
+    lowered = style_body.lower()
+    return "position" in lowered and "absolute" in lowered
+
+
+def _normalize_generated_before_style(style: str) -> str:
+    declarations: list[str] = []
+    for raw_declaration in style.split(";"):
+        property_name, separator, raw_value = raw_declaration.partition(":")
+        if not separator:
+            continue
+
+        normalized_property = property_name.strip().lower()
+        value = raw_value.strip()
+        if not normalized_property or not value:
+            continue
+        if normalized_property == "font-size" and _is_viewport_dependent_font_size(value):
+            value = GENERATED_BEFORE_FONT_SIZE
+        declarations.append(f"{normalized_property}: {value}")
+
+    return "; ".join(declarations)
+
+
+def _is_viewport_dependent_font_size(value: str) -> bool:
+    lowered = value.lower()
+    return "calc(" in lowered or "vw" in lowered
+
+
+def _remove_css_rule_spans(css_text: str, spans: list[tuple[int, int]]) -> str:
+    if not spans:
+        return css_text
+
+    chunks: list[str] = []
+    cursor = 0
+    for start, end in spans:
+        chunks.append(css_text[cursor:start])
+        cursor = end
+    chunks.append(css_text[cursor:])
+
+    return "\n".join(line for line in "".join(chunks).splitlines() if line.strip())
 
 
 def _convert_grid_tables(soup: BeautifulSoup, page_content: Tag) -> None:

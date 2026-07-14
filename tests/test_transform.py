@@ -310,9 +310,10 @@ def test_preserves_document_styles_that_target_page_content():
     assert style is not None
     style_text = style.get_text()
     assert ".blankframe" in style_text
-    assert "div.console::before" in style_text
+    assert "div.console::before" not in style_text
     assert ".unused-site-chrome" not in style_text
     assert soup.find(class_="blankframe") is not None
+    assert soup.find(class_="console").find(class_="generated-before").get_text(strip=True) == "43NET"
 
 
 def test_skips_unsupported_anomaly_bar_document_styles():
@@ -387,6 +388,74 @@ def test_materializes_page_style_before_content_labels():
     blank_label = soup.find(class_="blankframe").find(class_="generated-before")
     assert blank_label is not None
     assert blank_label.get_text(strip=True) == "📱 Blank，Harold R.博士"
+
+
+def test_materializes_child_before_labels_without_overlaying_source_pseudo_rules():
+    html = """
+    <html>
+      <head>
+        <style>
+          .blbf-main > div {
+            border: 0.25rem solid #990000;
+            margin: 1.5rem 0.5rem 0.5rem 0.5rem;
+          }
+          .blbf-main > div::before {
+            content: " ";
+            position: absolute;
+            top: -1.25rem;
+            left: -0.5rem;
+            padding: 0.5em;
+            font-size: calc(12px + (14 - 12) * ((100vw - 300px) / (800 - 300)));
+            font-weight: 600;
+            background-color: #990000;
+            color: #ffffff;
+          }
+          .blbf-main > div.blbf-1::before {
+            content: "秘密行动通知";
+          }
+          .blbf-main > div.blbf-2::before {
+            content: "对象概览";
+          }
+        </style>
+      </head>
+      <body>
+        <div id="page-content">
+          <div class="blbf-main">
+            <div class="blbf-1"><p>第一段正文。</p></div>
+            <div class="blbf-2"><p>第二段正文。</p></div>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    style_text = soup.find("style").get_text()
+    assert ".blbf-main > div {" in style_text
+    assert ".blbf-main > div::before" not in style_text
+    assert ".blbf-main > div.blbf-1::before" not in style_text
+
+    first_label = soup.find(class_="blbf-1").find(class_="generated-before", recursive=False)
+    assert first_label is not None
+    assert first_label.name == "div"
+    assert first_label.get_text(strip=True) == "秘密行动通知"
+    assert "margin-top: -1.75em" in first_label["style"]
+    assert "margin-bottom: 0.75em" in first_label["style"]
+
+    first_label_badge = first_label.find(class_="generated-before-label")
+    assert first_label_badge is not None
+    assert first_label_badge.name == "span"
+    assert "background-color: #990000" in first_label_badge["style"]
+    assert "font-size: 0.875em" in first_label_badge["style"]
+    assert "calc(" not in first_label_badge["style"]
+    assert "position:" not in first_label_badge["style"]
+
+    second_label = soup.find(class_="blbf-2").find(class_="generated-before", recursive=False)
+    assert second_label is not None
+    assert second_label.name == "div"
+    assert second_label.get_text(strip=True) == "对象概览"
 
 
 def test_does_not_materialize_complex_generated_before_selectors():
