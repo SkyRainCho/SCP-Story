@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from argparse import Namespace
 from pathlib import Path
+from html import escape
 from typing import Protocol
 
 from .assets import localize_assets, remote_resource_page_slugs
@@ -10,6 +11,16 @@ from .config import load_config
 from .epub import write_build_report, write_epub
 from .fetcher import Fetcher
 from .indexer import parse_scp001_proposals, parse_series_index, parse_tales_index
+from .linked_appendices import (
+    LINKED_APPENDIX_GROUP_ROLE,
+    LinkedAppendixCandidate,
+    LinkedAppendixDocument,
+    expand_manifest_with_linked_appendices,
+    linked_appendix_group_slug,
+    scan_linked_appendices,
+    scan_linked_appendices_from_fetch_results,
+    write_linked_appendix_report,
+)
 from .manifest import read_manifest, merge_manifest, supplement_missing_scp_entries, write_manifest
 from .models import AppConfig, FetchResult, PageRef, ProcessedPage, VolumeSpec
 from .transform import transform_page
@@ -107,6 +118,21 @@ def build_volume(
         active_fetcher,
         force=force,
     )
+    available_manifest, fetch_results, linked_appendix_documents, linked_missing_pages = (
+        include_linked_appendices(
+            config,
+            available_manifest,
+            fetch_results,
+            active_fetcher,
+            force=force,
+        )
+    )
+    missing_pages.extend(linked_missing_pages)
+    if linked_appendix_documents:
+        write_linked_appendix_report(
+            linked_appendix_documents,
+            config.output_dir / "reports" / f"{volume.output_slug}-linked-appendices.json",
+        )
     processed_pages = _process_pages(config, volume, available_manifest, fetch_results)
     localized_pages, localized_assets, missing_assets = localize_assets(
         processed_pages,
@@ -134,6 +160,146 @@ def build_volume(
         missing_pages=missing_pages,
     )
     return output_path
+
+
+def include_linked_appendices(
+    config: AppConfig,
+    manifest: list[PageRef],
+    fetch_results: list[FetchResult],
+    fetcher: PageFetcher,
+    *,
+    force: bool = False,
+) -> tuple[list[PageRef], list[FetchResult], list[LinkedAppendixDocument], list[dict[str, str]]]:
+    documents = scan_linked_appendices_from_fetch_results(
+        manifest,
+        fetch_results,
+        config.base_url,
+    )
+    if not documents:
+        return manifest, fetch_results, [], []
+
+    manifest_slugs = {entry.slug for entry in manifest}
+    fetched_results_by_slug = {
+        entry.slug: result
+        for entry, result in zip(manifest, fetch_results, strict=True)
+    }
+    successful_documents: list[LinkedAppendixDocument] = []
+    missing_pages: list[dict[str, str]] = []
+
+    for document in documents:
+        successful_candidates: list[LinkedAppendixCandidate] = []
+        for candidate in document.candidates:
+            if candidate.slug in manifest_slugs or candidate.slug in fetched_results_by_slug:
+                continue
+            try:
+                fetched_results_by_slug[candidate.slug] = fetcher.fetch_page(
+                    candidate.slug,
+                    candidate.url,
+                    force=force,
+                )
+            except Exception as exc:
+                missing_pages.append(
+                    {
+                        "slug": candidate.slug,
+                        "title": candidate.title,
+                        "url": candidate.url,
+                        "reason": str(exc),
+                    }
+                )
+                continue
+            successful_candidates.append(candidate)
+
+        if successful_candidates:
+            successful_documents.append(
+                LinkedAppendixDocument(
+                    entry=document.entry,
+                    candidates=tuple(successful_candidates),
+                )
+            )
+
+    if not successful_documents:
+        return manifest, fetch_results, [], missing_pages
+
+    expanded_manifest = expand_manifest_with_linked_appendices(
+        manifest,
+        successful_documents,
+    )
+    successful_documents_by_group_slug = {
+        linked_appendix_group_slug(document.entry.slug): document
+        for document in successful_documents
+    }
+    ordered_results: list[FetchResult] = []
+    cache = CacheStore(config.cache_dir)
+
+    for entry in expanded_manifest:
+        if entry.role == LINKED_APPENDIX_GROUP_ROLE:
+            result = _write_linked_appendix_group_fetch_result(
+                cache,
+                entry,
+                successful_documents_by_group_slug[entry.slug],
+            )
+            ordered_results.append(result)
+            continue
+        ordered_results.append(fetched_results_by_slug[entry.slug])
+
+    return expanded_manifest, ordered_results, successful_documents, missing_pages
+
+
+def scan_linked_appendices_for_volume(
+    config: AppConfig,
+    volume_key: str,
+    *,
+    force: bool = False,
+) -> Path:
+    volume = volume_for_key(config, volume_key)
+    manifest = _load_or_build_manifest(config, volume_key, None, force=force)
+    documents = scan_linked_appendices(
+        manifest,
+        CacheStore(config.cache_dir),
+        config.base_url,
+    )
+    return write_linked_appendix_report(
+        documents,
+        config.output_dir / "reports" / f"{volume.output_slug}-linked-appendices.json",
+    )
+
+
+def _write_linked_appendix_group_fetch_result(
+    cache: CacheStore,
+    entry: PageRef,
+    document: LinkedAppendixDocument,
+) -> FetchResult:
+    html = _linked_appendix_group_html(document)
+    path, metadata_path = cache.write_page(entry.slug, entry.url, html, 200, "text/html")
+    return FetchResult(
+        url=entry.url,
+        path=path,
+        metadata_path=metadata_path,
+        from_cache=False,
+        status_code=200,
+        content_type="text/html",
+    )
+
+
+def _linked_appendix_group_html(document: LinkedAppendixDocument) -> str:
+    items = "\n".join(
+        (
+            f'      <li><a href="{escape(candidate.url, quote=True)}">'
+            f"{escape(candidate.title or candidate.slug)}</a></li>"
+        )
+        for candidate in document.candidates
+    )
+    return f"""<html>
+  <body>
+    <div id="page-content">
+      <h1>原文附属文档</h1>
+      <p>以下页面来自《{escape(document.entry.title)}》正文中的高置信附属文档链接。</p>
+      <ul>
+{items}
+      </ul>
+    </div>
+  </body>
+</html>"""
 
 
 def fetch_build_pages(
@@ -197,6 +363,15 @@ def run_command(args: Namespace) -> None:
             else build_volume(config, args.volume)
         )
         print(f"Wrote {output_path}")
+        return
+
+    if command == "scan-linked-appendices":
+        report_path = scan_linked_appendices_for_volume(
+            config,
+            args.volume,
+            force=force,
+        )
+        print(f"Wrote {report_path}")
         return
 
     if command == "clean":

@@ -11,6 +11,7 @@ from scp_epub.pipeline import (
     build_manifest,
     build_volume,
     fetch_manifest_pages,
+    scan_linked_appendices_for_volume,
 )
 
 
@@ -359,6 +360,65 @@ def test_build_volume_skips_failed_pages_and_reports_missing_pages(tmp_path: Pat
     ]
 
 
+def test_build_volume_includes_high_confidence_linked_appendices_under_group(tmp_path: Path):
+    config = app_config(tmp_path)
+    manifest = [
+        PageRef("SCP-093", f"{BASE_URL}/scp-093", "scp-093", 1, "scp", order=1),
+        PageRef(
+            "SCP-093 Story",
+            f"{BASE_URL}/scp-093-story",
+            "scp-093-story",
+            2,
+            "related",
+            parent_slug="scp-093",
+            order=2,
+        ),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-093": simple_page(
+                "SCP-093",
+                '<a href="/scp-093-blue-test">SCP-093“蓝色”测试</a>',
+            ),
+            "scp-093-story": simple_page("SCP-093 Story", "Story body"),
+            "scp-093-blue-test": simple_page("Blue Test", "Blue test body"),
+        },
+    )
+
+    build_volume(config, "001-099", fetcher=fetcher)
+
+    assert [slug for slug, _url, _force in fetcher.calls] == [
+        "scp-093",
+        "scp-093-story",
+        "scp-093-blue-test",
+    ]
+    processed_dir = config.processed_dir / "test-volume"
+    assert (processed_dir / "0002-scp-093--linked-appendices.xhtml").exists()
+    assert "原文附属文档" in (
+        processed_dir / "0002-scp-093--linked-appendices.xhtml"
+    ).read_text(encoding="utf-8")
+    assert "Blue test body" in (
+        processed_dir / "0003-scp-093-blue-test.xhtml"
+    ).read_text(encoding="utf-8")
+    report = json.loads((config.output_dir / "reports" / "test-volume-report.json").read_text(encoding="utf-8"))
+    assert report["slugs"] == [
+        "scp-093",
+        "scp-093--linked-appendices",
+        "scp-093-blue-test",
+        "scp-093-story",
+    ]
+    assert report["titles"] == [
+        "SCP-093",
+        "原文附属文档",
+        "SCP-093“蓝色”测试",
+        "SCP-093 Story",
+    ]
+
+
 def test_build_volume_force_rebuilds_existing_manifest_from_refreshed_sources(tmp_path: Path):
     config = app_config(tmp_path)
     stale_manifest = [
@@ -394,6 +454,36 @@ def test_build_volume_force_rebuilds_existing_manifest_from_refreshed_sources(tm
     assert [entry["slug"] for entry in refreshed_manifest] == ["scp-001", "scp-002"]
     report = json.loads((config.output_dir / "reports" / "test-volume-report.json").read_text(encoding="utf-8"))
     assert report["slugs"] == ["scp-001", "scp-002"]
+
+
+def test_scan_linked_appendices_for_volume_writes_report_from_cached_pages(tmp_path: Path):
+    config = app_config(tmp_path)
+    manifest = [
+        PageRef("SCP-093", f"{BASE_URL}/scp-093", "scp-093", 1, "scp", order=1),
+    ]
+    from scp_epub.cache import CacheStore
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    cache = CacheStore(config.cache_dir)
+    cache.write_page(
+        "scp-093",
+        f"{BASE_URL}/scp-093",
+        """
+        <html><body><div id="page-content">
+          <a href="/scp-093-blue-test">SCP-093“蓝色”测试</a>
+        </div></body></html>
+        """,
+        200,
+        "text/html",
+    )
+
+    report_path = scan_linked_appendices_for_volume(config, "001-099")
+
+    assert report_path == config.output_dir / "reports" / "test-volume-linked-appendices.json"
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert payload[0]["source_slug"] == "scp-093"
+    assert payload[0]["candidates"][0]["slug"] == "scp-093-blue-test"
 
 
 def test_unknown_volume_key_raises_value_error(tmp_path: Path):

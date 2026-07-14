@@ -11,6 +11,7 @@
 - 支持将 SCP-001 主页面中的提案列表补入 Series 1，并按主页面顺序排列。
 - 将部分 Wikidot 动态结构转换为适合 EPUB 阅读的静态结构，例如标签栏、CSS grid 表格和部分页面样式。
 - 将目录内页面链接识别为 EPUB 内部链接，并保留外部链接。
+- 可扫描并打包正文中尚未进入目录的高置信附属文档链接，生成后续复核报告。
 - 按分卷生成 EPUB 3 文件和 JSON 构建报告。
 
 ## 环境要求
@@ -80,6 +81,18 @@ python -m scp_epub --config config/series-1.yaml fetch --volume 001-099
 
 ```powershell
 python -m scp_epub --config config/series-1.yaml build --volume 001-099
+```
+
+扫描当前分卷中可能需要额外打包的高置信附属文档：
+
+```powershell
+python -m scp_epub --config config/series-1.yaml scan-linked-appendices --volume 001-099
+```
+
+该命令只读取已生成的 manifest 和 `data/raw/pages/` 页面缓存，不会自动下载页面，也不会修改 EPUB 目录。扫描结果会写入：
+
+```text
+output/reports/SCP基金会档案-故事系列-第1卷-第1册-linked-appendices.json
 ```
 
 忽略已有缓存并重新请求页面：
@@ -155,6 +168,10 @@ output/           生成的 EPUB 与报告，默认不提交
 8. 生成 EPUB 文件和 JSON 构建报告。
 
 如果某些页面或资源下载失败，构建报告会记录 `missing_pages` 和 `missing_assets`，便于后续排查。
+
+构建 EPUB 时，流水线会在抓取基础 manifest 页面后自动扫描这些高置信附属链接，并只额外抓取命中的附属页面。附属页面会插入到来源页面下的 `原文附属文档` 分组中，避免和 Tales Edition 中已有的故事子目录混淆；该扫描只展开一层，不递归追踪附属页面里的链接。
+
+`scan-linked-appendices` 是独立的只读诊断命令。它会使用同一套保守规则扫描正文区域里的同站链接，排除已经在 manifest 中的页面以及作者页、系统页、论坛页、授权页、组件页和资源文件页，只报告明显像附录、日志、记录、测试、实验、报告、文件、同一 SCP 编号分支或同页面分卷的链接。该报告用于人工复核构建时会尝试纳入的附属文档候选。
 
 ## EPUB 转换规则
 

@@ -8,6 +8,7 @@
 - `pipeline.py`：构建流程编排。
 - `fetcher.py`、`cache.py`、`assets.py`：页面、资源下载与缓存。
 - `indexer.py`、`manifest.py`：目录解析、页面合并与排序。
+- `linked_appendices.py`：扫描正文中尚未进入清单的高置信附属文档链接。
 - `transform.py`、`epub.py`：HTML 清洗与 EPUB 写入。
 - `models.py`、`config.py`、`urls.py`：数据模型、配置与 URL 工具。
 
@@ -33,6 +34,14 @@ pytest -q
 python -m scp_epub --config config/series-1.yaml build --volume 001-099
 ```
 
+扫描 Series 1 的 001-099 样书中可能需要额外处理的高置信附属文档链接：
+
+```powershell
+python -m scp_epub --config config/series-1.yaml scan-linked-appendices --volume 001-099
+```
+
+该命令只读取已有 manifest 和 `data/raw/pages/` 页面缓存，输出 `output/reports/*-linked-appendices.json`，不会修改 EPUB、manifest 或下载页面。正常 `build` 会使用同一套保守规则自动抓取并打包高置信附属文档。
+
 当前 EPUB 书名和输出文件名使用中文卷册命名：主标题为 `SCP基金会档案`，副标题为 `故事系列`，作者为 `SCP基金会`。`第X卷-第Y册` 中 `X` 是 Series 编号，`Y` 是该 Series 内册序号；例如 Series 1 的 `001-099` 输出为 `SCP基金会档案-故事系列-第1卷-第1册.epub`。
 
 构建 Series 1 的全部分卷：
@@ -56,7 +65,7 @@ scp-epub --config config/series-1.yaml build --volume 001-099
 
 ## 测试规范
 
-测试框架为 `pytest`，配置在 `pyproject.toml` 中，已设置 `pythonpath = ["src"]` 和 `testpaths = ["tests"]`。修改清洗规则时补充 `tests/test_transform.py`，修改 EPUB 输出时补充 `tests/test_epub.py`，修改目录解析时补充 `tests/test_indexer.py`、`tests/test_manifest.py` 或 `tests/test_scp001.py`。测试命名使用 `test_<行为>`，fixture 应保持最小化。
+测试框架为 `pytest`，配置在 `pyproject.toml` 中，已设置 `pythonpath = ["src"]` 和 `testpaths = ["tests"]`。修改清洗规则时补充 `tests/test_transform.py`，修改 EPUB 输出时补充 `tests/test_epub.py`，修改目录解析时补充 `tests/test_indexer.py`、`tests/test_manifest.py` 或 `tests/test_scp001.py`。修改高置信附属文档扫描规则时补充 `tests/test_linked_appendices.py`。测试命名使用 `test_<行为>`，fixture 应保持最小化。
 
 SCP-001 提案补全由 `include_scp001_proposals` 控制；Series 1 当前启用该选项。提案在 EPUB 目录中应作为与 `SCP-001` 同层级的顶层条目出现，而不是 `SCP-001` 的子目录。修改相关逻辑时，需要覆盖提案顺序、子故事分组、缺失提案补入和导航层级。
 
@@ -67,6 +76,8 @@ HTML 清洗逻辑需要特别注意以下已知模式：
 - 浮动图片块需要避免覆盖后续虚线框、引用框或折叠内容。
 - `authorbox` 等作者元数据卡片不应进入正文。
 - `scene-break` SCP 图标应保持小尺寸居中，不应按普通图片放大。
+
+`scan-linked-appendices` 的候选规则必须保持保守：宁可漏掉边缘链接，也不要把普通 SCP 交叉引用、系列推荐、作者页、授权页、论坛页或系统组件误报为需要打包的附属文档。正常 `build` 会把成功抓取的候选页面插入来源页面下的 `原文附属文档` 分组中，且只展开一层，不递归追踪附属页面里的链接。放宽规则或调整分组结构时必须补充测试，证明普通链接不会被误报，已有故事子目录不会和附属文档混淆。
 
 ## 提交与 Pull Request 规范
 

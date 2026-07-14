@@ -5,9 +5,23 @@ def test_parser_exposes_expected_commands():
     parser = build_parser()
     commands = [
         parser.parse_args([command]).command
-        for command in ("build", "clean", "fetch", "index", "manifest")
+        for command in (
+            "build",
+            "clean",
+            "fetch",
+            "index",
+            "manifest",
+            "scan-linked-appendices",
+        )
     ]
-    assert commands == ["build", "clean", "fetch", "index", "manifest"]
+    assert commands == [
+        "build",
+        "clean",
+        "fetch",
+        "index",
+        "manifest",
+        "scan-linked-appendices",
+    ]
 
 
 def test_parser_accepts_config_after_subcommand():
@@ -62,3 +76,39 @@ def test_manifest_command_invokes_pipeline_with_config_and_volume(monkeypatch, t
     ]
     assert "manifest.json" in captured.out
     assert "2 pages" in captured.out
+
+
+def test_scan_linked_appendices_command_invokes_pipeline(monkeypatch, tmp_path, capsys):
+    calls = []
+
+    def fake_load_config(path):
+        calls.append(("load_config", path))
+        return "config"
+
+    def fake_scan(config, volume, *, force=False):
+        calls.append(("scan_linked_appendices_for_volume", config, volume, force))
+        return tmp_path / "linked-appendices.json"
+
+    monkeypatch.setattr("scp_epub.pipeline.load_config", fake_load_config)
+    monkeypatch.setattr(
+        "scp_epub.pipeline.scan_linked_appendices_for_volume",
+        fake_scan,
+    )
+
+    result = main(
+        [
+            "scan-linked-appendices",
+            "--config",
+            "config/custom.yaml",
+            "--volume",
+            "001-099",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert result == 0
+    assert calls == [
+        ("load_config", "config/custom.yaml"),
+        ("scan_linked_appendices_for_volume", "config", "001-099", False),
+    ]
+    assert "linked-appendices.json" in captured.out

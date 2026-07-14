@@ -14,7 +14,7 @@ def build_parser() -> argparse.ArgumentParser:
     command_parent.add_argument("--config", default=argparse.SUPPRESS)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    for command in ("index", "manifest", "fetch", "clean", "build"):
+    for command in ("index", "manifest", "fetch", "clean", "build", "scan-linked-appendices"):
         subparser = subparsers.add_parser(command, parents=[command_parent])
         subparser.add_argument("--volume", default="001-099")
         subparser.add_argument("--refresh", action="store_true")
