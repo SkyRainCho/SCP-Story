@@ -75,6 +75,25 @@ GENERATED_BEFORE_FONT_SIZE = "0.875em"
 POSITIONED_GENERATED_BEFORE_STYLE = (
     "margin-top: -1.75em; margin-left: -0.5em; margin-bottom: 0.75em"
 )
+INTERACTIVE_ARTICLE_STYLE_SELECTOR_FRAGMENTS = (
+    ".colmod-link",
+    ".desktop-display",
+    ".foldable-list-container",
+    ".glitch-",
+    ".hover",
+    ".mobile-display",
+    ".scptop-bg",
+    ".t-real",
+    ".unfolded",
+)
+INTERACTIVE_ARTICLE_EPUB_STYLE_RULES = (
+    ".terminal .blockquote {background: #2b2b2b; color: #ededed; "
+    "border: 1px dashed #ededed; margin: 1.5em auto; padding: 1em; max-width: 80%;}"
+    "\n.declaration ul {list-style-type: square;}"
+    "\n.glitch-body {font-size: 4em; line-height: 1.1; text-align: center; "
+    "transform: rotate(-1deg); margin: 0.75em 0;}"
+    "\n.glitch-stack span {font-weight: bold; text-shadow: -2px 3px 0 red, 2px -3px 0 #4d52ff;}"
+)
 UNSUPPORTED_PAGE_STYLE_SELECTOR_FRAGMENTS = (
     ".anom-bar",
     ".anom-bar-container",
@@ -189,6 +208,12 @@ def transform_page(
     for tag in list(page_content.find_all(_is_unwanted_element)):
         tag.decompose()
 
+    if _has_interactive_article_layout(page_content):
+        _linearize_interactive_article_layout(page_content)
+        page_styles = _linearize_interactive_article_styles(page_styles)
+        page_styles = _append_page_style_rules(page_styles, INTERACTIVE_ARTICLE_EPUB_STYLE_RULES)
+
+    _normalize_ruby_annotations(soup, page_content)
     page_styles = _materialize_generated_before_content(soup, page_content, page_styles)
     _convert_grid_tables(soup, page_content)
     _stabilize_float_layout(soup, page_content)
@@ -348,6 +373,99 @@ def _is_css_code_collapsible(tag: Tag) -> bool:
     if "CODE" not in link_text:
         return False
     return _contains_code_block(tag) and _looks_like_css_code(tag.get_text("\n", strip=True))
+
+
+def _has_interactive_article_layout(page_content: Tag) -> bool:
+    return page_content.select_one(".terminal.t-real") is not None and (
+        page_content.select_one(".foldable-list-container") is not None
+        or page_content.select_one(".colmod-content") is not None
+    )
+
+
+def _linearize_interactive_article_layout(page_content: Tag) -> None:
+    for control in list(page_content.select(".foldable-list-container")):
+        control.decompose()
+
+    for mobile_display in list(page_content.select(".mobile-display")):
+        mobile_display.decompose()
+
+    for terminal in page_content.select(".terminal.t-real"):
+        _remove_class_token(terminal, "t-real")
+
+    for marker in list(page_content.find_all("li")):
+        if marker.get_text(" ", strip=True) == "_":
+            marker.decompose()
+
+    for empty_container in list(page_content.select(".colmod-link-top, ul")):
+        if not empty_container.get_text(" ", strip=True) and not empty_container.find("img"):
+            empty_container.decompose()
+
+    for stack in page_content.select(".glitch-stack"):
+        spans = stack.find_all("span", recursive=False)
+        texts = [span.get_text(strip=True) for span in spans if span.get_text(strip=True)]
+        if not spans or len(set(texts)) != 1:
+            continue
+        for span in spans[1:]:
+            span.decompose()
+
+
+def _linearize_interactive_article_styles(page_styles: str) -> str:
+    rules: list[str] = []
+    for match in CSS_RULE_RE.finditer(page_styles):
+        selectors = [selector.strip() for selector in match.group("selectors").split(",") if selector.strip()]
+        kept_selectors = [
+            selector
+            for selector in selectors
+            if not _is_interactive_article_layout_selector(selector)
+        ]
+        if kept_selectors:
+            rules.append(f"{', '.join(kept_selectors)} {{{match.group('body').strip()}}}")
+    return "\n".join(rules)
+
+
+def _append_page_style_rules(page_styles: str, extra_rules: str) -> str:
+    if not page_styles:
+        return extra_rules
+    return f"{page_styles}\n{extra_rules}"
+
+
+def _normalize_ruby_annotations(soup: BeautifulSoup, page_content: Tag) -> None:
+    for ruby_span in list(page_content.select("span.ruby")):
+        rt_span = ruby_span.find("span", class_="rt", recursive=False)
+        if rt_span is None:
+            continue
+
+        ruby = soup.new_tag("ruby")
+        rt = soup.new_tag("rt")
+        rt.string = rt_span.get_text("", strip=True)
+
+        for child in list(ruby_span.contents):
+            if child is rt_span:
+                continue
+            ruby.append(child.extract() if isinstance(child, Tag) else child)
+        ruby.append(rt)
+        ruby_span.replace_with(ruby)
+
+
+def _is_interactive_article_layout_selector(selector: str) -> bool:
+    lowered = selector.lower()
+    return any(fragment in lowered for fragment in INTERACTIVE_ARTICLE_STYLE_SELECTOR_FRAGMENTS)
+
+
+def _remove_class_token(tag: Tag, class_name: str) -> None:
+    classes = tag.get("class", [])
+    if isinstance(classes, str):
+        tokens = classes.split()
+    elif isinstance(classes, Iterable):
+        tokens = [str(token) for token in classes]
+    else:
+        return
+
+    remaining = [token for token in tokens if token.lower() != class_name.lower()]
+    if remaining:
+        tag["class"] = remaining
+    else:
+        tag.attrs.pop("class", None)
 
 
 def _is_hidden_by_style(tag: Tag) -> bool:

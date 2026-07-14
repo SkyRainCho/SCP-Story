@@ -647,6 +647,145 @@ def test_contains_floated_images_inside_collapsible_content():
     assert "clear: both" in soup.find(class_="collapsible-block")["style"]
 
 
+def test_linearizes_terminal_interactive_article_layout_for_epub():
+    html = """
+    <html>
+      <head>
+        <style>
+          .terminal { border: 10px solid gray; background: #1a1a1a; color: #ededed; }
+          .t-real {
+            height: 80%;
+            overflow-y: scroll;
+            position: absolute;
+            top: 0;
+          }
+          .foldable-list-container a:nth-child(2) {
+            position: fixed;
+            bottom: 1rem;
+            animation: 1.5s coll-in ease-out;
+          }
+          .glitch-stack { display: grid; grid-template-columns: 1fr; }
+          .glitch-stack span { grid-row-start: 1; grid-column-start: 1; }
+        </style>
+      </head>
+      <body>
+        <div id="page-content">
+          <div class="terminal">
+            <div class="colmod-block">
+              <ul><li class="folded"><ul><li>_</li></ul></li></ul>
+              <div class="colmod-link-top">
+                <div class="foldable-list-container">
+                  <a href="javascript:;">评进</a><a href="javascript:;">退却</a>
+                </div>
+              </div>
+                  <div class="colmod-content">
+                    <div class="terminal t-real">
+                      <div class="declaration green">
+                        <ul><li>声明条目。</li></ul>
+                      </div>
+                      <div class="blockquote element">
+                        <p><strong>VL.001/5</strong></p>
+                        <p>日志正文。</p>
+                      </div>
+                      <p>终端正文。</p>
+                      <div class="glitch-body">
+                        <div class="glitch-stack" style="--stacks: 3;">
+                          <span style="--index: 0;">化身？</span>
+                          <span style="--index: 1;">化身？</span>
+                          <span style="--index: 2;">化身？</span>
+                        </div>
+                      </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    style_text = soup.find("style").get_text()
+    assert ".terminal" in style_text
+    assert ".terminal .blockquote" in style_text
+    assert "list-style-type: square" in style_text
+    assert ".glitch-body" in style_text
+    assert ".glitch-stack span" in style_text
+    assert ".t-real" not in style_text
+    assert ".foldable-list-container" not in style_text
+    assert "position: absolute" not in style_text
+    assert "position: fixed" not in style_text
+    assert "overflow-y: scroll" not in style_text
+    assert "clip-path" not in style_text
+
+    terminal = soup.find(class_="terminal")
+    assert terminal is not None
+    assert soup.find(class_="t-real") is None
+    assert soup.find(class_="foldable-list-container") is None
+    assert "_" not in soup.get_text(" ", strip=True)
+    assert "评进" not in soup.get_text(" ", strip=True)
+    assert "退却" not in soup.get_text(" ", strip=True)
+    assert "终端正文。" in soup.find(class_="colmod-content").get_text(" ", strip=True)
+    assert soup.select_one(".blockquote") is not None
+
+    glitch_stack = soup.find(class_="glitch-stack")
+    assert glitch_stack is not None
+    assert [span.get_text(strip=True) for span in glitch_stack.find_all("span")] == ["化身？"]
+
+
+def test_does_not_linearize_ordinary_collapsible_layouts():
+    html = """
+    <html>
+      <head>
+        <style>
+          .ordinary-note { position: absolute; color: red; }
+          .collapsible-block-content { border: 1px solid #999; }
+        </style>
+      </head>
+      <body>
+        <div id="page-content">
+          <div class="ordinary-note">普通说明。</div>
+          <div class="collapsible-block">
+            <div class="collapsible-block-folded"><a class="collapsible-block-link">记录</a></div>
+            <div class="collapsible-block-unfolded">
+              <div class="collapsible-block-content"><p>普通折叠内容。</p></div>
+            </div>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    style_text = soup.find("style").get_text()
+    assert ".ordinary-note {position: absolute; color: red;}" in style_text
+    assert ".collapsible-block-content" in style_text
+    assert soup.find(class_="ordinary-note") is not None
+    assert soup.find(class_="collapsible-block-content").get_text(strip=True) == "普通折叠内容。"
+
+
+def test_converts_ruby_annotation_spans_to_semantic_ruby():
+    html = """
+    <html><body><div id="page-content">
+      <p><span class="ruby">本质性复合体<span class="rt">ESSOPLEX</span></span>已被破坏。</p>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    ruby = soup.find("ruby")
+    assert ruby is not None
+    assert ruby.find("rt").get_text(strip=True) == "ESSOPLEX"
+    assert ruby.get_text(" ", strip=True) == "本质性复合体 ESSOPLEX"
+    assert soup.find("span", class_="ruby") is None
+    assert soup.find("span", class_="rt") is None
+
+
 def test_missing_page_content_raises_value_error():
     with pytest.raises(ValueError, match="#page-content"):
         transform_page(page_ref(), "<html><body><p>No content</p></body></html>", BASE_URL)
