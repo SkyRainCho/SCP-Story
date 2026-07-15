@@ -12,6 +12,7 @@
 - 将部分 Wikidot 动态结构转换为适合 EPUB 阅读的静态结构，例如标签栏、CSS grid 表格和部分页面样式。
 - 将目录内页面链接识别为 EPUB 内部链接，并保留外部链接。
 - 可扫描并打包正文中尚未进入目录的高置信附属文档链接，生成后续复核报告。
+- 构建时会自动查找 `cover/` 中与分卷输出名匹配的封面图片，并写入 EPUB 封面元数据。
 - 按分卷生成 EPUB 3 文件和 JSON 构建报告。
 
 ## 环境要求
@@ -81,6 +82,18 @@ python -m scp_epub --config config/series-1.yaml fetch --volume 001-099
 
 ```powershell
 python -m scp_epub --config config/series-1.yaml build --volume 001-099
+```
+
+如果存在匹配的封面图片，构建时会自动附加到 EPUB 中。封面文件放在工作区根目录的 `cover/` 下，命名规则为：
+
+```text
+cover/<output_slug>-cover.png
+```
+
+例如 Series 1 第一册会使用：
+
+```text
+cover/SCP基金会档案-故事系列-第1卷-第1册-cover.png
 ```
 
 扫描当前分卷中可能需要额外打包的高置信附属文档：

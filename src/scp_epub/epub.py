@@ -470,6 +470,15 @@ class _AssetEntry:
 
 
 @dataclass(frozen=True)
+class _CoverEntry:
+    id: str
+    href: str
+    archive_path: str
+    path: Path
+    media_type: str
+
+
+@dataclass(frozen=True)
 class _NavNode:
     entry: _ChapterEntry
     children: tuple["_NavNode", ...] = ()
@@ -486,6 +495,7 @@ def write_epub(
     modified: datetime | str | None = None,
     assets: list[AssetRef] | tuple[AssetRef, ...] = (),
     remote_resource_page_slugs: set[str] | tuple[str, ...] | list[str] = (),
+    cover_image_path: Path | None = None,
 ) -> Path:
     ordered_pages = _ordered_pages(pages)
     if not ordered_pages:
@@ -499,6 +509,7 @@ def write_epub(
         for page in ordered_pages
     ]
     asset_entries = _asset_entries(assets)
+    cover_entry = _cover_entry(cover_image_path) if cover_image_path else None
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
@@ -516,11 +527,15 @@ def write_epub(
                 modified=modified_value,
                 page_entries=page_entries,
                 asset_entries=asset_entries,
+                cover_entry=cover_entry,
             ),
         )
         archive.writestr("OEBPS/nav.xhtml", _nav_xhtml(title=title, language=language, page_entries=page_entries))
         archive.writestr("OEBPS/toc.ncx", _toc_ncx(title=title, identifier=book_identifier, page_entries=page_entries))
         archive.writestr("OEBPS/styles/book.css", BOOK_CSS)
+        if cover_entry:
+            archive.writestr("OEBPS/cover.xhtml", _cover_xhtml(cover_entry, title=title, language=language))
+            archive.write(cover_entry.path, cover_entry.archive_path)
         for entry in page_entries:
             archive.writestr(entry.archive_path, _page_xhtml(entry.page, language=language))
         for entry in asset_entries:
@@ -595,6 +610,19 @@ def _asset_entries(assets: list[AssetRef] | tuple[AssetRef, ...]) -> list[_Asset
     return entries
 
 
+def _cover_entry(path: Path) -> _CoverEntry:
+    suffix = path.suffix.lower() or ".png"
+    href = f"images/cover{suffix}"
+    media_type, _encoding = mimetypes.guess_type(path.name)
+    return _CoverEntry(
+        id="cover-image",
+        href=href,
+        archive_path=f"OEBPS/{href}",
+        path=path,
+        media_type=media_type or "image/png",
+    )
+
+
 def _asset_media_type(asset: AssetRef) -> str:
     content_type = asset.content_type.split(";", 1)[0].strip().lower()
     if content_type:
@@ -633,6 +661,7 @@ def _content_opf(
     modified: str,
     page_entries: list[_ChapterEntry],
     asset_entries: list[_AssetEntry],
+    cover_entry: _CoverEntry | None = None,
 ) -> str:
     page_manifest_items = "\n".join(_page_manifest_item(entry) for entry in page_entries)
     asset_manifest_items = "\n".join(
@@ -640,7 +669,21 @@ def _content_opf(
         f'media-type="{escape(entry.media_type, quote=True)}"/>'
         for entry in asset_entries
     )
-    manifest_items = "\n".join(value for value in (page_manifest_items, asset_manifest_items) if value)
+    cover_metadata = '    <meta name="cover" content="cover-image"/>\n' if cover_entry else ""
+    cover_manifest_items = ""
+    cover_spine_item = ""
+    if cover_entry:
+        cover_manifest_items = (
+            '    <item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/>\n'
+            f'    <item id="{cover_entry.id}" href="{escape(cover_entry.href, quote=True)}" '
+            f'media-type="{escape(cover_entry.media_type, quote=True)}" properties="cover-image"/>'
+        )
+        cover_spine_item = '    <itemref idref="cover"/>\n'
+    manifest_items = "\n".join(
+        value
+        for value in (cover_manifest_items, page_manifest_items, asset_manifest_items)
+        if value
+    )
     spine_items = "\n".join(f'    <itemref idref="{entry.id}"/>' for entry in page_entries)
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="book-id" version="3.0">
@@ -650,6 +693,7 @@ def _content_opf(
     <dc:creator>{escape(creator)}</dc:creator>
     <dc:identifier id="book-id">{escape(identifier)}</dc:identifier>
     <meta property="dcterms:modified">{escape(modified)}</meta>
+{cover_metadata.rstrip()}
   </metadata>
   <manifest>
     <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
@@ -658,6 +702,7 @@ def _content_opf(
 {manifest_items}
   </manifest>
   <spine toc="ncx">
+{cover_spine_item.rstrip()}
 {spine_items}
   </spine>
 </package>
@@ -819,6 +864,33 @@ def _page_xhtml(page: ProcessedPage, *, language: str) -> str:
   <body>
     <h1>{page_title}</h1>
 {page.xhtml}
+  </body>
+</html>
+"""
+
+
+def _cover_xhtml(cover: _CoverEntry, *, title: str, language: str) -> str:
+    escaped_language = escape(language, quote=True)
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="{escaped_language}" xml:lang="{escaped_language}">
+  <head>
+    <meta charset="utf-8"/>
+    <title>{escape(title)} - 封面</title>
+    <style>
+      body {{
+        margin: 0;
+        padding: 0;
+        text-align: center;
+      }}
+      img {{
+        max-width: 100%;
+        height: auto;
+      }}
+    </style>
+  </head>
+  <body>
+    <img src="{escape(cover.href, quote=True)}" alt="封面"/>
   </body>
 </html>
 """

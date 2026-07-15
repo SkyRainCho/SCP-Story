@@ -281,6 +281,32 @@ def test_build_volume_fetches_transforms_and_writes_epub_report_and_processed_fi
     assert report["internal_links"] == [f"{BASE_URL}/scp-001"]
 
 
+def test_build_volume_attaches_matching_cover_image_when_present(tmp_path: Path):
+    config = app_config(tmp_path)
+    manifest = [
+        PageRef("SCP-001", f"{BASE_URL}/scp-001", "scp-001", 1, "scp", order=1),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    cover_path = config.workspace / "cover" / "test-volume-cover.png"
+    cover_path.parent.mkdir(parents=True)
+    cover_path.write_bytes(b"cover png")
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {"scp-001": simple_page("SCP-001", "Hub body")},
+    )
+
+    output_path = build_volume(config, "001-099", fetcher=fetcher)
+
+    with zipfile.ZipFile(output_path) as archive:
+        opf = archive.read("OEBPS/content.opf").decode("utf-8")
+        assert archive.read("OEBPS/images/cover.png") == b"cover png"
+        assert "OEBPS/cover.xhtml" in archive.namelist()
+    assert '<meta name="cover" content="cover-image"/>' in opf
+    assert 'properties="cover-image"' in opf
+
+
 def test_build_volume_localizes_assets_and_reports_missing_assets(tmp_path: Path):
     config = app_config(tmp_path)
     manifest = [

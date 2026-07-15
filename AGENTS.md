@@ -44,6 +44,8 @@ python -m scp_epub --config config/series-1.yaml scan-linked-appendices --volume
 
 当前 EPUB 书名和输出文件名使用中文卷册命名：主标题为 `SCP基金会档案`，副标题为 `故事系列`，作者为 `SCP基金会`。`第X卷-第Y册` 中 `X` 是 Series 编号，`Y` 是该 Series 内册序号；例如 Series 1 的 `001-099` 输出为 `SCP基金会档案-故事系列-第1卷-第1册.epub`。
 
+构建 EPUB 时会自动查找工作区根目录 `cover/` 下的匹配封面图，命名规则为 `<output_slug>-cover.png`，例如 `cover/SCP基金会档案-故事系列-第1卷-第1册-cover.png`。存在时应写入 EPUB 的 `cover.xhtml`、`cover-image` manifest 项和封面 metadata；不存在时构建应继续。
+
 构建 Series 1 的全部分卷：
 
 ```powershell

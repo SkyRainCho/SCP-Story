@@ -151,6 +151,7 @@ def build_volume(
         identifier=f"urn:{config.series_id}:{volume.output_slug}",
         assets=localized_assets,
         remote_resource_page_slugs=remote_slugs,
+        cover_image_path=cover_image_path_for_volume(config, volume),
     )
     write_build_report(
         config.output_dir / "reports" / f"{volume.output_slug}-report.json",
@@ -395,6 +396,12 @@ def make_fetcher(config: AppConfig) -> Fetcher:
 def manifest_path_for_volume(config: AppConfig, volume: VolumeSpec | str) -> Path:
     volume_spec = volume_for_key(config, volume) if isinstance(volume, str) else volume
     return config.manifest_dir / f"{volume_spec.output_slug}.json"
+
+
+def cover_image_path_for_volume(config: AppConfig, volume: VolumeSpec | str) -> Path | None:
+    volume_spec = volume_for_key(config, volume) if isinstance(volume, str) else volume
+    cover_path = config.workspace / "cover" / f"{volume_spec.output_slug}-cover.png"
+    return cover_path if cover_path.exists() else None
 
 
 def volume_for_key(config: AppConfig, volume_key: str) -> VolumeSpec:

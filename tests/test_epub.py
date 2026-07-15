@@ -379,6 +379,43 @@ def test_write_epub_includes_localized_assets_in_archive_and_manifest(tmp_path: 
     assert '<item id="asset-0001" href="assets/photo.png" media-type="image/png"/>' in opf
 
 
+def test_write_epub_includes_cover_page_and_cover_image_metadata(tmp_path: Path):
+    cover_path = tmp_path / "cover.png"
+    cover_path.write_bytes(b"cover png")
+    page = _page("scp-001", "SCP-001", 1)
+    output_path = tmp_path / "series.epub"
+
+    write_epub(
+        [page],
+        output_path,
+        title="SCP",
+        language="zh-CN",
+        creator="SCP",
+        cover_image_path=cover_path,
+    )
+
+    with zipfile.ZipFile(output_path) as archive:
+        names = archive.namelist()
+        opf = archive.read("OEBPS/content.opf").decode("utf-8")
+        cover = archive.read("OEBPS/cover.xhtml").decode("utf-8")
+        cover_image = archive.read("OEBPS/images/cover.png")
+
+    assert "OEBPS/cover.xhtml" in names
+    assert cover_image == b"cover png"
+    assert '<meta name="cover" content="cover-image"/>' in opf
+    assert (
+        '<item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/>'
+        in opf
+    )
+    assert (
+        '<item id="cover-image" href="images/cover.png" '
+        'media-type="image/png" properties="cover-image"/>'
+        in opf
+    )
+    assert opf.index('<itemref idref="cover"/>') < opf.index('<itemref idref="page-0001"/>')
+    assert '<img src="images/cover.png" alt="封面"/>' in cover
+
+
 def test_write_epub_marks_only_pages_with_remote_resources(tmp_path: Path):
     pages = [
         _page(
