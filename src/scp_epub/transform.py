@@ -63,7 +63,13 @@ CSS_CODE_MARKERS = (
     "--logo-img",
 )
 CSS_CUSTOM_PROPERTY_RE = re.compile(r"--\s*[a-z0-9_-]+\s*:", re.IGNORECASE)
-CSS_RULE_RE = re.compile(r"(?P<selectors>[^{}@][^{}]*)\{(?P<body>[^{}]*)\}")
+WIKIDOT_TEMPLATE_PLACEHOLDER_RE = re.compile(
+    r"(?:\{\$[A-Za-z0-9_-]+\}|\\\{\\\$[A-Za-z0-9_-]+\\\})"
+)
+CSS_RULE_RE = re.compile(
+    rf"(?P<selectors>[^{{}}@](?:{WIKIDOT_TEMPLATE_PLACEHOLDER_RE.pattern}|[^{{}}])*)"
+    rf"\{{(?P<body>[^{{}}]*)\}}"
+)
 CSS_CONTENT_PROPERTY_RE = re.compile(
     r"""(?:^|;)\s*content\s*:\s*(?P<value>"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')\s*(?=;|$)""",
     re.IGNORECASE | re.DOTALL,
@@ -529,7 +535,10 @@ def _matching_css_rules(css_text: str, targets: tuple[set[str], set[str]]) -> li
             continue
         selectors = [selector.strip() for selector in selector_text.split(",") if selector.strip()]
         supported_selectors = [
-            selector for selector in selectors if not _is_unsupported_page_style_selector(selector)
+            selector
+            for selector in selectors
+            if not WIKIDOT_TEMPLATE_PLACEHOLDER_RE.search(selector)
+            and not _is_unsupported_page_style_selector(selector)
         ]
         matching_selectors = [
             selector

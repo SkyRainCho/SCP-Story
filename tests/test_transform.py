@@ -351,6 +351,36 @@ def test_skips_unsupported_anomaly_bar_document_styles():
     assert ".risk-class" not in style_text
 
 
+def test_skips_page_style_rules_with_unexpanded_wikidot_template_placeholders():
+    html = r"""
+    <html>
+      <head>
+        <style>
+          .earthworm { color: #6c4b32; }
+          .earthworm__previous\{\$previous-title\} { color: #8f0000; }
+          .article-frame { border: 1px solid #555; }
+        </style>
+      </head>
+      <body>
+        <div id="page-content">
+          <div class="earthworm">Earthworm content</div>
+          <div class="earthworm__previous">Previous title content</div>
+          <div class="article-frame">Article content</div>
+        </div>
+      </body>
+    </html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+    style_text = soup.find("style").get_text()
+
+    assert ".earthworm {color: #6c4b32;}" in style_text
+    assert ".article-frame {border: 1px solid #555;}" in style_text
+    assert ".earthworm__previous" not in style_text
+    assert "previous-title" not in style_text
+
+
 def test_materializes_page_style_before_content_labels():
     html = """
     <html>
