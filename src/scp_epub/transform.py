@@ -608,7 +608,7 @@ def _materialize_generated_before_content(
 
 
 def _is_supported_generated_before_selector(selector: str) -> bool:
-    if any(token in selector for token in ("+", "~", "*", "[", "]", ":")):
+    if any(token in selector for token in ("+", "~", "*", "[", "]", "(", ")", ":")):
         return False
 
     parts = [part.strip() for part in selector.split(">")]

@@ -485,6 +485,31 @@ def test_does_not_materialize_complex_generated_before_selectors():
     assert soup.find(class_="grid-table").find(class_="generated-before") is None
 
 
+def test_ignores_invalid_generated_before_selectors_without_dropping_valid_labels():
+    html = """
+    <html>
+      <head>
+        <style>
+          :is(div.notation, div.darkdocument)::before { content: "坏规则"; display: block; }
+          .speaker::before { content: "发言人"; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div id="page-content">
+          <div class="speaker">正文</div>
+          <div class="darkdocument">暗色文档</div>
+        </div>
+      </body>
+    </html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(class_="speaker").find(class_="generated-before").get_text(strip=True) == "发言人"
+    assert soup.find(class_="darkdocument").find(class_="generated-before") is None
+
+
 def test_converts_css_grid_tables_to_epub_tables():
     html = """
     <html><body><div id="page-content">
