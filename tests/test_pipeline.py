@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from scp_epub.models import AppConfig, FetchResult, PageRef, VolumeSpec
+from scp_epub.models import AppConfig, ConfiguredLink, ConfiguredPage, FetchResult, PageRef, VolumeSpec
 from scp_epub.pipeline import (
     build_manifest,
     build_volume,
@@ -27,6 +27,9 @@ def app_config(
     featured_archive_url: str | None = None,
     include_linked_appendices: bool = True,
     featured_title_index_paths: tuple[str, ...] = (),
+    front_matter_pages: tuple[ConfiguredPage, ...] = (),
+    explicit_linked_appendices: dict[str, tuple[ConfiguredLink, ...]] | None = None,
+    page_tab_includes: dict[str, tuple[str, ...]] | None = None,
 ) -> AppConfig:
     volume = VolumeSpec(
         key=volume_key,
@@ -60,6 +63,9 @@ def app_config(
         featured_archive_url=featured_archive_url,
         include_linked_appendices=include_linked_appendices,
         featured_title_index_paths=featured_title_index_paths,
+        front_matter_pages=front_matter_pages,
+        explicit_linked_appendices=explicit_linked_appendices or {},
+        page_tab_includes=page_tab_includes or {},
     )
 
 
@@ -370,6 +376,39 @@ def test_build_manifest_featured_archive_orders_entries_from_first_rank_forward(
     assert [entry.order for entry in manifest] == [1, 2, 3, 4]
 
 
+def test_build_manifest_featured_archive_prepends_front_matter_pages(tmp_path: Path):
+    config = app_config(
+        tmp_path,
+        volume_key="featured",
+        index_mode="featured-scp-archive",
+        featured_archive_url="https://scp-wiki.wikidot.com/featured-scp-archive",
+        front_matter_pages=(
+            ConfiguredPage(
+                title="关于SCP基金会",
+                url=f"{BASE_URL}/about-the-scp-foundation",
+                slug="about-the-scp-foundation",
+            ),
+        ),
+    )
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "featured-scp-archive": """
+              <div id="page-content">
+                <p>1. <strong><a href="/scp-173">SCP-173</a></strong>: The Sculpture</p>
+              </div>
+            """,
+        },
+    )
+
+    manifest = build_manifest(config, "featured", fetcher=fetcher)
+
+    assert [entry.slug for entry in manifest] == ["about-the-scp-foundation", "scp-173"]
+    assert [entry.title for entry in manifest] == ["关于SCP基金会", "SCP-173"]
+    assert [entry.role for entry in manifest] == ["front-matter", "scp"]
+    assert [entry.order for entry in manifest] == [1, 2]
+
+
 def test_fetch_manifest_pages_fetches_each_manifest_entry(tmp_path: Path):
     config = app_config(tmp_path)
     manifest = [
@@ -615,6 +654,57 @@ def test_build_volume_can_disable_linked_appendices_for_featured_books(tmp_path:
     assert [slug for slug, _url, _force in fetcher.calls] == ["scp-093"]
     report = json.loads((config.output_dir / "reports" / "test-volume-report.json").read_text(encoding="utf-8"))
     assert report["slugs"] == ["scp-093"]
+
+
+def test_build_volume_includes_configured_linked_appendix_chain(tmp_path: Path):
+    config = app_config(
+        tmp_path,
+        explicit_linked_appendices={
+            "scp-5170": (
+                ConfiguredLink(
+                    title="#1附件A",
+                    url=f"{BASE_URL}/scp-5170/offset/1",
+                    slug="scp-5170/offset/1",
+                ),
+                ConfiguredLink(
+                    title="#2附件B",
+                    url=f"{BASE_URL}/scp-5170/offset/2",
+                    slug="scp-5170/offset/2",
+                ),
+                ConfiguredLink(
+                    title="#3附件C",
+                    url=f"{BASE_URL}/scp-5170/offset/3",
+                    slug="scp-5170/offset/3",
+                ),
+            )
+        },
+    )
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(
+        [PageRef("SCP-5170", f"{BASE_URL}/scp-5170", "scp-5170", 1, "scp", order=1)],
+        config.manifest_dir / "test-volume.json",
+    )
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-5170": simple_page("SCP-5170", '<a href="/scp-5170/offset/1">#1附件A</a>'),
+            "scp-5170/offset/1": simple_page("#1附件A", '<a href="/scp-5170/offset/2">#2附件B</a>'),
+            "scp-5170/offset/2": simple_page("#2附件B", '<a href="/scp-5170/offset/3">#3附件C</a>'),
+            "scp-5170/offset/3": simple_page("#3附件C", "附件C正文"),
+        },
+    )
+
+    build_volume(config, "001-099", fetcher=fetcher)
+
+    report = json.loads((config.output_dir / "reports" / "test-volume-report.json").read_text(encoding="utf-8"))
+    assert report["slugs"] == [
+        "scp-5170",
+        "scp-5170--linked-appendices",
+        "scp-5170/offset/1",
+        "scp-5170/offset/2",
+        "scp-5170/offset/3",
+    ]
 
 
 def test_build_volume_force_rebuilds_existing_manifest_from_refreshed_sources(tmp_path: Path):

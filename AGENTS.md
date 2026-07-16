@@ -93,6 +93,8 @@ HTML 清洗逻辑需要特别注意以下已知模式：
 
 Featured 精选模式可通过 `featured_title_index_paths` 配置额外中文 SCP 系列索引页补齐标题；当前应读取 `/scp-series-9` 和 `/scp-series-10`，以避免 Featured 归档中 Series 9/10 条目在目录中只显示编号。补齐逻辑只能填补缺失标题，不应覆盖已有中文 manifest 标题。
 
+精选配置还可使用 `front_matter_pages` 插入前置文档，使用 `explicit_linked_appendices` 为特定主文档收录显式附件链，使用 `page_tab_includes` 对特定页面只展开指定 Wikidot 标签页。`explicit_linked_appendices` 不代表全局递归追踪；当前仅用于 `scp-5170` 的三个 `offset` 附件。`page_tab_includes` 当前用于 `about-the-scp-foundation`，只保留 `简介`，不纳入 `写作指南`。
+
 ## 提交与 Pull Request 规范
 
 提交信息保持简短、祈使语气；修复类提交可使用 `fix:` 前缀，例如 `fix: preserve hierarchical epub navigation`。每个提交应聚焦一个行为变化，并包含相应测试。PR 需要说明对流水线的影响、列出已运行命令、标明生成的 EPUB 或报告路径；仅在视觉渲染变化时附截图。

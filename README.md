@@ -150,8 +150,11 @@ python -m scp_epub --config config/series-1.yaml build --volume 001-099 --refres
 - `index_mode`：目录解析模式，默认 `tales`；`featured-scp-archive` 会按 Featured SCP Archive 解析 SCP 主文档列表。
 - `featured_archive_url`：Featured SCP Archive 起始页的绝对 URL，仅 `index_mode: featured-scp-archive` 使用。
 - `featured_title_index_paths`：Featured 精选模式额外读取的中文 SCP 系列索引页，用于补齐英文归档中只有编号的目录标题；当前读取 Series 9 和 Series 10。
+- `front_matter_pages`：构建前插入目录最前面的前置文档；精选配置当前插入 `关于SCP基金会`。
 - `include_scp001_proposals`：是否将 SCP-001 主页面中的提案补入清单。Series 1 当前启用该选项，提案会作为与 `SCP-001` 同层级的顶层目录项出现。
 - `include_linked_appendices`：是否在构建时自动纳入高置信原文附属文档。精选配置启用该选项，主文档清单仍由 Featured Archive 决定，附属文档插入来源页面下的 `原文附属文档` 分组中。
+- `explicit_linked_appendices`：显式指定某个页面必须收录的附属文档链。该配置不会放开全局递归；精选配置用它为 `scp-5170` 收录 `offset/1`、`offset/2`、`offset/3` 三个附件。
+- `page_tab_includes`：按页面 slug 限定 Wikidot 标签页展开范围。精选配置用它让 `about-the-scp-foundation` 只保留 `简介` 标签内容。
 - `cache_dir`：原始页面和资源缓存目录。
 - `manifest_dir`：页面清单输出目录。
 - `processed_dir`：清洗后的 XHTML 中间产物目录。

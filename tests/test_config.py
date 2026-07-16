@@ -104,6 +104,14 @@ def test_featured_scp_config_uses_archive_mode_and_title_indexes():
     assert config.featured_archive_url == "https://scp-wiki.wikidot.com/featured-scp-archive"
     assert config.featured_title_index_paths == ("/scp-series-9", "/scp-series-10")
     assert config.include_linked_appendices is True
+    assert [page.slug for page in config.front_matter_pages] == ["about-the-scp-foundation"]
+    assert config.front_matter_pages[0].title == "关于SCP基金会"
+    assert config.page_tab_includes == {"about-the-scp-foundation": ("简介",)}
+    assert [link.slug for link in config.explicit_linked_appendices["scp-5170"]] == [
+        "scp-5170/offset/1",
+        "scp-5170/offset/2",
+        "scp-5170/offset/3",
+    ]
     assert list(config.volumes) == ["featured"]
 
 

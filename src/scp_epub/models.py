@@ -14,6 +14,21 @@ class VolumeSpec:
 
 
 @dataclass(frozen=True)
+class ConfiguredPage:
+    title: str
+    url: str
+    slug: str
+    role: str = "front-matter"
+
+
+@dataclass(frozen=True)
+class ConfiguredLink:
+    title: str
+    url: str
+    slug: str
+
+
+@dataclass(frozen=True)
 class AppConfig:
     workspace: Path
     series_id: str
@@ -39,6 +54,9 @@ class AppConfig:
     featured_archive_url: str | None = None
     include_linked_appendices: bool = True
     featured_title_index_paths: tuple[str, ...] = ()
+    front_matter_pages: tuple[ConfiguredPage, ...] = ()
+    explicit_linked_appendices: dict[str, tuple[ConfiguredLink, ...]] = field(default_factory=dict)
+    page_tab_includes: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     @property
     def index_url(self) -> str:

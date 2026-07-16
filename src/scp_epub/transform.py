@@ -207,6 +207,8 @@ def transform_page(
     html: str,
     base_url: str,
     manifest_slugs: set[str] | None = None,
+    *,
+    include_tab_titles: set[str] | None = None,
 ) -> ProcessedPage:
     soup = BeautifulSoup(html, "html.parser")
     page_content = soup.select_one("#page-content")
@@ -231,7 +233,7 @@ def transform_page(
     _stabilize_float_layout(soup, page_content)
     _normalize_scene_break_images(page_content)
     if entry.slug != "scp-001":
-        _expand_wikidot_tabs(soup, page_content)
+        _expand_wikidot_tabs(soup, page_content, include_tab_titles=include_tab_titles)
 
     asset_urls: list[str] = []
     seen_assets: set[str] = set()
@@ -798,7 +800,16 @@ def _normalize_scene_break_images(page_content: Tag) -> None:
             _append_style_declaration(parent, "text-align", "center")
 
 
-def _expand_wikidot_tabs(soup: BeautifulSoup, page_content: Tag) -> None:
+def _expand_wikidot_tabs(
+    soup: BeautifulSoup,
+    page_content: Tag,
+    *,
+    include_tab_titles: set[str] | None = None,
+) -> None:
+    normalized_include_titles = {
+        _normalize_tab_label(label)
+        for label in include_tab_titles or set()
+    }
     for tabview in list(page_content.select("div.yui-navset")):
         nav = tabview.find("ul", class_="yui-nav", recursive=False)
         content = tabview.find("div", class_="yui-content", recursive=False)
@@ -815,6 +826,8 @@ def _expand_wikidot_tabs(soup: BeautifulSoup, page_content: Tag) -> None:
 
         for index, panel in enumerate(panels):
             label = labels[index] if index < len(labels) else f"标签 {index + 1}"
+            if normalized_include_titles and _normalize_tab_label(label) not in normalized_include_titles:
+                continue
             section = soup.new_tag("section")
             section["class"] = "tabview-panel-epub"
 
@@ -835,6 +848,10 @@ def _tab_labels(nav: Tag) -> list[str]:
         label = item.get_text(" ", strip=True)
         labels.append(label or f"标签 {len(labels) + 1}")
     return labels
+
+
+def _normalize_tab_label(label: str) -> str:
+    return re.sub(r"\s+", "", label)
 
 
 def _should_clear_before_float_sensitive_block(tag: Tag) -> bool:

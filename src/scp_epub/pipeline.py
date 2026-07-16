@@ -150,7 +150,11 @@ def build_featured_manifest(
                 archive_urls.append(next_archive_url)
 
     entries.sort(key=lambda entry: (entry.order <= 0, entry.order))
-    manifest = [_with_page_order(entry, order) for order, entry in enumerate(entries, start=1)]
+    front_matter_entries = [_configured_page_to_page_ref(page) for page in config.front_matter_pages]
+    manifest = [
+        _with_page_order(entry, order)
+        for order, entry in enumerate([*front_matter_entries, *entries], start=1)
+    ]
     write_manifest(manifest, manifest_path_for_volume(config, volume))
     return manifest
 
@@ -250,6 +254,11 @@ def include_linked_appendices(
         manifest,
         fetch_results,
         config.base_url,
+    )
+    documents = _merge_linked_appendix_documents(
+        manifest,
+        documents,
+        _configured_linked_appendix_documents(config, manifest),
     )
     if not documents:
         return manifest, fetch_results, [], []
@@ -537,6 +546,74 @@ def _with_featured_title(entry: PageRef, title: str | None) -> PageRef:
     )
 
 
+def _configured_page_to_page_ref(page: object) -> PageRef:
+    return PageRef(
+        title=page.title,
+        url=page.url,
+        slug=page.slug,
+        level=1,
+        role=page.role,
+        source="front-matter",
+    )
+
+
+def _configured_linked_appendix_documents(
+    config: AppConfig,
+    manifest: list[PageRef],
+) -> list[LinkedAppendixDocument]:
+    entries_by_slug = {entry.slug: entry for entry in manifest}
+    documents: list[LinkedAppendixDocument] = []
+    for source_slug, links in config.explicit_linked_appendices.items():
+        entry = entries_by_slug.get(source_slug)
+        if entry is None or not links:
+            continue
+        documents.append(
+            LinkedAppendixDocument(
+                entry=entry,
+                candidates=tuple(
+                    LinkedAppendixCandidate(
+                        title=link.title,
+                        url=link.url,
+                        slug=link.slug,
+                        reason="configured-appendix",
+                    )
+                    for link in links
+                ),
+            )
+        )
+    return documents
+
+
+def _merge_linked_appendix_documents(
+    manifest: list[PageRef],
+    scanned_documents: list[LinkedAppendixDocument],
+    configured_documents: list[LinkedAppendixDocument],
+) -> list[LinkedAppendixDocument]:
+    candidates_by_source: dict[str, list[LinkedAppendixCandidate]] = {}
+    seen_by_source: dict[str, set[str]] = {}
+    entry_by_source: dict[str, PageRef] = {}
+
+    for document in [*scanned_documents, *configured_documents]:
+        source_slug = document.entry.slug
+        entry_by_source[source_slug] = document.entry
+        candidates = candidates_by_source.setdefault(source_slug, [])
+        seen = seen_by_source.setdefault(source_slug, set())
+        for candidate in document.candidates:
+            if candidate.slug in seen:
+                continue
+            seen.add(candidate.slug)
+            candidates.append(candidate)
+
+    return [
+        LinkedAppendixDocument(
+            entry=entry_by_source[entry.slug],
+            candidates=tuple(candidates_by_source[entry.slug]),
+        )
+        for entry in manifest
+        if entry.slug in candidates_by_source
+    ]
+
+
 def _with_page_order(entry: PageRef, order: int) -> PageRef:
     return PageRef(
         title=entry.title,
@@ -602,6 +679,7 @@ def _process_pages(
             result.path.read_text(encoding="utf-8"),
             entry.url,
             manifest_slugs,
+            include_tab_titles=set(config.page_tab_includes.get(entry.slug, ())),
         )
         processed_pages.append(page)
         _write_processed_page(processed_dir, page)

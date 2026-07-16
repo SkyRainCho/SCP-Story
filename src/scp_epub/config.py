@@ -6,7 +6,8 @@ from typing import Any
 
 import yaml
 
-from .models import AppConfig, VolumeSpec
+from .models import AppConfig, ConfiguredLink, ConfiguredPage, VolumeSpec
+from .urls import normalize_url, slug_from_url
 
 
 REQUIRED_TOP_LEVEL = {
@@ -92,6 +93,19 @@ def load_config(path: str | Path) -> AppConfig:
             data.get("featured_title_index_paths"),
             "featured_title_index_paths",
         ),
+        front_matter_pages=_load_configured_pages(
+            data.get("front_matter_pages"),
+            "front_matter_pages",
+        ),
+        explicit_linked_appendices=_load_explicit_linked_appendices(
+            data.get("explicit_linked_appendices", {}),
+            "explicit_linked_appendices",
+            _required_string(data["base_url"], "base_url").rstrip("/"),
+        ),
+        page_tab_includes=_load_string_tuple_mapping(
+            data.get("page_tab_includes", {}),
+            "page_tab_includes",
+        ),
     )
 
 
@@ -123,6 +137,61 @@ def _load_volumes(value: Any) -> dict[str, VolumeSpec]:
     if not volumes:
         raise ValueError("Config must define at least one volume")
     return volumes
+
+
+def _load_configured_pages(value: Any, name: str) -> tuple[ConfiguredPage, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, list):
+        raise ValueError(f"{name} must be a list of page mappings")
+
+    pages: list[ConfiguredPage] = []
+    for index, item in enumerate(value):
+        page = _mapping(item, f"{name}[{index}]")
+        title = _required_string(page.get("title"), f"{name}[{index}].title")
+        url = _required_string(page.get("url"), f"{name}[{index}].url")
+        slug = _optional_string(page.get("slug"), f"{name}[{index}].slug") or slug_from_url(url)
+        role = _optional_string(page.get("role"), f"{name}[{index}].role") or "front-matter"
+        pages.append(ConfiguredPage(title=title, url=url, slug=slug, role=role))
+    return tuple(pages)
+
+
+def _load_explicit_linked_appendices(
+    value: Any,
+    name: str,
+    base_url: str,
+) -> dict[str, tuple[ConfiguredLink, ...]]:
+    if value is None:
+        return {}
+    mapping = _mapping(value, name)
+    appendices: dict[str, tuple[ConfiguredLink, ...]] = {}
+    for source_slug, raw_links in mapping.items():
+        source_key = _required_string(str(source_slug), f"{name} key").strip().lower()
+        if not isinstance(raw_links, list):
+            raise ValueError(f"{name}.{source_key} must be a list of link mappings")
+        links: list[ConfiguredLink] = []
+        for index, raw_link in enumerate(raw_links):
+            link = _mapping(raw_link, f"{name}.{source_key}[{index}]")
+            title = _required_string(link.get("title"), f"{name}.{source_key}[{index}].title")
+            raw_url = _required_string(link.get("url"), f"{name}.{source_key}[{index}].url")
+            url = normalize_url(base_url, raw_url)
+            slug = _optional_string(link.get("slug"), f"{name}.{source_key}[{index}].slug") or slug_from_url(url)
+            links.append(ConfiguredLink(title=title, url=url, slug=slug))
+        appendices[source_key] = tuple(links)
+    return appendices
+
+
+def _load_string_tuple_mapping(value: Any, name: str) -> dict[str, tuple[str, ...]]:
+    if value is None:
+        return {}
+    mapping = _mapping(value, name)
+    result: dict[str, tuple[str, ...]] = {}
+    for key, raw_values in mapping.items():
+        result[_required_string(str(key), f"{name} key").strip().lower()] = _optional_string_tuple(
+            raw_values,
+            f"{name}.{key}",
+        )
+    return result
 
 
 def _workspace_path(workspace: Path, key: str, value: Any) -> Path:

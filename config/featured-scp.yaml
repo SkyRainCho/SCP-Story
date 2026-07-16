@@ -8,6 +8,20 @@ featured_archive_url: https://scp-wiki.wikidot.com/featured-scp-archive
 featured_title_index_paths:
   - /scp-series-9
   - /scp-series-10
+front_matter_pages:
+  - title: 关于SCP基金会
+    url: https://scp-wiki-cn.wikidot.com/about-the-scp-foundation
+explicit_linked_appendices:
+  scp-5170:
+    - title: "#1附件A"
+      url: https://scp-wiki-cn.wikidot.com/scp-5170/offset/1
+    - title: "#2附件B"
+      url: https://scp-wiki-cn.wikidot.com/scp-5170/offset/2
+    - title: "#3附件C"
+      url: https://scp-wiki-cn.wikidot.com/scp-5170/offset/3
+page_tab_includes:
+  about-the-scp-foundation:
+    - 简介
 index_path: /featured-scp-archive
 series_index_path: /scp-series
 scp001_path: /scp-001

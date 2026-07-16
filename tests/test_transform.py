@@ -793,6 +793,32 @@ def test_does_not_linearize_ordinary_collapsible_layouts():
     assert soup.find(class_="collapsible-block-content").get_text(strip=True) == "普通折叠内容。"
 
 
+def test_expands_only_included_wikidot_tab_labels():
+    html = """
+    <html><body><div id="page-content">
+      <div class="yui-navset">
+        <ul class="yui-nav">
+          <li><a><em>简介</em></a></li>
+          <li><a><em>写作指南</em></a></li>
+        </ul>
+        <div class="yui-content">
+          <div><p>基金会简介正文。</p></div>
+          <div><p>写作指南正文。</p></div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL, include_tab_titles={"简介"})
+    soup = soup_fragment(result.xhtml)
+    text = soup.get_text(" ", strip=True)
+
+    assert "标签：简介" in text
+    assert "基金会简介正文" in text
+    assert "写作指南" not in text
+    assert "写作指南正文" not in text
+
+
 def test_removes_generic_hidden_css_code_styles_from_page_styles():
     html = """
     <html>
