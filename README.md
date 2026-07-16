@@ -1,6 +1,6 @@
 # SCP Story EPUB
 
-用于将 SCP Wiki CN 的 Tales Edition 目录页下载、清洗并打包为 EPUB 电子书的 Python 工具。当前仓库已支持按配置文件生成 Series 1 到 Series 8 的分卷 EPUB，并会在构建过程中缓存页面、下载正文图片等资源、生成中间 XHTML 与构建报告。
+用于将 SCP Wiki CN 的 Tales Edition 目录页下载、清洗并打包为 EPUB 电子书的 Python 工具。当前仓库已支持按配置文件生成 Series 1 到 Series 8 的分卷 EPUB，也支持从英文站 Featured SCP Archive 生成中文精选主文档 EPUB；构建过程中会缓存页面、下载正文图片等资源、生成中间 XHTML 与构建报告。
 
 ## 功能概览
 
@@ -9,6 +9,7 @@
 - 清洗页面正文，移除评分、导航、脚本、编辑区、授权区等不适合 EPUB 的内容。
 - 保留正文中的图片、常见内容块、表格、引用块和安全的内联样式。
 - 支持将 SCP-001 主页面中的提案列表补入 Series 1，并按主页面顺序排列。
+- 支持根据英文站 Featured SCP Archive 生成 `SCP基金会档案精选`，目录只包含 SCP 主文档，不展开 Tales、故事子目录或原文附属文档。
 - 将部分 Wikidot 动态结构转换为适合 EPUB 阅读的静态结构，例如标签栏、CSS grid 表格和部分页面样式。
 - 将目录内页面链接识别为 EPUB 内部链接，并保留外部链接。
 - 可扫描并打包正文中尚未进入目录的高置信附属文档链接，生成后续复核报告。
@@ -62,6 +63,19 @@ $volumes = @("001-099","100-199","200-299","300-399","400-499","500-599","600-69
 foreach ($volume in $volumes) {
   python -m scp_epub --config config/series-1.yaml build --volume $volume
 }
+```
+
+构建 Featured SCP Archive 精选主文档 EPUB：
+
+```powershell
+python -m scp_epub --config config/featured-scp.yaml build --volume featured
+```
+
+生成结果默认写入：
+
+```text
+output/epub/SCP基金会档案精选.epub
+output/reports/SCP基金会档案精选-report.json
 ```
 
 ## 常用命令
@@ -123,6 +137,7 @@ python -m scp_epub --config config/series-1.yaml build --volume 001-099 --refres
 - `config/series-1.yaml`：Series 1，分卷范围为 `001-099` 到 `900-999`。
 - `config/series-2.yaml`：Series 2，分卷范围为 `1000-1099` 到 `1900-1999`。
 - `config/series-3.yaml` 到 `config/series-8.yaml`：后续系列分卷配置。
+- `config/featured-scp.yaml`：从英文站 Featured SCP Archive 递归读取归档分页，并用中文站同 slug 的 SCP 主文档生成 `SCP基金会档案精选.epub`。
 
 配置中的关键字段包括：
 
@@ -132,7 +147,11 @@ python -m scp_epub --config config/series-1.yaml build --volume 001-099 --refres
 - `index_path`：Tales Edition 目录页路径。
 - `series_index_path`：主系列目录页路径，用于补齐缺失条目。
 - `scp001_path`：SCP-001 主页面路径，用于在启用时解析提案列表。
+- `index_mode`：目录解析模式，默认 `tales`；`featured-scp-archive` 会按 Featured SCP Archive 解析 SCP 主文档列表。
+- `featured_archive_url`：Featured SCP Archive 起始页的绝对 URL，仅 `index_mode: featured-scp-archive` 使用。
+- `featured_title_index_paths`：Featured 精选模式额外读取的中文 SCP 系列索引页，用于补齐英文归档中只有编号的目录标题；当前读取 Series 9 和 Series 10。
 - `include_scp001_proposals`：是否将 SCP-001 主页面中的提案补入清单。Series 1 当前启用该选项，提案会作为与 `SCP-001` 同层级的顶层目录项出现。
+- `include_linked_appendices`：是否在构建时自动纳入高置信原文附属文档。精选配置关闭该选项，以保证 EPUB 只包含主文档。
 - `cache_dir`：原始页面和资源缓存目录。
 - `manifest_dir`：页面清单输出目录。
 - `processed_dir`：清洗后的 XHTML 中间产物目录。
@@ -172,8 +191,8 @@ output/           生成的 EPUB 与报告，默认不提交
 一次 `build` 会依次执行以下步骤：
 
 1. 读取 YAML 配置并定位目标分卷。
-2. 从 Tales Edition 目录页解析分卷条目。
-3. 从主系列目录页补齐目录中可能缺失的 SCP 条目。
+2. 从 Tales Edition 目录页解析分卷条目；若 `index_mode` 为 `featured-scp-archive`，则从 Featured SCP Archive 递归解析 SCP 主文档条目。
+3. 在 Tales 模式下，从主系列目录页补齐目录中可能缺失的 SCP 条目。
 4. 在启用 `include_scp001_proposals` 且目标分卷包含 SCP-001 时，从 SCP-001 主页面补入提案。
 5. 下载或读取缓存中的页面 HTML。
 6. 清洗正文，标准化资源 URL 与链接。

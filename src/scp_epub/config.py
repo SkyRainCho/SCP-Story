@@ -79,6 +79,19 @@ def load_config(path: str | Path) -> AppConfig:
             "include_scp001_proposals",
         ),
         volumes=volumes,
+        index_mode=_optional_index_mode(data.get("index_mode", "tales")),
+        featured_archive_url=_optional_string(
+            data.get("featured_archive_url"),
+            "featured_archive_url",
+        ),
+        include_linked_appendices=_optional_bool(
+            data.get("include_linked_appendices", True),
+            "include_linked_appendices",
+        ),
+        featured_title_index_paths=_optional_string_tuple(
+            data.get("featured_title_index_paths"),
+            "featured_title_index_paths",
+        ),
     )
 
 
@@ -205,6 +218,34 @@ def _optional_bool(value: Any, name: str) -> bool:
         if normalized in {"false", "no", "0"}:
             return False
     raise ValueError(f"{name} must be a boolean")
+
+
+def _optional_string(value: Any, name: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{name} must be a non-empty string")
+    return value.strip()
+
+
+def _optional_string_tuple(value: Any, name: str) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        return (_required_string(value, name).strip(),)
+    if not isinstance(value, list):
+        raise ValueError(f"{name} must be a string or list of strings")
+    values: list[str] = []
+    for index, item in enumerate(value):
+        values.append(_required_string(item, f"{name}[{index}]").strip())
+    return tuple(values)
+
+
+def _optional_index_mode(value: Any) -> str:
+    mode = _required_string(value, "index_mode")
+    if mode not in {"tales", "featured-scp-archive"}:
+        raise ValueError("index_mode must be 'tales' or 'featured-scp-archive'")
+    return mode
 
 
 def _mapping(value: Any, name: str) -> dict[str, Any]:

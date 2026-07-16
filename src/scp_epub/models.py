@@ -35,6 +35,10 @@ class AppConfig:
     asset_retry_count: int
     include_scp001_proposals: bool
     volumes: dict[str, VolumeSpec]
+    index_mode: str = "tales"
+    featured_archive_url: str | None = None
+    include_linked_appendices: bool = True
+    featured_title_index_paths: tuple[str, ...] = ()
 
     @property
     def index_url(self) -> str:

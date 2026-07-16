@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import warnings
 from collections.abc import Iterable
+from dataclasses import dataclass
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup, FeatureNotFound, NavigableString, Tag
@@ -37,6 +38,12 @@ SCP_001_IGNORED_CONTAINER_PARTS = frozenset(
         "sidebar",
     }
 )
+
+
+@dataclass(frozen=True)
+class FeaturedArchiveParseResult:
+    entries: list[PageRef]
+    archive_urls: tuple[str, ...]
 
 
 def parse_tales_index(html: str, base_url: str, start: int, end: int) -> list[PageRef]:
@@ -99,6 +106,61 @@ def parse_series_index(html: str, base_url: str, start: int, end: int) -> list[P
         )
 
     return [_with_order(entry, order) for order, entry in enumerate(entries, start=1)]
+
+
+def parse_featured_scp_archive(
+    html: str,
+    *,
+    archive_base_url: str,
+    target_base_url: str,
+) -> FeaturedArchiveParseResult:
+    soup = _parse_html(html)
+    content = soup.select_one("#page-content")
+    if content is None:
+        raise ValueError("Featured SCP archive page does not contain #page-content")
+
+    entries: list[PageRef] = []
+    archive_urls: list[str] = []
+    seen_slugs: set[str] = set()
+    seen_archives: set[str] = set()
+
+    for anchor in content.find_all("a", href=True):
+        href = anchor.get("href")
+        if not isinstance(href, str) or not _is_page_href(href):
+            continue
+
+        archive_url = normalize_url(archive_base_url, href)
+        archive_slug = slug_from_url(archive_url)
+        if (
+            archive_slug.startswith("featured-scp-archive")
+            and _same_site_url(archive_url, archive_base_url)
+            and archive_url not in seen_archives
+        ):
+            seen_archives.add(archive_url)
+            archive_urls.append(archive_url)
+            continue
+
+        url = normalize_url(target_base_url, href)
+        slug = slug_from_url(url)
+        if slug in seen_slugs or not SCP_RE.match(slug):
+            continue
+
+        seen_slugs.add(slug)
+        entries.append(
+            PageRef(
+                title=anchor.get_text(" ", strip=True) or slug.upper(),
+                url=f"{target_base_url.rstrip('/')}/{slug}",
+                slug=slug,
+                level=1,
+                role="scp",
+                source="featured-scp-archive",
+            )
+        )
+
+    return FeaturedArchiveParseResult(
+        entries=[_with_order(entry, order) for order, entry in enumerate(entries, start=1)],
+        archive_urls=tuple(archive_urls),
+    )
 
 
 def parse_scp001_proposals(html: str, base_url: str) -> list[PageRef]:

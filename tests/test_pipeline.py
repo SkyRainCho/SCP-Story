@@ -23,6 +23,10 @@ def app_config(
     *,
     volume_key: str = "001-099",
     include_scp001_proposals: bool = False,
+    index_mode: str = "tales",
+    featured_archive_url: str | None = None,
+    include_linked_appendices: bool = True,
+    featured_title_index_paths: tuple[str, ...] = (),
 ) -> AppConfig:
     volume = VolumeSpec(
         key=volume_key,
@@ -52,6 +56,10 @@ def app_config(
         asset_retry_count=1,
         include_scp001_proposals=include_scp001_proposals,
         volumes={volume_key: volume},
+        index_mode=index_mode,
+        featured_archive_url=featured_archive_url,
+        include_linked_appendices=include_linked_appendices,
+        featured_title_index_paths=featured_title_index_paths,
     )
 
 
@@ -222,6 +230,107 @@ def test_build_manifest_can_merge_scp001_proposals_when_enabled(tmp_path: Path):
     assert payload[0]["slug"] == "scp-001"
     assert payload[1]["slug"] == "spc-001"
     assert payload[2]["slug"] == "dr-clef-s-proposal"
+
+
+def test_build_manifest_featured_archive_follows_pages_and_uses_cached_chinese_titles(tmp_path: Path):
+    config = app_config(
+        tmp_path,
+        volume_key="featured",
+        index_mode="featured-scp-archive",
+        featured_archive_url="https://scp-wiki.wikidot.com/featured-scp-archive",
+    )
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(
+        [
+            PageRef(
+                "SCP-2152 - 鱼子酱",
+                f"{BASE_URL}/scp-2152",
+                "scp-2152",
+                1,
+                "scp",
+                order=1,
+            )
+        ],
+        config.manifest_dir / "existing-series.json",
+    )
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "featured-scp-archive": """
+              <div id="page-content">
+                <a href="/featured-scp-archive-ii">Featured SCP Archive II</a>
+                <a href="/scp-2152">SCP-2152</a>
+              </div>
+            """,
+            "featured-scp-archive-ii": """
+              <div id="page-content">
+                <a href="/featured-scp-archive">Featured SCP Archive I</a>
+                <a href="/scp-1632">SCP-1632</a>
+                <a href="/scp-2152">SCP-2152 duplicate</a>
+              </div>
+            """,
+        },
+    )
+
+    manifest = build_manifest(config, "featured", fetcher=fetcher)
+
+    assert [slug for slug, _url, _force in fetcher.calls] == [
+        "featured-scp-archive",
+        "featured-scp-archive-ii",
+    ]
+    assert [entry.slug for entry in manifest] == ["scp-2152", "scp-1632"]
+    assert [entry.title for entry in manifest] == ["SCP-2152 - 鱼子酱", "SCP-1632"]
+    assert [entry.url for entry in manifest] == [
+        f"{BASE_URL}/scp-2152",
+        f"{BASE_URL}/scp-1632",
+    ]
+
+
+def test_build_manifest_featured_archive_uses_configured_cn_series_title_indexes(tmp_path: Path):
+    config = app_config(
+        tmp_path,
+        volume_key="featured",
+        index_mode="featured-scp-archive",
+        featured_archive_url="https://scp-wiki.wikidot.com/featured-scp-archive",
+        featured_title_index_paths=("/scp-series-9", "/scp-series-10"),
+    )
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "featured-scp-archive": """
+              <div id="page-content">
+                <a href="/scp-9000">SCP-9000</a>
+                <a href="/scp-9928">SCP-9928</a>
+              </div>
+            """,
+            "scp-series-9": """
+              <div id="page-content">
+                <ul><li><a href="/scp-8597">SCP-8597</a> - 不在精选里</li></ul>
+              </div>
+            """,
+            "scp-series-10": """
+              <div id="page-content">
+                <ul>
+                  <li><a href="/scp-9000">SCP-9000</a> - 失落之城</li>
+                  <li><a href="/scp-9928">SCP-9928</a> - 记忆天井</li>
+                </ul>
+              </div>
+            """,
+        },
+    )
+
+    manifest = build_manifest(config, "featured", fetcher=fetcher)
+
+    assert [slug for slug, _url, _force in fetcher.calls] == [
+        "scp-series-9",
+        "scp-series-10",
+        "featured-scp-archive",
+    ]
+    assert [entry.title for entry in manifest] == [
+        "SCP-9000 - 失落之城",
+        "SCP-9928 - 记忆天井",
+    ]
 
 
 def test_fetch_manifest_pages_fetches_each_manifest_entry(tmp_path: Path):
@@ -443,6 +552,32 @@ def test_build_volume_includes_high_confidence_linked_appendices_under_group(tmp
         "SCP-093“蓝色”测试",
         "SCP-093 Story",
     ]
+
+
+def test_build_volume_can_disable_linked_appendices_for_featured_books(tmp_path: Path):
+    config = app_config(tmp_path, include_linked_appendices=False)
+    manifest = [
+        PageRef("SCP-093", f"{BASE_URL}/scp-093", "scp-093", 1, "scp", order=1),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-093": simple_page(
+                "SCP-093",
+                '<a href="/scp-093-blue-test">SCP-093“蓝色”测试</a>',
+            ),
+            "scp-093-blue-test": simple_page("Blue Test", "Blue test body"),
+        },
+    )
+
+    build_volume(config, "001-099", fetcher=fetcher)
+
+    assert [slug for slug, _url, _force in fetcher.calls] == ["scp-093"]
+    report = json.loads((config.output_dir / "reports" / "test-volume-report.json").read_text(encoding="utf-8"))
+    assert report["slugs"] == ["scp-093"]
 
 
 def test_build_volume_force_rebuilds_existing_manifest_from_refreshed_sources(tmp_path: Path):

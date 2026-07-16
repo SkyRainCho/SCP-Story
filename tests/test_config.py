@@ -97,6 +97,16 @@ def test_series_1_config_includes_scp001_proposals():
     assert config.include_scp001_proposals is True
 
 
+def test_featured_scp_config_uses_archive_mode_and_title_indexes():
+    config = load_config(Path("config/featured-scp.yaml"))
+
+    assert config.index_mode == "featured-scp-archive"
+    assert config.featured_archive_url == "https://scp-wiki.wikidot.com/featured-scp-archive"
+    assert config.featured_title_index_paths == ("/scp-series-9", "/scp-series-10")
+    assert config.include_linked_appendices is False
+    assert list(config.volumes) == ["featured"]
+
+
 @pytest.mark.parametrize(
     ("series_number", "first_key"),
     [

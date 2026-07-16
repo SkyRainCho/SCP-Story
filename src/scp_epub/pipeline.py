@@ -4,13 +4,19 @@ from argparse import Namespace
 from pathlib import Path
 from html import escape
 from typing import Protocol
+from urllib.parse import urlparse
 
 from .assets import localize_assets, remote_resource_page_slugs
 from .cache import CacheStore
 from .config import load_config
 from .epub import write_build_report, write_epub
 from .fetcher import Fetcher
-from .indexer import parse_scp001_proposals, parse_series_index, parse_tales_index
+from .indexer import (
+    parse_featured_scp_archive,
+    parse_scp001_proposals,
+    parse_series_index,
+    parse_tales_index,
+)
 from .linked_appendices import (
     LINKED_APPENDIX_GROUP_ROLE,
     LinkedAppendixCandidate,
@@ -39,6 +45,9 @@ def build_manifest(
     fetcher: PageFetcher | None = None,
     force: bool = False,
 ) -> list[PageRef]:
+    if config.index_mode == "featured-scp-archive":
+        return build_featured_manifest(config, volume_key, fetcher=fetcher, force=force)
+
     volume = volume_for_key(config, volume_key)
     active_fetcher = fetcher or make_fetcher(config)
 
@@ -84,6 +93,67 @@ def build_manifest(
     return manifest
 
 
+def build_featured_manifest(
+    config: AppConfig,
+    volume_key: str,
+    *,
+    fetcher: PageFetcher | None = None,
+    force: bool = False,
+) -> list[PageRef]:
+    volume = volume_for_key(config, volume_key)
+    active_fetcher = fetcher or make_fetcher(config)
+    initial_url = config.featured_archive_url or config.index_url
+    archive_base_url = _url_origin(initial_url)
+    title_by_slug = _manifest_titles_by_slug(config)
+    title_by_slug.update(
+        {
+            slug: title
+            for slug, title in _featured_title_index_titles(
+                config,
+                active_fetcher,
+                force=force,
+            ).items()
+            if slug not in title_by_slug
+        }
+    )
+
+    entries: list[PageRef] = []
+    seen_entry_slugs: set[str] = set()
+    seen_archive_urls: set[str] = set()
+    archive_urls = [initial_url]
+
+    while archive_urls:
+        archive_url = archive_urls.pop(0)
+        if archive_url in seen_archive_urls:
+            continue
+        seen_archive_urls.add(archive_url)
+
+        result = active_fetcher.fetch_page(
+            slug_from_url(archive_url),
+            archive_url,
+            force=force,
+        )
+        parsed = parse_featured_scp_archive(
+            result.path.read_text(encoding="utf-8"),
+            archive_base_url=archive_base_url,
+            target_base_url=config.base_url,
+        )
+
+        for entry in parsed.entries:
+            if entry.slug in seen_entry_slugs:
+                continue
+            seen_entry_slugs.add(entry.slug)
+            entries.append(_with_featured_title(entry, title_by_slug.get(entry.slug)))
+
+        for next_archive_url in parsed.archive_urls:
+            if next_archive_url not in seen_archive_urls and next_archive_url not in archive_urls:
+                archive_urls.append(next_archive_url)
+
+    manifest = [_with_page_order(entry, order) for order, entry in enumerate(entries, start=1)]
+    write_manifest(manifest, manifest_path_for_volume(config, volume))
+    return manifest
+
+
 def fetch_manifest_pages(
     config: AppConfig,
     manifest: list[PageRef],
@@ -119,12 +189,16 @@ def build_volume(
         force=force,
     )
     available_manifest, fetch_results, linked_appendix_documents, linked_missing_pages = (
-        include_linked_appendices(
-            config,
-            available_manifest,
-            fetch_results,
-            active_fetcher,
-            force=force,
+        (
+            include_linked_appendices(
+                config,
+                available_manifest,
+                fetch_results,
+                active_fetcher,
+                force=force,
+            )
+            if config.include_linked_appendices
+            else (available_manifest, fetch_results, [], [])
         )
     )
     missing_pages.extend(linked_missing_pages)
@@ -402,6 +476,85 @@ def cover_image_path_for_volume(config: AppConfig, volume: VolumeSpec | str) -> 
     volume_spec = volume_for_key(config, volume) if isinstance(volume, str) else volume
     cover_path = config.workspace / "cover" / f"{volume_spec.output_slug}-cover.png"
     return cover_path if cover_path.exists() else None
+
+
+def _manifest_titles_by_slug(config: AppConfig) -> dict[str, str]:
+    titles: dict[str, str] = {}
+    if not config.manifest_dir.exists():
+        return titles
+
+    current_paths = {
+        manifest_path_for_volume(config, volume).resolve()
+        for volume in config.volumes.values()
+    }
+    for path in sorted(config.manifest_dir.glob("*.json")):
+        if path.resolve() in current_paths:
+            continue
+        try:
+            entries = read_manifest(path)
+        except Exception:
+            continue
+        for entry in entries:
+            if entry.role == "scp" and entry.slug not in titles:
+                titles[entry.slug] = entry.title
+    return titles
+
+
+def _featured_title_index_titles(
+    config: AppConfig,
+    fetcher: PageFetcher,
+    *,
+    force: bool,
+) -> dict[str, str]:
+    titles: dict[str, str] = {}
+    for path in config.featured_title_index_paths:
+        url = f"{config.base_url.rstrip('/')}/{path.lstrip('/')}"
+        result = fetcher.fetch_page(slug_from_url(url), url, force=force)
+        for entry in parse_series_index(
+            result.path.read_text(encoding="utf-8"),
+            config.base_url,
+            1,
+            9999,
+        ):
+            titles.setdefault(entry.slug, entry.title)
+    return titles
+
+
+def _with_featured_title(entry: PageRef, title: str | None) -> PageRef:
+    if not title:
+        return entry
+    return PageRef(
+        title=title,
+        url=entry.url,
+        slug=entry.slug,
+        level=entry.level,
+        role=entry.role,
+        parent_slug=entry.parent_slug,
+        source=entry.source,
+        order=entry.order,
+        children=entry.children,
+    )
+
+
+def _with_page_order(entry: PageRef, order: int) -> PageRef:
+    return PageRef(
+        title=entry.title,
+        url=entry.url,
+        slug=entry.slug,
+        level=entry.level,
+        role=entry.role,
+        parent_slug=entry.parent_slug,
+        source=entry.source,
+        order=order,
+        children=entry.children,
+    )
+
+
+def _url_origin(url: str) -> str:
+    parsed = urlparse(url)
+    if not parsed.scheme or not parsed.netloc:
+        raise ValueError(f"featured archive URL must be absolute: {url}")
+    return f"{parsed.scheme}://{parsed.netloc}"
 
 
 def volume_for_key(config: AppConfig, volume_key: str) -> VolumeSpec:

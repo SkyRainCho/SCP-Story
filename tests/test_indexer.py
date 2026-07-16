@@ -2,7 +2,12 @@ from pathlib import Path
 
 from bs4 import BeautifulSoup
 
-from scp_epub.indexer import _is_newpage_anchor, parse_series_index, parse_tales_index
+from scp_epub.indexer import (
+    _is_newpage_anchor,
+    parse_featured_scp_archive,
+    parse_series_index,
+    parse_tales_index,
+)
 
 
 FIXTURE = Path("tests/fixtures/index_sample.html")
@@ -164,6 +169,36 @@ def test_parse_series_index_extracts_scp_items_in_range_with_titles():
     assert {entry.role for entry in entries} == {"scp"}
     assert {entry.source for entry in entries} == {"series-index"}
     assert [entry.order for entry in entries] == [1, 2, 3, 4]
+
+
+def test_parse_featured_scp_archive_extracts_main_scp_links_and_next_archives():
+    html = """
+<div id="page-content">
+  <p><a href="/featured-scp-archive-ii">Featured SCP Archive II</a></p>
+  <ul>
+    <li><a href="/scp-2152">SCP-2152</a> - Lorem ipsum</li>
+    <li><a href="/scp-001">SCP-001</a></li>
+    <li><a href="/scp-2152">SCP-2152 duplicate</a></li>
+    <li><a href="/scp-2152/offset/1">Not the main document</a></li>
+    <li><a href="/scp-series">Series hub</a></li>
+  </ul>
+</div>
+"""
+
+    result = parse_featured_scp_archive(
+        html,
+        archive_base_url="https://scp-wiki.wikidot.com",
+        target_base_url=BASE_URL,
+    )
+
+    assert [entry.slug for entry in result.entries] == ["scp-2152", "scp-001"]
+    assert [entry.url for entry in result.entries] == [
+        f"{BASE_URL}/scp-2152",
+        f"{BASE_URL}/scp-001",
+    ]
+    assert [entry.title for entry in result.entries] == ["SCP-2152", "SCP-001"]
+    assert [entry.source for entry in result.entries] == ["featured-scp-archive", "featured-scp-archive"]
+    assert result.archive_urls == ("https://scp-wiki.wikidot.com/featured-scp-archive-ii",)
 
 
 def test_parse_series_index_extracts_four_digit_scp_items():
