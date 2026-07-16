@@ -20,6 +20,7 @@ SECTION_RANGE_RE = re.compile(
     re.IGNORECASE,
 )
 SCP_RE = re.compile(r"^scp-\d{3,4}$", re.IGNORECASE)
+FEATURED_ENTRY_NUMBER_RE = re.compile(r"^\s*(\d+)\s*[\.:]")
 SCP_001_PROPOSAL_RE = re.compile(r"(?<!\d)0*1(?!\d).*提案")
 SCP_001_PROPOSAL_SLUG_RE = re.compile(
     r"^(?:[a-z0-9][a-z0-9-]*:)?[a-z0-9][a-z0-9-]*"
@@ -154,11 +155,12 @@ def parse_featured_scp_archive(
                 level=1,
                 role="scp",
                 source="featured-scp-archive",
+                order=_featured_entry_number(anchor) or 0,
             )
         )
 
     return FeaturedArchiveParseResult(
-        entries=[_with_order(entry, order) for order, entry in enumerate(entries, start=1)],
+        entries=entries,
         archive_urls=tuple(archive_urls),
     )
 
@@ -305,6 +307,16 @@ def _li_entry_title(li: Tag, anchor: Tag) -> str:
     title = " ".join(part.strip() for part in text_parts if part.strip())
     title = re.sub(r"\s+", " ", title).strip()
     return title or anchor.get_text(" ", strip=True)
+
+
+def _featured_entry_number(anchor: Tag) -> int | None:
+    container = anchor.find_parent(["p", "li"])
+    if container is None:
+        return None
+    match = FEATURED_ENTRY_NUMBER_RE.match(container.get_text(" ", strip=True))
+    if match is None:
+        return None
+    return int(match.group(1))
 
 
 def _title_for_series_anchor(anchor: Tag) -> str:

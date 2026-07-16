@@ -333,6 +333,43 @@ def test_build_manifest_featured_archive_uses_configured_cn_series_title_indexes
     ]
 
 
+def test_build_manifest_featured_archive_orders_entries_from_first_rank_forward(tmp_path: Path):
+    config = app_config(
+        tmp_path,
+        volume_key="featured",
+        index_mode="featured-scp-archive",
+        featured_archive_url="https://scp-wiki.wikidot.com/featured-scp-archive",
+    )
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "featured-scp-archive": """
+              <div id="page-content">
+                <a href="/featured-scp-archive-ii">Featured SCP Archive II</a>
+                <p>100. <strong><a href="/scp-2152">SCP-2152</a></strong>: Home</p>
+                <p>99. <strong><a href="/scp-1632">SCP-1632</a></strong>: Better Ring Xing</p>
+              </div>
+            """,
+            "featured-scp-archive-ii": """
+              <div id="page-content">
+                <p>102. <strong><a href="/scp-2409">SCP-2409</a></strong>: Lost Precinct</p>
+                <p>101. <strong><a href="/scp-1131">SCP-1131</a></strong>: The Oscar Bug</p>
+              </div>
+            """,
+        },
+    )
+
+    manifest = build_manifest(config, "featured", fetcher=fetcher)
+
+    assert [entry.slug for entry in manifest] == [
+        "scp-1632",
+        "scp-2152",
+        "scp-1131",
+        "scp-2409",
+    ]
+    assert [entry.order for entry in manifest] == [1, 2, 3, 4]
+
+
 def test_fetch_manifest_pages_fetches_each_manifest_entry(tmp_path: Path):
     config = app_config(tmp_path)
     manifest = [

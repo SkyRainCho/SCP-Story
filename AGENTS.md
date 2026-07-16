@@ -34,13 +34,13 @@ pytest -q
 python -m scp_epub --config config/series-1.yaml build --volume 001-099
 ```
 
-构建 Featured SCP Archive 精选主文档 EPUB：
+构建 Featured SCP Archive 精选 EPUB：
 
 ```powershell
 python -m scp_epub --config config/featured-scp.yaml build --volume featured
 ```
 
-该配置从英文站 Featured SCP Archive 起始页递归读取归档分页，但 EPUB 正文使用中文站同 slug 的 SCP 主文档。精选书应只包含主文档，不应展开 Tales、故事子目录、SCP-001 提案或高置信原文附属文档。
+该配置从英文站 Featured SCP Archive 起始页递归读取归档分页，但 EPUB 正文使用中文站同 slug 的 SCP 主文档。精选书的主清单由 Featured 页面决定，并按页面条目编号排序；构建时仍可按高置信规则纳入主文档中的原文附属文档。
 
 扫描 Series 1 的 001-099 样书中可能需要额外处理的高置信附属文档链接：
 
@@ -89,7 +89,7 @@ HTML 清洗逻辑需要特别注意以下已知模式：
 
 `scan-linked-appendices` 的候选规则必须保持保守：宁可漏掉边缘链接，也不要把普通 SCP 交叉引用、系列推荐、作者页、授权页、论坛页或系统组件误报为需要打包的附属文档。正常 `build` 会把成功抓取的候选页面插入来源页面下的 `原文附属文档` 分组中，且只展开一层，不递归追踪附属页面里的链接。放宽规则或调整分组结构时必须补充测试，证明普通链接不会被误报，已有故事子目录不会和附属文档混淆。
 
-`featured-scp.yaml` 使用 `index_mode: featured-scp-archive` 和 `include_linked_appendices: false`。修改该模式时，必须确保 Featured 归档分页可递归解析、重复 SCP 条目会去重、目录标题优先复用已有中文 manifest 标题，并且构建结果仍只包含 `level=1` 的 `scp` 主文档。
+`featured-scp.yaml` 使用 `index_mode: featured-scp-archive` 和 `include_linked_appendices: true`。修改该模式时，必须确保 Featured 归档分页可递归解析、重复 SCP 条目会去重、目录标题优先复用已有中文 manifest 标题，主文档按 Featured 页面条目编号排序，并且高置信附属文档只插入来源页面下的 `原文附属文档` 分组。
 
 Featured 精选模式可通过 `featured_title_index_paths` 配置额外中文 SCP 系列索引页补齐标题；当前应读取 `/scp-series-9` 和 `/scp-series-10`，以避免 Featured 归档中 Series 9/10 条目在目录中只显示编号。补齐逻辑只能填补缺失标题，不应覆盖已有中文 manifest 标题。
 

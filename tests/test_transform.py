@@ -793,6 +793,66 @@ def test_does_not_linearize_ordinary_collapsible_layouts():
     assert soup.find(class_="collapsible-block-content").get_text(strip=True) == "普通折叠内容。"
 
 
+def test_removes_generic_hidden_css_code_styles_from_page_styles():
+    html = """
+    <html>
+      <head>
+        <style>
+          #page-content .collapsible-block { position: relative; }
+          .collapsible-block-unfolded { color: black; }
+          .collapsible-block-link { font-weight: bold; }
+          .wiki-content-table { width: 100%; }
+          #page-content { max-width: 45rem; }
+          #page-content .court-seal { text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div id="page-content">
+          <div class="court-seal">法院正文。</div>
+          <div style="display: none">
+            <div class="code"><pre>#page-content .collapsible-block { position: relative; }</pre></div>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+    style_text = soup.find("style").get_text()
+
+    assert "#page-content .collapsible-block" not in style_text
+    assert ".collapsible-block-unfolded" not in style_text
+    assert ".collapsible-block-link" not in style_text
+    assert ".wiki-content-table" not in style_text
+    assert "#page-content {" not in style_text
+    assert ".court-seal" in style_text
+    assert "#page-content .collapsible-block" not in soup.get_text(" ", strip=True)
+
+
+def test_removes_scp173_creator_information_block():
+    html = """
+    <html><body><div id="page-content">
+      <p><strong>项目编号：</strong>SCP-173</p>
+      <p><strong>描述：</strong>正文保留。</p>
+      <hr />
+      <p><strong><span style="text-decoration: underline;">创作者信息</span></strong></p>
+      <p><sup>SCP-173中所使用的图像为加藤泉所创作的艺术作品。</sup></p>
+      <p><sup><strong>不得使用《无题 2004》开展任何商业活动。</strong></sup></p>
+      <div class="footer-wikiwalk-nav"><p>上一页 | 下一页</p></div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+    text = soup.get_text(" ", strip=True)
+
+    assert "正文保留" in text
+    assert "创作者信息" not in text
+    assert "加藤泉" not in text
+    assert "无题 2004" not in text
+
+
 def test_converts_ruby_annotation_spans_to_semantic_ruby():
     html = """
     <html><body><div id="page-content">

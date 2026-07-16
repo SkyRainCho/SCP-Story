@@ -103,7 +103,7 @@ def test_featured_scp_config_uses_archive_mode_and_title_indexes():
     assert config.index_mode == "featured-scp-archive"
     assert config.featured_archive_url == "https://scp-wiki.wikidot.com/featured-scp-archive"
     assert config.featured_title_index_paths == ("/scp-series-9", "/scp-series-10")
-    assert config.include_linked_appendices is False
+    assert config.include_linked_appendices is True
     assert list(config.volumes) == ["featured"]
 
 

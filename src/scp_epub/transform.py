@@ -12,6 +12,7 @@ from scp_epub.urls import normalize_url, slug_from_url
 
 
 NON_DOWNLOADABLE_ASSET_SCHEMES = {"data", "mailto", "tel"}
+HEADING_NAMES = frozenset(f"h{level}" for level in range(1, 7))
 UNWANTED_TAGS = {"script", "style", "iframe", "nav", "aside"}
 SAFE_STYLE_PROPERTIES = {
     "background",
@@ -103,6 +104,9 @@ UNSUPPORTED_PAGE_STYLE_SELECTOR_FRAGMENTS = (
     ".class-category",
     ".class-text",
     ".clearance",
+    ".collapsible-block-folded",
+    ".collapsible-block-link",
+    ".collapsible-block-unfolded",
     ".contain-class",
     ".danger-diamond",
     ".diamond-part",
@@ -120,7 +124,13 @@ UNSUPPORTED_PAGE_STYLE_SELECTOR_FRAGMENTS = (
     ".top-icon",
     ".top-left-box",
     ".top-right-box",
+    ".licensebox",
+    ".wiki-content-table",
+    "#page-content .collapsible-block",
 )
+UNSUPPORTED_PAGE_STYLE_SELECTORS = {
+    "#page-content",
+}
 UNWANTED_IDS = {
     "action-area",
     "edit-page-form",
@@ -204,6 +214,8 @@ def transform_page(
         raise ValueError("missing #page-content")
 
     page_styles = _applicable_page_styles(soup, page_content)
+
+    _remove_creator_information_blocks(page_content)
 
     for tag in list(page_content.find_all(_is_unwanted_element)):
         tag.decompose()
@@ -482,6 +494,10 @@ def _looks_like_css_code(text: str) -> bool:
     hits = sum(1 for marker in CSS_CODE_MARKERS if marker in normalized)
     if hits >= 2:
         return True
+    if CSS_RULE_RE.search(normalized) and (
+        "#page-content" in normalized or ".collapsible-block" in normalized
+    ):
+        return True
 
     custom_property_hits = len(CSS_CUSTOM_PROPERTY_RE.findall(normalized))
     return ":root" in normalized and custom_property_hits >= 2
@@ -525,7 +541,47 @@ def _matching_css_rules(css_text: str, targets: tuple[set[str], set[str]]) -> li
 
 def _is_unsupported_page_style_selector(selector: str) -> bool:
     lowered = selector.lower()
-    return any(fragment in lowered for fragment in UNSUPPORTED_PAGE_STYLE_SELECTOR_FRAGMENTS)
+    return (
+        lowered in UNSUPPORTED_PAGE_STYLE_SELECTORS
+        or any(fragment in lowered for fragment in UNSUPPORTED_PAGE_STYLE_SELECTOR_FRAGMENTS)
+    )
+
+
+def _remove_creator_information_blocks(page_content: Tag) -> None:
+    for paragraph in list(page_content.find_all("p")):
+        if _normalized_text(paragraph) not in {"创作者信息", "作者信息"}:
+            continue
+
+        previous = paragraph.previous_sibling
+        while previous is not None and not isinstance(previous, Tag):
+            previous = previous.previous_sibling
+        if isinstance(previous, Tag) and previous.name == "hr":
+            previous.decompose()
+
+        for sibling in [paragraph, *_creator_information_siblings(paragraph)]:
+            sibling.decompose()
+
+
+def _creator_information_siblings(marker: Tag) -> list[Tag]:
+    removable: list[Tag] = []
+    for sibling in marker.next_siblings:
+        if not isinstance(sibling, Tag):
+            continue
+        if _is_creator_information_boundary(sibling):
+            break
+        removable.append(sibling)
+    return removable
+
+
+def _is_creator_information_boundary(tag: Tag) -> bool:
+    if tag.name in HEADING_NAMES:
+        return True
+    classes = _class_tokens(tag)
+    return "footer-wikiwalk-nav" in classes or bool(classes & UNWANTED_CLASSES)
+
+
+def _normalized_text(tag: Tag) -> str:
+    return re.sub(r"\s+", "", tag.get_text(" ", strip=True))
 
 
 def _materialize_generated_before_content(

@@ -149,6 +149,7 @@ def build_featured_manifest(
             if next_archive_url not in seen_archive_urls and next_archive_url not in archive_urls:
                 archive_urls.append(next_archive_url)
 
+    entries.sort(key=lambda entry: (entry.order <= 0, entry.order))
     manifest = [_with_page_order(entry, order) for order, entry in enumerate(entries, start=1)]
     write_manifest(manifest, manifest_path_for_volume(config, volume))
     return manifest
