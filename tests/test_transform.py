@@ -1303,6 +1303,32 @@ def test_removes_effectively_terminal_navigation_before_live_like_trailing_wrapp
     assert soup.find(id="article") is not None
 
 
+def test_removes_terminal_navigation_before_footnotes_footer_and_preserves_footnotes():
+    html = """
+    <html><body><div id="page-content">
+      <p id="article">正文。</p>
+      <div style="text-align: center;" id="terminal-nav">
+        <p><strong>« <a href="/previous">Previous</a> | <a href="/hub">Hub</a> | <a href="/next">Next</a> »</strong></p>
+      </div>
+      <div class="footnotes-footer" id="footnotes">
+        <div class="title">Footnotes</div><div>1. 应保留的注释。</div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-5550"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="terminal-nav") is None
+    assert soup.find(id="footnotes").get_text(" ", strip=True) == "Footnotes 1. 应保留的注释。"
+    assert soup.find(id="article") is not None
+
+
 def test_preserves_terminal_navigation_when_cleanup_is_disabled():
     html = """
     <html><body><div id="page-content">
@@ -1495,6 +1521,58 @@ def test_removes_only_terminal_author_work_list_when_enabled():
     soup = soup_fragment(result.xhtml)
 
     assert soup.find(id="work-list") is None
+    assert soup.find(id="ordinary") is not None
+
+
+def test_removes_folded_collapsible_author_work_list_when_enabled():
+    html = """
+    <html><body><div id="page-content">
+      <p id="article">正文。</p>
+      <div class="collection" id="work-list">
+        <div class="collapsible-block" id="author-work-list">
+          <div class="collapsible-block-folded"><a href="javascript:;">More&nbsp;From&nbsp;This&nbsp;Author</a></div>
+          <div class="collapsible-block-unfolded"><p>作者的作品列表。</p></div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-6698"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_author_work_list=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="author-work-list") is None
+    assert soup.find(id="work-list") is not None
+    assert soup.find(id="article") is not None
+
+
+def test_removes_nested_author_work_link_from_centered_wrapper_when_enabled():
+    html = """
+    <html><body><div id="page-content">
+      <p id="ordinary">More by this author appears in the article body.</p>
+      <p id="article">正文。</p>
+      <div class="footnotes-footer" id="footnotes"><div>1. 应保留的注释。</div></div>
+      <div style="text-align: center;" id="author-work-wrapper">
+        <p><strong><span class="logical-link-wrap"><span class="logical-link-custom"><a href="/author">此作者的更多作品</a></span><span class="logical-link-original"><span class="logical-link-custom"><a href="https://example.test/author">More by this author</a></span></span></span></strong></p>
+      </div>
+      <div class="footer-wikiwalk-nav" id="wikiwalk">« <a href="/previous">Previous</a> | <a href="/next">Next</a> »</div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-4233"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_author_work_list=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="author-work-wrapper") is None
+    assert soup.find(id="footnotes").get_text(" ", strip=True) == "1. 应保留的注释。"
     assert soup.find(id="ordinary") is not None
 
 

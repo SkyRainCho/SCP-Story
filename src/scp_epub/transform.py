@@ -467,7 +467,11 @@ def _apply_page_cleanup_options(
 
 
 def _remove_terminal_navigation(entry: PageRef, page_content: Tag) -> None:
-    for block in _terminal_article_blocks(page_content, navigation_slug=entry.slug):
+    for block in _terminal_article_blocks(
+        page_content,
+        navigation_slug=entry.slug,
+        allow_footnotes_footer_boundary=True,
+    ):
         if _is_compact_guillemet_navigation(entry.slug, block) or (
             entry.slug == "scp-6781" and _is_scp_6781_previous_next_navigation(block)
         ):
@@ -478,11 +482,17 @@ def _terminal_article_blocks(
     page_content: Tag,
     *,
     navigation_slug: str | None = None,
+    allow_footnotes_footer_boundary: bool = False,
 ) -> list[Tag]:
     return [
         block
         for block in page_content.find_all(("div", "section"))
-        if _is_terminal_article_block(navigation_slug, block, page_content)
+        if _is_terminal_article_block(
+            navigation_slug,
+            block,
+            page_content,
+            allow_footnotes_footer_boundary=allow_footnotes_footer_boundary,
+        )
     ]
 
 
@@ -490,10 +500,16 @@ def _is_terminal_article_block(
     navigation_slug: str | None,
     block: Tag,
     page_content: Tag,
+    *,
+    allow_footnotes_footer_boundary: bool = False,
 ) -> bool:
     current = block
     while current is not page_content:
-        if _has_substantive_following_sibling(navigation_slug, current):
+        if _has_substantive_following_sibling(
+            navigation_slug,
+            current,
+            allow_footnotes_footer_boundary=allow_footnotes_footer_boundary,
+        ):
             return False
         parent = current.parent
         if not isinstance(parent, Tag):
@@ -502,9 +518,16 @@ def _is_terminal_article_block(
     return True
 
 
-def _has_substantive_following_sibling(navigation_slug: str | None, node: Tag) -> bool:
+def _has_substantive_following_sibling(
+    navigation_slug: str | None,
+    node: Tag,
+    *,
+    allow_footnotes_footer_boundary: bool = False,
+) -> bool:
     for sibling in node.next_siblings:
         if isinstance(sibling, Tag):
+            if allow_footnotes_footer_boundary and "footnotes-footer" in _class_tokens(sibling):
+                continue
             if not _is_insignificant_trailing_node(navigation_slug, sibling):
                 return True
         elif str(sibling).strip():
@@ -585,17 +608,57 @@ def _remove_scp_7069_adult_warning(page_content: Tag) -> None:
 
 
 def _remove_terminal_author_work_list(page_content: Tag) -> None:
+    _remove_folded_author_work_lists(page_content)
+    _remove_nested_author_work_links(page_content)
+
     for block in _terminal_article_blocks(page_content):
         text = block.get_text(" ", strip=True)
         if _starts_with_author_work_list_label(text):
             block.decompose()
 
 
+def _remove_folded_author_work_lists(page_content: Tag) -> None:
+    for heading in list(page_content.select(".collapsible-block-folded")):
+        if not _is_author_work_list_label(heading.get_text(" ", strip=True)):
+            continue
+        work_list = heading.find_parent(class_="collapsible-block")
+        if isinstance(work_list, Tag):
+            work_list.decompose()
+
+
+def _remove_nested_author_work_links(page_content: Tag) -> None:
+    for link in list(page_content.find_all("a")):
+        if not _is_author_work_list_label(link.get_text(" ", strip=True)):
+            continue
+        layout_block = _nearest_standalone_layout_block(link, page_content)
+        if layout_block is not None:
+            layout_block.decompose()
+
+
+def _nearest_standalone_layout_block(tag: Tag, page_content: Tag) -> Tag | None:
+    current = tag.parent
+    while isinstance(current, Tag) and current is not page_content:
+        if current.name in {"div", "section"}:
+            return current
+        current = current.parent
+    return None
+
+
+def _is_author_work_list_label(text: str) -> bool:
+    normalized_text = _normalized_visible_text(text)
+    return normalized_text in AUTHOR_WORK_LIST_LABELS
+
+
 def _starts_with_author_work_list_label(text: str) -> bool:
+    normalized_text = _normalized_visible_text(text)
     for label in AUTHOR_WORK_LIST_LABELS:
-        if text == label:
+        if normalized_text == label:
             return True
-        if text.startswith(label) and len(text) > len(label) and text[len(label)].isspace():
+        if (
+            normalized_text.startswith(label)
+            and len(normalized_text) > len(label)
+            and normalized_text[len(label)].isspace()
+        ):
             return True
     return False
 
