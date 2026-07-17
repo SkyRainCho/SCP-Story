@@ -23,7 +23,9 @@ from .indexer import (
     parse_series_index,
     parse_tales_index,
 )
+from .inline_documents import fetch_inline_document_results, inline_document_urls
 from .linked_appendices import (
+    LINKED_APPENDIX_ROLE,
     LINKED_APPENDIX_GROUP_ROLE,
     LinkedAppendixCandidate,
     LinkedAppendixDocument,
@@ -34,8 +36,8 @@ from .linked_appendices import (
     write_linked_appendix_report,
 )
 from .manifest import read_manifest, merge_manifest, supplement_missing_scp_entries, write_manifest
-from .models import AppConfig, FetchResult, PageRef, ProcessedPage, VolumeSpec
-from .transform import transform_page
+from .models import AppConfig, FetchResult, InlineDocumentSpec, PageRef, ProcessedPage, VolumeSpec
+from .transform import PageTransformOptions, insert_inline_fragments, transform_page
 from .urls import safe_filename, slug_from_url
 
 
@@ -236,7 +238,19 @@ def build_volume(
             linked_appendix_documents,
             config.output_dir / "reports" / f"{volume.output_slug}-linked-appendices.json",
         )
-    processed_pages = _process_pages(config, volume, available_manifest, fetch_results)
+    inline_document_results = fetch_inline_document_results(
+        config,
+        available_manifest,
+        active_fetcher,
+        force=force,
+    )
+    processed_pages = _process_pages(
+        config,
+        volume,
+        available_manifest,
+        fetch_results,
+        inline_document_results,
+    )
     localized_pages, localized_assets, missing_assets = localize_assets(
         processed_pages,
         active_fetcher,
@@ -274,10 +288,13 @@ def include_linked_appendices(
     *,
     force: bool = False,
 ) -> tuple[list[PageRef], list[FetchResult], list[LinkedAppendixDocument], list[dict[str, str]]]:
-    documents = scan_linked_appendices_from_fetch_results(
+    documents = _exclude_configured_inline_documents(
+        config,
+        scan_linked_appendices_from_fetch_results(
         manifest,
         fetch_results,
         config.base_url,
+        ),
     )
     documents = _merge_linked_appendix_documents(
         manifest,
@@ -835,6 +852,29 @@ def _merge_linked_appendix_documents(
     ]
 
 
+def _exclude_configured_inline_documents(
+    config: AppConfig,
+    documents: list[LinkedAppendixDocument],
+) -> list[LinkedAppendixDocument]:
+    urls_by_owner = inline_document_urls(config)
+    filtered_documents: list[LinkedAppendixDocument] = []
+    for document in documents:
+        excluded_page_slugs = {
+            slug_from_url(url)
+            for url in urls_by_owner.get(document.entry.slug, set())
+        }
+        candidates = tuple(
+            candidate
+            for candidate in document.candidates
+            if slug_from_url(candidate.url) not in excluded_page_slugs
+        )
+        if candidates:
+            filtered_documents.append(
+                LinkedAppendixDocument(entry=document.entry, candidates=candidates)
+            )
+    return filtered_documents
+
+
 def _with_page_order(entry: PageRef, order: int) -> PageRef:
     return PageRef(
         title=entry.title,
@@ -942,6 +982,9 @@ def _process_pages(
     volume: VolumeSpec,
     manifest: list[PageRef],
     fetch_results: list[FetchResult],
+    inline_document_results: dict[
+        str, tuple[tuple[InlineDocumentSpec, FetchResult], ...]
+    ] | None = None,
 ) -> list[ProcessedPage]:
     manifest_slugs = {entry.slug for entry in manifest}
     results_by_slug = {
@@ -980,11 +1023,55 @@ def _process_pages(
             background_asset_url=(
                 configured_page.epub_background_url if configured_page is not None else None
             ),
+            page_options=_page_transform_options(config, entry),
         )
+        inline_fragments: list[tuple[InlineDocumentSpec, ProcessedPage]] = []
+        for document, inline_result in (inline_document_results or {}).get(entry.slug, ()):
+            inline_entry = PageRef(
+                title=document.title,
+                url=document.url,
+                slug=document.slug,
+                level=entry.level,
+                role=entry.role,
+            )
+            inline_fragments.append(
+                (
+                    document,
+                    transform_page(
+                        inline_entry,
+                        inline_result.path.read_text(encoding="utf-8"),
+                        inline_entry.url,
+                        manifest_slugs,
+                        page_options=_page_transform_options(config, inline_entry),
+                    ),
+                )
+            )
+        if inline_fragments:
+            page = insert_inline_fragments(page, fragments=inline_fragments)
         processed_pages.append(page)
         _write_processed_page(processed_dir, page)
 
     return processed_pages
+
+
+def _page_transform_options(config: AppConfig, entry: PageRef) -> PageTransformOptions:
+    override = config.page_overrides.get(entry.slug)
+    inherited_terminal_navigation = (
+        entry.role == LINKED_APPENDIX_ROLE
+        and entry.parent_slug == linked_appendix_group_slug("scp-5109")
+        and config.page_overrides.get("scp-5109", None) is not None
+        and config.page_overrides["scp-5109"].remove_terminal_navigation
+    )
+    return PageTransformOptions(
+        remove_terminal_navigation=(
+            inherited_terminal_navigation
+            or bool(override and override.remove_terminal_navigation)
+        ),
+        remove_leading_metadata=bool(override and override.remove_leading_metadata),
+        remove_adult_content_warning=bool(override and override.remove_adult_content_warning),
+        remove_author_work_list=bool(override and override.remove_author_work_list),
+        layout_profile=override.layout_profile if override is not None else None,
+    )
 
 
 def _write_processed_page(processed_dir: Path, page: ProcessedPage) -> Path:

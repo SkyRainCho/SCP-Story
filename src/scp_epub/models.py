@@ -31,6 +31,25 @@ class ConfiguredLink:
 
 
 @dataclass(frozen=True)
+class InlineDocumentSpec:
+    title: str
+    url: str
+    slug: str
+    position: str
+    anchor_text: str | None = None
+
+
+@dataclass(frozen=True)
+class PageOverride:
+    remove_terminal_navigation: bool = False
+    remove_leading_metadata: bool = False
+    remove_adult_content_warning: bool = False
+    remove_author_work_list: bool = False
+    layout_profile: str | None = None
+    inline_documents: tuple[InlineDocumentSpec, ...] = ()
+
+
+@dataclass(frozen=True)
 class AppendixSection:
     title: str
     url: str
@@ -76,6 +95,7 @@ class AppConfig:
     front_matter_pages: tuple[ConfiguredPage, ...] = ()
     explicit_linked_appendices: dict[str, tuple[ConfiguredLink, ...]] = field(default_factory=dict)
     page_tab_includes: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    page_overrides: dict[str, PageOverride] = field(default_factory=dict)
     appendix: AppendixSpec | None = None
 
     @property

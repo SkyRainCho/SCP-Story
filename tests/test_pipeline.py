@@ -17,6 +17,8 @@ from scp_epub.models import (
     ConfiguredLink,
     ConfiguredPage,
     FetchResult,
+    InlineDocumentSpec,
+    PageOverride,
     PageRef,
     VolumeSpec,
 )
@@ -31,6 +33,7 @@ from scp_epub.pipeline import (
     run_command,
     scan_linked_appendices_for_volume,
 )
+from scp_epub.inline_documents import fetch_inline_document_results
 
 
 BASE_URL = "https://scp-wiki-cn.wikidot.com"
@@ -48,6 +51,7 @@ def app_config(
     front_matter_pages: tuple[ConfiguredPage, ...] = (),
     explicit_linked_appendices: dict[str, tuple[ConfiguredLink, ...]] | None = None,
     page_tab_includes: dict[str, tuple[str, ...]] | None = None,
+    page_overrides: dict[str, PageOverride] | None = None,
     appendix: AppendixSpec | None = None,
 ) -> AppConfig:
     volume = VolumeSpec(
@@ -85,6 +89,7 @@ def app_config(
         front_matter_pages=front_matter_pages,
         explicit_linked_appendices=explicit_linked_appendices or {},
         page_tab_includes=page_tab_includes or {},
+        page_overrides=page_overrides or {},
         appendix=appendix,
     )
 
@@ -1307,6 +1312,84 @@ def test_build_volume_includes_high_confidence_linked_appendices_under_group(tmp
     ]
 
 
+def test_build_volume_inherits_only_scp5109_terminal_navigation_cleanup_for_linked_appendices(
+    tmp_path: Path,
+):
+    config = app_config(
+        tmp_path,
+        page_overrides={
+            "scp-5109": PageOverride(
+                remove_terminal_navigation=True,
+                remove_adult_content_warning=True,
+            )
+        },
+    )
+    manifest = [
+        PageRef("SCP-5109", f"{BASE_URL}/scp-5109", "scp-5109", 1, "scp", order=1),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-5109": simple_page(
+                "SCP-5109",
+                '<a href="/scp-5109-offset">SCP-5109附件</a>',
+            ),
+            "scp-5109-offset": """
+              <html><body><div id="page-content">
+                <p>附属文档正文。</p>
+                <div id="u-adult-warning">不应继承的成人警告清理。</div>
+                <div id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> | <a href="/three">Three</a> »</div>
+              </div></body></html>
+            """,
+        },
+    )
+
+    build_volume(config, "001-099", fetcher=fetcher)
+
+    appendix_xhtml = (
+        config.processed_dir / "test-volume" / "0003-scp-5109-offset.xhtml"
+    ).read_text(encoding="utf-8")
+    assert "terminal-nav" not in appendix_xhtml
+    assert "不应继承的成人警告清理" in appendix_xhtml
+
+
+def test_build_volume_applies_configured_layout_profile(tmp_path: Path):
+    config = app_config(
+        tmp_path,
+        page_overrides={
+            "scp-4612": PageOverride(layout_profile="scp-4612"),
+        },
+    )
+    manifest = [
+        PageRef("SCP-4612", f"{BASE_URL}/scp-4612", "scp-4612", 1, "scp", order=1),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-4612": simple_page(
+                "SCP-4612",
+                '<div id="estate-image" class="scp-image-block block-right" '
+                'style="float: right; width: 320px"><img src="/estate.jpg" /></div>'
+                "<p>宅邸的调查仍在继续。</p>",
+            ),
+        },
+    )
+
+    build_volume(config, "001-099", fetcher=fetcher)
+
+    page_xhtml = (config.processed_dir / "test-volume" / "0001-scp-4612.xhtml").read_text(
+        encoding="utf-8"
+    )
+    assert "layout-profile-scp-4612-image" in page_xhtml
+    assert 'style="width: 320px; float: none; clear: both; max-width: 100%"' in page_xhtml
+
+
 def test_build_volume_can_disable_linked_appendices_for_featured_books(tmp_path: Path):
     config = app_config(tmp_path, include_linked_appendices=False)
     manifest = [
@@ -1382,6 +1465,221 @@ def test_build_volume_includes_configured_linked_appendix_chain(tmp_path: Path):
         "scp-5170/offset/2",
         "scp-5170/offset/3",
     ]
+
+
+def test_fetch_inline_documents_skips_configured_owner_absent_from_manifest(tmp_path: Path):
+    config = app_config(
+        tmp_path,
+        page_overrides={
+            "scp-1898": PageOverride(
+                inline_documents=(
+                    InlineDocumentSpec(
+                        "相关图片",
+                        f"{BASE_URL}/scp-1898-offset",
+                        "scp-1898-offset",
+                        "append",
+                    ),
+                ),
+            ),
+        },
+    )
+    manifest = [PageRef("SCP-001", f"{BASE_URL}/scp-001", "scp-001", 1, "scp", order=1)]
+    fetcher = FakeFetcher(tmp_path / "cache", {"scp-001": simple_page("SCP-001")})
+
+    results = fetch_inline_document_results(config, manifest, fetcher, force=False)
+
+    assert results == {}
+    assert fetcher.calls == []
+
+
+def test_build_volume_excludes_auto_appendix_for_inline_url_with_host_case_and_trailing_slash(
+    tmp_path: Path,
+):
+    inline_url = "https://SCP-WIKI-CN.WIKIDOT.COM/scp-1898-offset/"
+    config = app_config(
+        tmp_path,
+        page_overrides={
+            "scp-1898": PageOverride(
+                inline_documents=(
+                    InlineDocumentSpec(
+                        "相关图片",
+                        inline_url,
+                        "scp-1898-offset",
+                        "after_text",
+                        "附录-1898-1：相关SCP-1898图片",
+                    ),
+                ),
+            ),
+        },
+    )
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(
+        [PageRef("SCP-1898", f"{BASE_URL}/scp-1898", "scp-1898", 1, "scp", order=1)],
+        config.manifest_dir / "test-volume.json",
+    )
+    image_url = "https://SCP-WIKI-CN.WIKIDOT.COM/images/inline.png"
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-1898": simple_page(
+                "SCP-1898",
+                '<p>附录-1898-1：相关SCP-1898图片</p><a href="/scp-1898-offset">附录图片</a>',
+            ),
+            "scp-1898-offset": simple_page(
+                "相关图片",
+                '<p>内联文档正文 <img src="/images/inline.png"/><a href="/scp-1898">返回</a></p>',
+            ),
+        },
+        assets={image_url: ("inline.png", b"png", "image/png")},
+    )
+
+    output_path = build_volume(config, "001-099", fetcher=fetcher)
+
+    assert [slug for slug, _url, _force in fetcher.calls] == ["scp-1898", "scp-1898-offset"]
+    report = json.loads((config.output_dir / "reports" / "test-volume-report.json").read_text(encoding="utf-8"))
+    assert report["slugs"] == ["scp-1898"]
+    assert report["asset_urls"] == [image_url]
+    processed = (config.processed_dir / "test-volume" / "0001-scp-1898.xhtml").read_text(encoding="utf-8")
+    assert "inline-document-epub" in processed
+    assert "内联文档正文" in processed
+    with zipfile.ZipFile(output_path) as archive:
+        nav = archive.read("OEBPS/nav.xhtml").decode("utf-8")
+        assert "scp-1898-offset" not in "\n".join(archive.namelist())
+        assert "相关图片" not in nav
+
+
+def test_build_volume_inlines_featured_companions_without_appendix_navigation(
+    tmp_path: Path,
+):
+    companion_specs = {
+        "scp-1898": (
+            InlineDocumentSpec(
+                "SCP-1898 相关图片",
+                f"{BASE_URL}/scp-1898-appendix",
+                "scp-1898-appendix",
+                "after_text",
+                "附录-1898-1：相关SCP-1898图片",
+            ),
+        ),
+        "scp-7503": tuple(
+            InlineDocumentSpec(
+                f"SCP-7503 Offset {index}",
+                f"{BASE_URL}/scp-7503-offset-{index}",
+                f"scp-7503-offset-{index}",
+                "append",
+            )
+            for index in range(1, 5)
+        ),
+        "scp-6445": (
+            InlineDocumentSpec(
+                "SCP-6445 Offset 1",
+                f"{BASE_URL}/scp-6445-offset-1",
+                "scp-6445-offset-1",
+                "append",
+            ),
+        ),
+        "scp-2814": (
+            InlineDocumentSpec(
+                "Document 2814-Gamma",
+                f"{BASE_URL}/scp-2814-appendix",
+                "scp-2814-appendix",
+                "before_text",
+                "Footnotes",
+            ),
+        ),
+    }
+    config = app_config(
+        tmp_path,
+        page_overrides={
+            owner: PageOverride(inline_documents=documents)
+            for owner, documents in companion_specs.items()
+        },
+    )
+    owners = [
+        PageRef("SCP-1898", f"{BASE_URL}/scp-1898", "scp-1898", 1, "scp", order=1),
+        PageRef("SCP-7503", f"{BASE_URL}/scp-7503", "scp-7503", 1, "scp", order=2),
+        PageRef("SCP-6445", f"{BASE_URL}/scp-6445", "scp-6445", 1, "scp", order=3),
+        PageRef("SCP-2814", f"{BASE_URL}/scp-2814", "scp-2814", 1, "scp", order=4),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(owners, config.manifest_dir / "test-volume.json")
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-1898": simple_page(
+                "SCP-1898",
+                "<p>附录-1898-1：相关SCP-1898图片</p>"
+                '<a href="/scp-1898-appendix">SCP-1898 附录文档</a>',
+            ),
+            "scp-1898-appendix": simple_page("SCP-1898 相关图片", "1898 附件正文。"),
+            "scp-7503": simple_page(
+                "SCP-7503",
+                "".join(
+                    f'<a href="/scp-7503-offset-{index}">SCP-7503 附录文档 {index}</a>'
+                    for index in range(1, 5)
+                ),
+            ),
+            "scp-7503-offset-1": simple_page("Offset 1", "7503 迭代 1。"),
+            "scp-7503-offset-2": simple_page("Offset 2", "7503 迭代 2。"),
+            "scp-7503-offset-3": simple_page("Offset 3", "7503 迭代 3。"),
+            "scp-7503-offset-4": simple_page("Offset 4", "7503 迭代 4。"),
+            "scp-6445": simple_page(
+                "SCP-6445",
+                '<a href="/scp-6445-offset-1">SCP-6445 附录文档</a>',
+            ),
+            "scp-6445-offset-1": simple_page("Offset 1", "6445 附件正文。"),
+            "scp-2814": simple_page(
+                "SCP-2814",
+                '<a href="/scp-2814-appendix">SCP-2814 附录文档</a>'
+                '<div class="footnotes-footer"><div class="title">Footnotes</div></div>',
+            ),
+            "scp-2814-appendix": simple_page("Document 2814-Gamma", "2814 附件正文。"),
+        },
+    )
+
+    output_path = build_volume(config, "001-099", fetcher=fetcher)
+
+    report = json.loads(
+        (config.output_dir / "reports" / "test-volume-report.json").read_text(encoding="utf-8")
+    )
+    assert report["slugs"] == [entry.slug for entry in owners]
+    assert "原文附属文档" not in report["titles"]
+
+    with zipfile.ZipFile(output_path) as archive:
+        names = "\n".join(archive.namelist())
+        opf = archive.read("OEBPS/content.opf").decode("utf-8")
+        nav = archive.read("OEBPS/nav.xhtml").decode("utf-8")
+        ncx = archive.read("OEBPS/toc.ncx").decode("utf-8")
+        chapters = {
+            entry.slug: archive.read(
+                f"OEBPS/text/{entry.order:04d}-{entry.slug}.xhtml"
+            ).decode("utf-8")
+            for entry in owners
+        }
+
+    companion_slugs = [
+        document.slug
+        for documents in companion_specs.values()
+        for document in documents
+    ]
+    for companion_slug in companion_slugs:
+        assert companion_slug not in names
+        assert companion_slug not in opf
+        assert companion_slug not in nav
+        assert companion_slug not in ncx
+    assert "原文附属文档" not in opf
+    assert "原文附属文档" not in nav
+    assert "原文附属文档" not in ncx
+    assert "1898 附件正文。" in chapters["scp-1898"]
+    assert [chapters["scp-7503"].index(f"7503 迭代 {index}。") for index in range(1, 5)] == sorted(
+        chapters["scp-7503"].index(f"7503 迭代 {index}。") for index in range(1, 5)
+    )
+    assert "6445 附件正文。" in chapters["scp-6445"]
+    assert chapters["scp-2814"].index("2814 附件正文。") < chapters["scp-2814"].index(
+        "Footnotes"
+    )
 
 
 def test_build_volume_force_rebuilds_existing_manifest_from_refreshed_sources(tmp_path: Path):

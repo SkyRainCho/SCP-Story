@@ -1,18 +1,39 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from html import escape
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup, Tag
 
-from scp_epub.models import PageRef, ProcessedPage
+from scp_epub.models import InlineDocumentSpec, PageRef, ProcessedPage
 from scp_epub.urls import normalize_url, slug_from_url
 
 
 NON_DOWNLOADABLE_ASSET_SCHEMES = {"data", "mailto", "tel"}
 HEADING_NAMES = frozenset(f"h{level}" for level in range(1, 7))
+INLINE_ANCHOR_BLOCK_TAGS = frozenset(
+    {
+        "article",
+        "aside",
+        "blockquote",
+        "div",
+        "dl",
+        "figure",
+        "footer",
+        "header",
+        *HEADING_NAMES,
+        "li",
+        "ol",
+        "p",
+        "pre",
+        "section",
+        "table",
+        "ul",
+    }
+)
 UNWANTED_TAGS = {"script", "style", "iframe", "nav", "aside"}
 SAFE_STYLE_PROPERTIES = {
     "background",
@@ -207,6 +228,29 @@ SCENE_BREAK_IMAGE_STYLE = {
     "margin-right": "auto",
 }
 
+AUTHOR_WORK_LIST_LABELS = (
+    "More From This Author",
+    "More by this author",
+    "该作者的更多作品",
+)
+SUBSTANTIVE_MEDIA_TAGS = ("audio", "figure", "img", "object", "picture", "svg", "table", "video")
+TWO_LINK_TERMINAL_NAVIGATION_SLUGS = frozenset({"scp-7261", "scp-3662"})
+
+
+@dataclass(frozen=True)
+class PageTransformOptions:
+    remove_terminal_navigation: bool = False
+    remove_leading_metadata: bool = False
+    remove_adult_content_warning: bool = False
+    remove_author_work_list: bool = False
+    layout_profile: str | None = None
+
+
+@dataclass(frozen=True)
+class LayoutProfileRule:
+    apply: Callable[[Tag], None]
+    style_rules: str
+
 
 def transform_page(
     entry: PageRef,
@@ -217,6 +261,7 @@ def transform_page(
     include_tab_titles: set[str] | None = None,
     unwrap_single_included_tab: bool = False,
     background_asset_url: str | None = None,
+    page_options: PageTransformOptions | None = None,
 ) -> ProcessedPage:
     soup = BeautifulSoup(html, "html.parser")
     page_content = soup.select_one("#page-content")
@@ -233,6 +278,13 @@ def transform_page(
 
     for tag in list(page_content.find_all(_is_unwanted_element)):
         tag.decompose()
+
+    profile_style_rules = _apply_page_cleanup_options(
+        entry,
+        page_content,
+        page_options or PageTransformOptions(),
+    )
+    page_styles = _append_page_style_rules(page_styles, profile_style_rules)
 
     if _has_interactive_article_layout(page_content):
         _linearize_interactive_article_layout(page_content)
@@ -290,6 +342,339 @@ def transform_page(
         internal_links=tuple(internal_links),
         external_links=tuple(external_links),
     )
+
+
+def insert_inline_fragments(
+    owner: ProcessedPage,
+    fragments: Iterable[tuple[InlineDocumentSpec, ProcessedPage]],
+) -> ProcessedPage:
+    soup = BeautifulSoup(f"<root>{owner.xhtml}</root>", "html.parser")
+    root = soup.find("root")
+    if root is None:
+        return owner
+
+    after_anchors: dict[int, Tag] = {}
+    before_anchors: dict[int, Tag] = {}
+    assets = list(owner.asset_urls)
+    internal_links = list(owner.internal_links)
+    external_links = list(owner.external_links)
+    seen_assets = set(assets)
+    seen_internal = set(internal_links)
+    seen_external = set(external_links)
+
+    for spec, fragment in fragments:
+        section = _inline_document_section(soup, spec, fragment.xhtml)
+        anchor = _find_exact_visible_text(root, spec.anchor_text)
+        if spec.position == "after_text" and anchor is not None:
+            insertion_point = after_anchors.get(id(anchor), anchor)
+            insertion_point.insert_after(section)
+            after_anchors[id(anchor)] = section
+        elif spec.position == "before_text" and anchor is not None:
+            insertion_point = before_anchors.get(id(anchor))
+            if insertion_point is None:
+                anchor.insert_before(section)
+            else:
+                insertion_point.insert_after(section)
+            before_anchors[id(anchor)] = section
+        else:
+            root.append(section)
+
+        for value in fragment.asset_urls:
+            _append_once(assets, seen_assets, value)
+        for value in fragment.internal_links:
+            _append_once(internal_links, seen_internal, value)
+        for value in fragment.external_links:
+            _append_once(external_links, seen_external, value)
+
+    return ProcessedPage(
+        entry=owner.entry,
+        xhtml="".join(str(child) for child in root.contents).strip(),
+        asset_urls=tuple(assets),
+        internal_links=tuple(internal_links),
+        external_links=tuple(external_links),
+    )
+
+
+def _inline_document_section(
+    soup: BeautifulSoup,
+    spec: InlineDocumentSpec,
+    xhtml: str,
+) -> Tag:
+    section = soup.new_tag("section", attrs={"class": "inline-document-epub"})
+    fragment_soup = BeautifulSoup(f"<root>{xhtml}</root>", "html.parser")
+    fragment_root = fragment_soup.find("root")
+    if fragment_root is not None:
+        for style in fragment_root.find_all("style"):
+            style.decompose()
+        if fragment_root.find(("h1", "h2")) is None:
+            heading = soup.new_tag("h2")
+            heading.string = spec.title
+            section.append(heading)
+        for child in list(fragment_root.contents):
+            section.append(child.extract())
+    return section
+
+
+def _find_exact_visible_text(root: Tag, anchor_text: str | None) -> Tag | None:
+    if anchor_text is None:
+        return None
+    expected = _normalized_visible_text(anchor_text)
+    for tag in root.find_all(True):
+        if _normalized_visible_text(tag.get_text()) == expected:
+            return _container_safe_inline_anchor(tag)
+    return None
+
+
+def _container_safe_inline_anchor(tag: Tag) -> Tag:
+    footer = tag if "footnotes-footer" in _class_tokens(tag) else tag.find_parent(
+        class_="footnotes-footer"
+    )
+    if isinstance(footer, Tag):
+        return footer
+
+    current: Tag | None = tag
+    while current is not None:
+        if current.name in INLINE_ANCHOR_BLOCK_TAGS:
+            return current
+        current = current.parent if isinstance(current.parent, Tag) else None
+    return tag
+
+
+def _normalized_visible_text(value: str) -> str:
+    return " ".join(value.split())
+
+
+def _apply_page_cleanup_options(
+    entry: PageRef,
+    page_content: Tag,
+    options: PageTransformOptions,
+) -> str:
+    if options.remove_terminal_navigation:
+        _remove_terminal_navigation(entry, page_content)
+    if options.remove_leading_metadata and entry.slug == "scp-5464":
+        _remove_scp_5464_leading_metadata(page_content)
+    if options.remove_adult_content_warning and entry.slug == "scp-7069":
+        _remove_scp_7069_adult_warning(page_content)
+    if options.remove_author_work_list:
+        _remove_terminal_author_work_list(page_content)
+
+    layout_profile_rule = LAYOUT_PROFILE_RULES.get(options.layout_profile)
+    if layout_profile_rule is None:
+        return ""
+
+    layout_profile_rule.apply(page_content)
+    return layout_profile_rule.style_rules
+
+
+def _remove_terminal_navigation(entry: PageRef, page_content: Tag) -> None:
+    for block in _terminal_article_blocks(
+        page_content,
+        navigation_slug=entry.slug,
+        allow_footnotes_footer_boundary=True,
+    ):
+        if _is_compact_guillemet_navigation(entry.slug, block) or (
+            entry.slug == "scp-6781" and _is_scp_6781_previous_next_navigation(block)
+        ):
+            block.decompose()
+
+
+def _terminal_article_blocks(
+    page_content: Tag,
+    *,
+    navigation_slug: str | None = None,
+    allow_footnotes_footer_boundary: bool = False,
+) -> list[Tag]:
+    return [
+        block
+        for block in page_content.find_all(("div", "section"))
+        if _is_terminal_article_block(
+            navigation_slug,
+            block,
+            page_content,
+            allow_footnotes_footer_boundary=allow_footnotes_footer_boundary,
+        )
+    ]
+
+
+def _is_terminal_article_block(
+    navigation_slug: str | None,
+    block: Tag,
+    page_content: Tag,
+    *,
+    allow_footnotes_footer_boundary: bool = False,
+) -> bool:
+    current = block
+    while current is not page_content:
+        if _has_substantive_following_sibling(
+            navigation_slug,
+            current,
+            allow_footnotes_footer_boundary=allow_footnotes_footer_boundary,
+        ):
+            return False
+        parent = current.parent
+        if not isinstance(parent, Tag):
+            return False
+        current = parent
+    return True
+
+
+def _has_substantive_following_sibling(
+    navigation_slug: str | None,
+    node: Tag,
+    *,
+    allow_footnotes_footer_boundary: bool = False,
+) -> bool:
+    for sibling in node.next_siblings:
+        if isinstance(sibling, Tag):
+            if allow_footnotes_footer_boundary and "footnotes-footer" in _class_tokens(sibling):
+                continue
+            if not _is_insignificant_trailing_node(navigation_slug, sibling):
+                return True
+        elif str(sibling).strip():
+            return True
+    return False
+
+
+def _is_insignificant_trailing_node(navigation_slug: str | None, node: Tag) -> bool:
+    if node.name in {"br", "hr"}:
+        return True
+    if navigation_slug == "scp-7261" and "earthworm" in _class_tokens(node):
+        return True
+    if node.name in SUBSTANTIVE_MEDIA_TAGS or node.find(SUBSTANTIVE_MEDIA_TAGS) is not None:
+        return False
+    text = node.get_text(" ", strip=True)
+    if _looks_like_css_code(text):
+        return True
+    return not text
+
+
+def _is_compact_guillemet_navigation(slug: str, block: Tag) -> bool:
+    text = " ".join(block.get_text(" ", strip=True).split())
+    link_count = len(block.find_all("a"))
+    return (
+        (link_count == 3 or (link_count == 2 and slug in TWO_LINK_TERMINAL_NAVIGATION_SLUGS))
+        and len(text) <= 240
+        and len(text) >= 2
+        and text[0] in {"«", "‹"}
+        and text[-1] in {"»", "›"}
+    )
+
+
+def _is_scp_6781_previous_next_navigation(block: Tag) -> bool:
+    label_links = {
+        node.get_text(" ", strip=True): node.find_parent("a")
+        for node in block.find_all(True)
+        if node.get_text(" ", strip=True) in {"前情", "后事"} and node.find_parent("a") is not None
+    }
+    return (
+        set(label_links) == {"前情", "后事"}
+        and len({id(link) for link in label_links.values()}) == 2
+    )
+
+
+def _remove_scp_5464_leading_metadata(page_content: Tag) -> None:
+    for child in list(page_content.find_all(recursive=False)):
+        if _is_scp_5464_setting_hub_breadcrumb(child) or _is_scp_5464_author_block(child):
+            child.decompose()
+            continue
+        if _is_scp_5464_leading_template_or_empty_node(child):
+            continue
+        break
+
+
+def _is_scp_5464_leading_template_or_empty_node(block: Tag) -> bool:
+    text = block.get_text(" ", strip=True)
+    return not text or _looks_like_css_code(text)
+
+
+def _is_scp_5464_setting_hub_breadcrumb(block: Tag) -> bool:
+    text = block.get_text(" ", strip=True)
+    links = block.find_all("a", href=True)
+    return (
+        block.name in {"div", "p"}
+        and "设定" in text
+        and bool(links)
+        and any("hub" in str(link.get("href", "")).lower() for link in links)
+    )
+
+
+def _is_scp_5464_author_block(block: Tag) -> bool:
+    return block.name in {"div", "p"} and block.get_text(" ", strip=True).startswith(("作者：", "作者:"))
+
+
+def _remove_scp_7069_adult_warning(page_content: Tag) -> None:
+    for warning in list(page_content.select("#u-adult-warning")):
+        warning.decompose()
+
+
+def _remove_terminal_author_work_list(page_content: Tag) -> None:
+    _remove_folded_author_work_lists(page_content)
+    _remove_nested_author_work_links(page_content)
+
+    for block in _terminal_article_blocks(page_content):
+        text = block.get_text(" ", strip=True)
+        if _starts_with_author_work_list_label(text):
+            block.decompose()
+
+
+def _remove_folded_author_work_lists(page_content: Tag) -> None:
+    for heading in list(page_content.select(".collapsible-block-folded")):
+        if not _is_author_work_list_label(heading.get_text(" ", strip=True)):
+            continue
+        work_list = heading.find_parent(class_="collapsible-block")
+        if isinstance(work_list, Tag):
+            work_list.decompose()
+
+
+def _remove_nested_author_work_links(page_content: Tag) -> None:
+    for link in list(page_content.find_all("a")):
+        if not _is_author_work_list_label(link.get_text(" ", strip=True)):
+            continue
+        logical_link_wrapper = link.find_parent(class_="logical-link-wrap")
+        if not isinstance(logical_link_wrapper, Tag) or not _is_terminal_article_block(
+            None,
+            logical_link_wrapper,
+            page_content,
+        ):
+            continue
+        layout_block = _nearest_standalone_layout_block(link, page_content)
+        if layout_block is not None and _is_standalone_layout_wrapper(layout_block):
+            layout_block.decompose()
+        else:
+            logical_link_wrapper.decompose()
+
+
+def _nearest_standalone_layout_block(tag: Tag, page_content: Tag) -> Tag | None:
+    current = tag.parent
+    while isinstance(current, Tag) and current is not page_content:
+        if current.name in {"div", "section"}:
+            return current
+        current = current.parent
+    return None
+
+
+def _is_standalone_layout_wrapper(block: Tag) -> bool:
+    style = str(block.get("style", "")).lower()
+    return block.name in {"div", "section"} and "text-align" in style
+
+
+def _is_author_work_list_label(text: str) -> bool:
+    normalized_text = _normalized_visible_text(text)
+    return normalized_text in AUTHOR_WORK_LIST_LABELS
+
+
+def _starts_with_author_work_list_label(text: str) -> bool:
+    normalized_text = _normalized_visible_text(text)
+    for label in AUTHOR_WORK_LIST_LABELS:
+        if normalized_text == label:
+            return True
+        if (
+            normalized_text.startswith(label)
+            and len(normalized_text) > len(label)
+            and normalized_text[len(label)].isspace()
+        ):
+            return True
+    return False
 
 
 def _normalize_assets(page_content: Tag, base_url: str, asset_urls: list[str], seen_assets: set[str]) -> None:
@@ -954,6 +1339,111 @@ def _last_child_clears_floats(tag: Tag) -> bool:
         style = child.get("style")
         return isinstance(style, str) and "clear" in style.lower() and "both" in style.lower()
     return False
+
+
+def _apply_scp_6183_layout_profile(page_content: Tag) -> None:
+    for image_block in page_content.select("table .scp-image-block"):
+        _stabilize_profile_image_block(
+            image_block,
+            "layout-profile-scp-6183-table-image",
+        )
+
+
+def _apply_scp_4612_layout_profile(page_content: Tag) -> None:
+    for image_block in page_content.select(".scp-image-block.block-right"):
+        _stabilize_profile_image_block(
+            image_block,
+            "layout-profile-scp-4612-image",
+        )
+
+
+def _apply_scp_6599_layout_profile(page_content: Tag) -> None:
+    for reddit_body in page_content.select(".reddit-post > div"):
+        if not _is_fixed_width_right_float(reddit_body):
+            continue
+        _add_class_token(reddit_body, "layout-profile-scp-6599-reddit-body")
+        _append_style_declaration(reddit_body, "float", "none")
+        _append_style_declaration(reddit_body, "width", "auto")
+        _append_style_declaration(reddit_body, "max-width", "100%")
+        _append_style_declaration(reddit_body, "clear", "both")
+
+    for image_block in page_content.select(".scp-image-block.block-center"):
+        if not _is_scp_6599_fixed_width_media(image_block):
+            continue
+        _stabilize_profile_image_block(
+            image_block,
+            "layout-profile-scp-6599-inline-media",
+        )
+        _append_style_declaration(image_block, "width", "100%")
+
+
+def _stabilize_profile_image_block(image_block: Tag, class_name: str) -> None:
+    _add_class_token(image_block, class_name)
+    _append_style_declaration(image_block, "float", "none")
+    _append_style_declaration(image_block, "clear", "both")
+    _append_style_declaration(image_block, "max-width", "100%")
+    for image in image_block.find_all("img"):
+        _append_style_declaration(image, "max-width", "100%")
+        _append_style_declaration(image, "height", "auto")
+
+
+def _is_fixed_width_right_float(tag: Tag) -> bool:
+    return (
+        _style_property_value(tag, "float") == "right"
+        and _style_property_value(tag, "width") == "93.5%"
+    )
+
+
+def _is_scp_6599_fixed_width_media(image_block: Tag) -> bool:
+    return _style_property_value(image_block, "width") == "100px" and any(
+        _style_property_value(image, "width") == "300px"
+        for image in image_block.find_all("img")
+    )
+
+
+def _style_property_value(tag: Tag, property_name: str) -> str | None:
+    style = tag.get("style")
+    if not isinstance(style, str):
+        return None
+    normalized_property = property_name.lower()
+    for declaration in style.split(";"):
+        name, separator, value = declaration.partition(":")
+        if separator and name.strip().lower() == normalized_property:
+            return value.strip().lower()
+    return None
+
+
+def _add_class_token(tag: Tag, class_name: str) -> None:
+    classes = list(tag.get("class", []))
+    if class_name not in classes:
+        classes.append(class_name)
+    tag["class"] = classes
+
+
+LAYOUT_PROFILE_RULES: dict[str, LayoutProfileRule] = {
+    "scp-6183": LayoutProfileRule(
+        apply=_apply_scp_6183_layout_profile,
+        style_rules=(
+            ".layout-profile-scp-6183-table-image {float: none; clear: both; max-width: 100%;}"
+            "\n.layout-profile-scp-6183-table-image img {max-width: 100%; height: auto;}"
+        ),
+    ),
+    "scp-4612": LayoutProfileRule(
+        apply=_apply_scp_4612_layout_profile,
+        style_rules=(
+            ".layout-profile-scp-4612-image {float: none; clear: both; max-width: 100%;}"
+            "\n.layout-profile-scp-4612-image img {max-width: 100%; height: auto;}"
+        ),
+    ),
+    "scp-6599": LayoutProfileRule(
+        apply=_apply_scp_6599_layout_profile,
+        style_rules=(
+            ".layout-profile-scp-6599-reddit-body {float: none; clear: both; width: auto; max-width: 100%;}"
+            "\n.layout-profile-scp-6599-inline-media {float: none; clear: both; max-width: 100%;}"
+            "\n.layout-profile-scp-6599-inline-media img {max-width: 100%; height: auto;}"
+        ),
+    ),
+}
 
 
 def _css_content_value(style_body: str) -> str | None:

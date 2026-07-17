@@ -3,19 +3,20 @@ from pathlib import Path
 import pytest
 from bs4 import BeautifulSoup
 
-from scp_epub.models import PageRef
-from scp_epub.transform import transform_page
+from scp_epub.models import InlineDocumentSpec, PageRef, ProcessedPage
+from scp_epub.transform import PageTransformOptions, insert_inline_fragments, transform_page
 
 
 FIXTURE = Path(__file__).parent / "fixtures" / "page_sample.html"
+FEATURED_LAYOUT_FIXTURES = Path(__file__).parent / "fixtures" / "featured-layout"
 BASE_URL = "https://scp-wiki-cn.wikidot.com/scp-999"
 
 
-def page_ref() -> PageRef:
+def page_ref(slug: str = "scp-999") -> PageRef:
     return PageRef(
         title="SCP-999",
         url=BASE_URL,
-        slug="scp-999",
+        slug=slug,
         level=1,
         role="scp",
     )
@@ -27,6 +28,95 @@ def transformed(manifest_slugs: set[str] | None = None):
 
 def soup_fragment(xhtml: str) -> BeautifulSoup:
     return BeautifulSoup(f"<root>{xhtml}</root>", "xml")
+
+
+@pytest.mark.parametrize("profile", ("scp-6183", "scp-4612", "scp-6599"))
+def test_featured_layout_profiles_leave_unselected_fixture_output_unchanged(profile: str):
+    html = (FEATURED_LAYOUT_FIXTURES / f"{profile}.html").read_text(encoding="utf-8")
+
+    default = transform_page(page_ref(profile), html, BASE_URL)
+    unselected = transform_page(
+        page_ref(profile),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(),
+    )
+
+    assert unselected.xhtml == default.xhtml
+    assert "layout-profile-" not in default.xhtml
+
+
+def test_scp6183_layout_profile_stabilizes_image_block_inside_table():
+    html = (FEATURED_LAYOUT_FIXTURES / "scp-6183.html").read_text(encoding="utf-8")
+
+    result = transform_page(
+        page_ref("scp-6183"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(layout_profile="scp-6183"),
+    )
+    soup = soup_fragment(result.xhtml)
+    image_block = soup.find(id="table-image")
+
+    assert image_block is not None
+    assert "layout-profile-scp-6183-table-image" in image_block["class"]
+    assert "float: none" in image_block["style"]
+    assert "max-width: 100%" in image_block["style"]
+    assert soup.find(id="table-image").find("img")["style"] == "max-width: 100%; height: auto"
+    assert soup.find("iframe") is None
+    assert "图像后的表格内容。" in soup.get_text(" ", strip=True)
+
+
+def test_scp4612_layout_profile_stabilizes_right_floated_image_blocks():
+    html = (FEATURED_LAYOUT_FIXTURES / "scp-4612.html").read_text(encoding="utf-8")
+
+    result = transform_page(
+        page_ref("scp-4612"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(layout_profile="scp-4612"),
+    )
+    soup = soup_fragment(result.xhtml)
+    image_block = soup.find(id="estate-image")
+
+    assert image_block is not None
+    assert "layout-profile-scp-4612-image" in image_block["class"]
+    assert "float: none" in image_block["style"]
+    assert "clear: both" in image_block["style"]
+    assert "max-width: 100%" in image_block.find("img")["style"]
+    assert "宅邸的调查仍在继续。" in soup.get_text(" ", strip=True)
+
+
+def test_scp6599_layout_profile_normalizes_reddit_posts_and_nested_media():
+    html = (FEATURED_LAYOUT_FIXTURES / "scp-6599.html").read_text(encoding="utf-8")
+
+    result = transform_page(
+        page_ref("scp-6599"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(layout_profile="scp-6599"),
+    )
+    soup = soup_fragment(result.xhtml)
+    reddit_body = soup.find(id="reddit-body")
+    image_block = soup.find(id="meme-image")
+    wide_image = soup.find(id="wide-image")
+    portrait_image = soup.find(id="portrait-image")
+
+    assert reddit_body is not None
+    assert "layout-profile-scp-6599-reddit-body" in reddit_body["class"]
+    assert "float: none" in reddit_body["style"]
+    assert "width: auto" in reddit_body["style"]
+    assert image_block is not None
+    assert "layout-profile-scp-6599-inline-media" in image_block["class"]
+    assert "width: 100%" in image_block["style"]
+    assert "max-width: 100%" in image_block.find("img")["style"]
+    assert wide_image is not None
+    assert wide_image["class"].split() == ["scp-image-block", "block-right"]
+    assert wide_image["style"] == "width: 45%"
+    assert portrait_image is not None
+    assert portrait_image["class"].split() == ["scp-image-block", "block-right"]
+    assert portrait_image["style"] == "width: 35%"
+    assert "附录继续。" in soup.get_text(" ", strip=True)
 
 
 def test_transforms_only_page_content_and_removes_wikidot_chrome():
@@ -984,6 +1074,603 @@ def test_removes_scp173_creator_information_block():
     assert "无题 2004" not in text
 
 
+def test_removes_only_terminal_guillemet_navigation_when_enabled():
+    html = """
+    <html><body><div id="page-content">
+      <div id="earlier-nav">« <a href="/one">One</a> | <a href="/two">Two</a> | <a href="/three">Three</a> »</div>
+      <p>正文中的 « <a href="/one">One</a> | <a href="/two">Two</a> » 应保留。</p>
+      <div id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> | <a href="/three">Three</a> »</div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref(),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="terminal-nav") is None
+    assert soup.find(id="earlier-nav") is not None
+    assert "正文中的" in soup.get_text(" ", strip=True)
+
+
+@pytest.mark.parametrize("slug", ("scp-7261", "scp-3662"))
+def test_removes_terminal_two_link_guillemet_navigation_when_enabled(slug: str):
+    html = """
+    <html><body><div id="page-content">
+      <p id="article">正文。</p>
+      <div id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> »</div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref(slug),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="terminal-nav") is None
+    assert soup.find(id="article") is not None
+
+
+def test_removes_nested_scp7261_terminal_navigation_before_insignificant_wrappers():
+    html = """
+    <html><body><div id="page-content">
+      <p id="article">正文。</p>
+      <div class="terminal-layout">
+        <div class="earthworm" id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> »</div>
+        <div class="list-pages-box"></div>
+        <div><div class="code"><pre>:root { --accent: red; --header-title: "Site-120"; }</pre></div></div>
+      </div>
+      <p></p>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-7261"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="terminal-nav") is None
+    assert soup.find(id="article") is not None
+
+
+def test_preserves_non_target_terminal_two_link_guillemet_content_when_enabled():
+    html = """
+    <html><body><div id="page-content">
+      <p id="article">正文。</p>
+      <div id="terminal-content">« <a href="/one">One</a> | <a href="/two">Two</a> »</div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-9928"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+
+    assert soup_fragment(result.xhtml).find(id="terminal-content") is not None
+
+
+def test_preserves_nested_navigation_when_its_ancestor_has_following_article_content():
+    html = """
+    <html><body><div id="page-content">
+      <div class="terminal-layout">
+        <div id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> »</div>
+        <p id="after">后续正文。</p>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-7261"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="terminal-nav") is not None
+    assert soup.find(id="after") is not None
+
+
+def test_preserves_configured_navigation_followed_by_textless_figure_svg():
+    html = """
+    <html><body><div id="page-content">
+      <p id="article">正文。</p>
+      <div id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> | <a href="/three">Three</a> »</div>
+      <figure id="diagram"><svg viewBox="0 0 10 10"><path d="M0 0 L10 10" /></svg></figure>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-9928"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="terminal-nav") is not None
+    assert soup.find(id="diagram") is not None
+
+
+def test_removes_scp7261_navigation_before_earthworm_decoration():
+    html = """
+    <html><body><div id="page-content">
+      <div class="anom-bar-esoteric" id="classification">项目编号：7261</div>
+      <div id="terminal-nav">« <a href="/previous">Previous</a> | <a href="/next">Next</a> »</div>
+      <div class="earthworm" id="earthworm"><img src="/images/earthworm.png" alt="earthworm" />SCP-7990 九异书 SCP-5938</div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-7261"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="terminal-nav") is None
+    assert soup.find(id="classification") is not None
+    assert soup.find(id="earthworm") is not None
+
+
+def test_preserves_other_pages_navigation_before_earthworm_decoration():
+    html = """
+    <html><body><div id="page-content">
+      <p id="article">正文。</p>
+      <div id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> »</div>
+      <div class="earthworm">非目标页面的装饰内容。</div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-3662"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+
+    assert soup_fragment(result.xhtml).find(id="terminal-nav") is not None
+
+
+def test_does_not_apply_scp7261_earthworm_navigation_exception_to_author_work_lists():
+    html = """
+    <html><body><div id="page-content">
+      <div id="work-list">More From This Author <a href="/author">作品</a></div>
+      <div class="earthworm">SCP-7990 九异书 SCP-5938</div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-7261"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_author_work_list=True),
+    )
+
+    assert soup_fragment(result.xhtml).find(id="work-list") is not None
+
+
+@pytest.mark.parametrize(
+    ("slug", "trailing_wrappers"),
+    (
+        (
+            "scp-9928",
+            '<div class="list-pages-box"></div><p></p>',
+        ),
+        (
+            "scp-5109",
+            '<div><div class="code"><pre>:root { --accent: red; --header-title: "Site-120"; }</pre></div></div>',
+        ),
+        (
+            "scp-5494",
+            '<div class="list-pages-box"></div><div><div class="code"><pre>:root { --accent: red; --header-title: "Site-120"; }</pre></div></div>',
+        ),
+    ),
+)
+def test_removes_effectively_terminal_navigation_before_live_like_trailing_wrappers(
+    slug: str,
+    trailing_wrappers: str,
+):
+    html = f"""
+    <html><body><div id="page-content">
+      <p id="article">正文。</p>
+      <div id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> | <a href="/three">Three</a> »</div>
+      {trailing_wrappers}
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref(slug),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="terminal-nav") is None
+    assert soup.find(id="article") is not None
+
+
+def test_removes_terminal_navigation_before_footnotes_footer_and_preserves_footnotes():
+    html = """
+    <html><body><div id="page-content">
+      <p id="article">正文。</p>
+      <div style="text-align: center;" id="terminal-nav">
+        <p><strong>« <a href="/previous">Previous</a> | <a href="/hub">Hub</a> | <a href="/next">Next</a> »</strong></p>
+      </div>
+      <div class="footnotes-footer" id="footnotes">
+        <div class="title">Footnotes</div><div>1. 应保留的注释。</div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-5550"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="terminal-nav") is None
+    assert soup.find(id="footnotes").get_text(" ", strip=True) == "Footnotes 1. 应保留的注释。"
+    assert soup.find(id="article") is not None
+
+
+def test_preserves_terminal_navigation_when_cleanup_is_disabled():
+    html = """
+    <html><body><div id="page-content">
+      <p>正文。</p>
+      <div id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> »</div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+
+    assert soup_fragment(result.xhtml).find(id="terminal-nav") is not None
+
+
+def test_removes_scp6781_terminal_previous_and_next_navigation_when_enabled():
+    html = """
+    <html><body><div id="page-content">
+      <p id="article">正文。</p>
+      <div class="rnb-navbar">
+        <a href="/previous"><span class="rnb-supertitle">前情</span><br />« 档案 »</a>
+        <a href="/current">当前文档</a>
+        <a href="/next"><span class="rnb-supertitle">后事</span><br />« 后续 »</a>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-6781"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+
+    soup = soup_fragment(result.xhtml)
+    assert soup.find(class_="rnb-navbar") is None
+    assert soup.find(id="article") is not None
+
+
+def test_preserves_scp6781_navigation_when_disabled_or_labels_do_not_link():
+    navigation = """
+      <div class="rnb-navbar">
+        <a href="/previous"><span class="rnb-supertitle">前情</span><br />« 档案 »</a>
+        <a href="/next"><span class="rnb-supertitle">后事</span><br />« 后续 »</a>
+      </div>
+    """
+    disabled_html = f"""
+    <html><body><div id="page-content">
+      <p id="before">相邻正文。</p>{navigation}
+    </div></body></html>
+    """
+    nonmatching_html = """
+    <html><body><div id="page-content">
+      <p id="before">相邻正文。</p>
+      <div class="rnb-navbar">
+        <a href="/previous"><span class="rnb-supertitle">前情</span><span class="rnb-supertitle">后事</span></a>
+        <a href="/next">« 后续 »</a>
+      </div>
+    </div></body></html>
+    """
+
+    disabled = transform_page(page_ref("scp-6781"), disabled_html, BASE_URL)
+    nonmatching = transform_page(
+        page_ref("scp-6781"),
+        nonmatching_html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+
+    for result in (disabled, nonmatching):
+        soup = soup_fragment(result.xhtml)
+        assert soup.find(class_="rnb-navbar") is not None
+        assert soup.find(id="before") is not None
+
+
+def test_removes_scp5464_leading_hub_breadcrumb_and_author_block_when_enabled():
+    html = """
+    <html><body><div id="page-content">
+      <p id="breadcrumb"><a href="/setting-hub">设定中心</a> &gt; 波兰设定</p>
+      <div id="author-block">作者：Example Author</div>
+      <p id="article">第一段正文。</p>
+      <p>后续内容提及作者：应保留。</p>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-5464"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_leading_metadata=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="breadcrumb") is None
+    assert soup.find(id="author-block") is None
+    assert soup.find(id="article").get_text(strip=True) == "第一段正文。"
+    assert "后续内容提及作者" in soup.get_text(" ", strip=True)
+
+
+def test_removes_scp5464_metadata_after_live_dom_template_and_empty_nodes():
+    html = """
+    <html><body><div id="page-content">
+      <div class="list-pages-box"></div>
+      <p></p>
+      <div><div class="code"><pre>:root { --accent: red; --header-title: "Site-120"; }</pre></div></div>
+      <p></p>
+      <div class="pseudocrumbs"><a href="/canon-hub">设定中心</a> » <a href="/from-120-s-archives-hub">120站档案馆中心页</a> » SCP-5464</div>
+      <div></div>
+      <div style="text-align: center;"><p><span style="font-size:80%;">作者：<strong>Ralliston</strong></span></p></div>
+      <div class="anom-bar-container">项目编号：SCP-5464</div>
+      <p id="first-body"><strong>特殊收容措施：</strong>第一段正文必须保留。</p>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-5464"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_leading_metadata=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(class_="pseudocrumbs") is None
+    assert "作者：" not in soup.get_text(" ", strip=True)
+    assert soup.find(id="first-body").get_text(" ", strip=True).endswith("第一段正文必须保留。")
+
+
+def test_preserves_leading_metadata_for_other_pages_and_when_disabled():
+    html = """
+    <html><body><div id="page-content">
+      <p id="breadcrumb"><a href="/setting-hub">设定中心</a> &gt; 波兰设定</p>
+      <div id="author-block">作者：Example Author</div>
+      <p id="article">第一段正文。</p>
+    </div></body></html>
+    """
+
+    disabled = transform_page(page_ref("scp-5464"), html, BASE_URL)
+    other_page = transform_page(
+        page_ref("scp-999"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_leading_metadata=True),
+    )
+
+    assert soup_fragment(disabled.xhtml).find(id="author-block") is not None
+    assert soup_fragment(other_page.xhtml).find(id="author-block") is not None
+
+
+def test_removes_scp7069_adult_warning_only_when_enabled():
+    html = """
+    <html><body><div id="page-content">
+      <div id="u-adult-warning"><p>成人内容警告。</p></div>
+      <p id="article">正文。</p>
+    </div></body></html>
+    """
+
+    enabled = transform_page(
+        page_ref("scp-7069"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_adult_content_warning=True),
+    )
+    disabled = transform_page(page_ref("scp-7069"), html, BASE_URL)
+    other_page = transform_page(
+        page_ref("scp-999"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_adult_content_warning=True),
+    )
+
+    assert soup_fragment(enabled.xhtml).find(id="u-adult-warning") is None
+    assert soup_fragment(enabled.xhtml).find(id="article") is not None
+    assert soup_fragment(disabled.xhtml).find(id="u-adult-warning") is not None
+    assert soup_fragment(other_page.xhtml).find(id="u-adult-warning") is not None
+
+
+def test_removes_only_terminal_author_work_list_when_enabled():
+    html = """
+    <html><body><div id="page-content">
+      <p id="ordinary">More by this author appears in the article.</p>
+      <p>正文。</p>
+      <div id="work-list">该作者的更多作品<a href="/author-page">作品一</a></div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref(),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_author_work_list=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="work-list") is None
+    assert soup.find(id="ordinary") is not None
+
+
+def test_removes_folded_collapsible_author_work_list_when_enabled():
+    html = """
+    <html><body><div id="page-content">
+      <p id="article">正文。</p>
+      <div class="collection" id="work-list">
+        <div class="collapsible-block" id="author-work-list">
+          <div class="collapsible-block-folded"><a href="javascript:;">More&nbsp;From&nbsp;This&nbsp;Author</a></div>
+          <div class="collapsible-block-unfolded"><p>作者的作品列表。</p></div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-6698"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_author_work_list=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="author-work-list") is None
+    assert soup.find(id="work-list") is not None
+    assert soup.find(id="article") is not None
+
+
+def test_removes_nested_author_work_link_from_centered_wrapper_when_enabled():
+    html = """
+    <html><body><div id="page-content">
+      <p id="ordinary">More by this author appears in the article body.</p>
+      <p id="article">正文。</p>
+      <div class="footnotes-footer" id="footnotes"><div>1. 应保留的注释。</div></div>
+      <div style="text-align: center;" id="author-work-wrapper">
+        <p><strong><span class="logical-link-wrap"><span class="logical-link-custom"><a href="/author">此作者的更多作品</a></span><span class="logical-link-original"><span class="logical-link-custom"><a href="https://example.test/author">More by this author</a></span></span></span></strong></p>
+      </div>
+      <div class="footer-wikiwalk-nav" id="wikiwalk">« <a href="/previous">Previous</a> | <a href="/next">Next</a> »</div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-4233"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_author_work_list=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="author-work-wrapper") is None
+    assert soup.find(id="footnotes").get_text(" ", strip=True) == "1. 应保留的注释。"
+    assert soup.find(id="ordinary") is not None
+
+
+def test_preserves_non_terminal_article_body_author_label_links_when_enabled():
+    html = """
+    <html><body><div id="page-content">
+      <div id="article-body">
+        <p><a id="english-body-link" href="/reference">More by this author</a> is cited in this paragraph.</p>
+        <p><a id="chinese-body-link" href="/reference">该作者的更多作品</a>是本段引用的一部分。</p>
+        <p id="after-links">后续正文。</p>
+      </div>
+      <div class="footnotes-footer"><div>1. 注释。</div></div>
+      <div style="text-align: center;" id="author-work-wrapper">
+        <p><strong><span class="logical-link-wrap"><span class="logical-link-custom"><a href="/author">此作者的更多作品</a></span><span class="logical-link-original"><span class="logical-link-custom"><a href="https://example.test/author">More by this author</a></span></span></span></strong></p>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-4233"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_author_work_list=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="article-body") is not None
+    assert soup.find(id="english-body-link") is not None
+    assert soup.find(id="chinese-body-link") is not None
+    assert soup.find(id="after-links") is not None
+    assert soup.find(id="author-work-wrapper") is None
+
+
+def test_preserves_terminal_article_body_when_removing_logical_author_link():
+    html = """
+    <html><body><div id="page-content">
+      <div id="article-body">
+        <p id="before-link">正文。</p>
+        <p><strong><span class="logical-link-wrap"><span class="logical-link-custom"><a id="author-work-link" href="/author">More by this author</a></span></span></strong></p>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-4233"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_author_work_list=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="article-body") is not None
+    assert soup.find(id="author-work-link") is None
+    assert soup.find(id="before-link") is not None
+
+
+def test_preserves_author_work_list_when_cleanup_is_disabled_or_not_terminal():
+    terminal_html = """
+    <html><body><div id="page-content">
+      <p>正文。</p><div id="work-list">More From This Author<a href="/author">作品</a></div>
+    </div></body></html>
+    """
+    non_terminal_html = """
+    <html><body><div id="page-content">
+      <div id="work-list">More by this author<a href="/author">作品</a></div><p>后续正文。</p>
+    </div></body></html>
+    """
+
+    disabled = transform_page(page_ref(), terminal_html, BASE_URL)
+    non_terminal = transform_page(
+        page_ref(),
+        non_terminal_html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_author_work_list=True),
+    )
+
+    assert soup_fragment(disabled.xhtml).find(id="work-list") is not None
+    assert soup_fragment(non_terminal.xhtml).find(id="work-list") is not None
+
+
+def test_preserves_terminal_content_that_only_starts_with_an_author_work_list_label():
+    html = """
+    <html><body><div id="page-content">
+      <p>正文。</p>
+      <div id="ordinary-terminal">More by this authoring team is archived here.</div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref(),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_author_work_list=True),
+    )
+
+    assert soup_fragment(result.xhtml).find(id="ordinary-terminal") is not None
+
+
 def test_converts_ruby_annotation_spans_to_semantic_ruby():
     html = """
     <html><body><div id="page-content">
@@ -1005,3 +1692,159 @@ def test_converts_ruby_annotation_spans_to_semantic_ruby():
 def test_missing_page_content_raises_value_error():
     with pytest.raises(ValueError, match="#page-content"):
         transform_page(page_ref(), "<html><body><p>No content</p></body></html>", BASE_URL)
+
+
+def inline_spec(
+    title: str,
+    position: str,
+    *,
+    anchor_text: str | None = None,
+) -> InlineDocumentSpec:
+    return InlineDocumentSpec(
+        title=title,
+        url=f"{BASE_URL}/{title.lower()}",
+        slug=title.lower(),
+        position=position,
+        anchor_text=anchor_text,
+    )
+
+
+def inline_page(title: str, xhtml: str, *, assets: tuple[str, ...] = (), internal: tuple[str, ...] = (), external: tuple[str, ...] = ()) -> ProcessedPage:
+    return ProcessedPage(
+        entry=PageRef(title, f"{BASE_URL}/{title.lower()}", title.lower(), 1, "scp"),
+        xhtml=xhtml,
+        asset_urls=assets,
+        internal_links=internal,
+        external_links=external,
+    )
+
+
+def test_inserts_inline_document_after_normalized_exact_visible_text():
+    owner = inline_page(
+        "Owner",
+        "<p>前文。</p><p>附录-1898-1：相关 <strong>SCP-1898</strong>图片</p><p>后文。</p>",
+    )
+    fragment = inline_page("After", "<p>内联正文。</p>")
+
+    result = insert_inline_fragments(
+        owner,
+        fragments=((inline_spec("After", "after_text", anchor_text="附录-1898-1：相关 SCP-1898图片"), fragment),),
+    )
+
+    soup = soup_fragment(result.xhtml)
+    assert [node.get_text(" ", strip=True) for node in soup.root.find_all(recursive=False)] == [
+        "前文。",
+        "附录-1898-1：相关 SCP-1898 图片",
+        "After 内联正文。",
+        "后文。",
+    ]
+    assert soup.find("section", class_="inline-document-epub") is not None
+
+
+def test_inserts_inline_document_before_exact_visible_text():
+    owner = inline_page("Owner", "<p>正文。</p><h2>Footnotes</h2><p>注释。</p>")
+    fragment = inline_page("Before", "<p>内联正文。</p>")
+
+    result = insert_inline_fragments(
+        owner,
+        fragments=((inline_spec("Before", "before_text", anchor_text="Footnotes"), fragment),),
+    )
+
+    soup = soup_fragment(result.xhtml)
+    assert [node.get_text(" ", strip=True) for node in soup.root.find_all(recursive=False)] == [
+        "正文。",
+        "Before 内联正文。",
+        "Footnotes",
+        "注释。",
+    ]
+
+
+def test_inserts_inline_document_before_footnotes_footer_instead_of_nested_title():
+    owner = inline_page(
+        "Owner",
+        "<p>正文。</p><div class=\"footnotes-footer\"><div class=\"title\">Footnotes</div><ol><li>注释。</li></ol></div>",
+    )
+    fragment = inline_page("Before", "<p>内联正文。</p>")
+
+    result = insert_inline_fragments(
+        owner,
+        fragments=((inline_spec("Before", "before_text", anchor_text="Footnotes"), fragment),),
+    )
+
+    soup = soup_fragment(result.xhtml)
+    root_children = soup.root.find_all(recursive=False)
+    footer = soup.find("div", class_="footnotes-footer")
+    assert [node.name for node in root_children] == ["p", "section", "div"]
+    assert footer is not None
+    assert footer.find("section", class_="inline-document-epub") is None
+
+
+def test_removes_inline_fragment_page_styles_but_preserves_inline_markup_and_styles():
+    owner = inline_page("Owner", "<p>正文。</p>")
+    fragment = inline_page(
+        "Inline",
+        "<style>p { color: red; } h2 { display: none; }</style><p style=\"font-weight: bold\"><em>内联正文。</em></p>",
+    )
+
+    result = insert_inline_fragments(
+        owner,
+        fragments=((inline_spec("Inline", "append"), fragment),),
+    )
+
+    soup = soup_fragment(result.xhtml)
+    section = soup.find("section", class_="inline-document-epub")
+    assert section is not None
+    assert section.find("style") is None
+    assert "p { color: red; }" not in result.xhtml
+    assert "h2 { display: none; }" not in result.xhtml
+    assert section.find("p")["style"] == "font-weight: bold"
+    assert section.find("em").get_text(strip=True) == "内联正文。"
+
+
+def test_appends_inline_documents_in_configured_order():
+    owner = inline_page("Owner", "<p>正文。</p>")
+    first = inline_page("Offset One", "<h2>第一份</h2><p>一。</p>")
+    second = inline_page("Offset Two", "<p>二。</p>")
+
+    result = insert_inline_fragments(
+        owner,
+        fragments=(
+            (inline_spec("Offset One", "append"), first),
+            (inline_spec("Offset Two", "append"), second),
+        ),
+    )
+
+    soup = soup_fragment(result.xhtml)
+    sections = soup.find_all("section", class_="inline-document-epub")
+    assert [section.get_text(" ", strip=True) for section in sections] == [
+        "第一份 一。",
+        "Offset Two 二。",
+    ]
+    assert sections[0].find("h2").get_text(strip=True) == "第一份"
+    assert sections[1].find("h2").get_text(strip=True) == "Offset Two"
+
+
+def test_unions_inline_document_assets_and_links_without_duplicates():
+    owner = inline_page(
+        "Owner",
+        "<p>正文。</p>",
+        assets=("asset-owner",),
+        internal=("internal-owner",),
+        external=("external-owner",),
+    )
+    fragment = inline_page(
+        "Inline",
+        "<p>内联正文。</p>",
+        assets=("asset-owner", "asset-inline"),
+        internal=("internal-owner", "internal-inline"),
+        external=("external-owner", "external-inline"),
+    )
+
+    result = insert_inline_fragments(
+        owner,
+        fragments=((inline_spec("Inline", "append"), fragment),),
+    )
+
+    assert result.asset_urls == ("asset-owner", "asset-inline")
+    assert result.internal_links == ("internal-owner", "internal-inline")
+    assert result.external_links == ("external-owner", "external-inline")
