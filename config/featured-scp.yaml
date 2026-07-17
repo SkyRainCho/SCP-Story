@@ -11,6 +11,8 @@ featured_title_index_paths:
 front_matter_pages:
   - title: 关于SCP基金会
     url: https://scp-wiki-cn.wikidot.com/about-the-scp-foundation
+    epub_background_url: https://scp-wiki.wdfiles.com/local--files/about-the-scp-foundation/bg-marble.png
+    unwrap_single_included_tab: true
 explicit_linked_appendices:
   scp-5170:
     - title: "#1附件A"

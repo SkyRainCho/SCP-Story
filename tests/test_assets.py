@@ -133,6 +133,25 @@ def test_localize_assets_passes_force_to_fetcher(tmp_path: Path):
     assert fetcher.calls == [(image_url, True)]
 
 
+def test_localize_assets_rewrites_explicit_epub_background_asset(tmp_path: Path):
+    marble_url = "https://scp-wiki.wdfiles.com/local--files/about-the-scp-foundation/bg-marble.png"
+    page = _page(
+        "about-the-scp-foundation",
+        1,
+        f'<div class="content-panel" data-epub-background-url="{marble_url}">正文</div>',
+        (marble_url,),
+    )
+    fetcher = FakeAssetFetcher(tmp_path, {marble_url: ("bg-marble.png", b"image")})
+
+    localized_pages, assets, missing_assets = localize_assets([page], fetcher)
+
+    assert [asset.source_url for asset in assets] == [marble_url]
+    assert missing_assets == []
+    assert 'background-image: url("../assets/bg-marble.png")' in localized_pages[0].xhtml
+    assert "background-repeat: repeat" in localized_pages[0].xhtml
+    assert "data-epub-background-url" not in localized_pages[0].xhtml
+
+
 def test_remote_resource_page_slugs_returns_only_pages_with_missing_asset_refs():
     missing_url = "https://scp-wiki-cn.wikidot.com/images/missing.png"
     pages = [

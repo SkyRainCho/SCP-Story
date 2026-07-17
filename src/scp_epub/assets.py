@@ -11,6 +11,9 @@ from .models import FetchResult, ProcessedPage
 from .transform import ASSET_ATTRIBUTES
 
 
+EPUB_BACKGROUND_ASSET_ATTRIBUTE = "data-epub-background-url"
+
+
 @dataclass(frozen=True)
 class AssetRef:
     source_url: str
@@ -102,6 +105,33 @@ def _rewrite_page_assets(page: ProcessedPage, localized_by_url: dict[str, AssetR
         tag[attribute] = f"../{asset.href}"
         changed = True
 
+    for tag in root.find_all(attrs={EPUB_BACKGROUND_ASSET_ATTRIBUTE: True}):
+        if not isinstance(tag, Tag):
+            continue
+        raw_url = tag.get(EPUB_BACKGROUND_ASSET_ATTRIBUTE)
+        if not isinstance(raw_url, str):
+            continue
+        asset = localized_by_url.get(raw_url)
+        if asset is None:
+            continue
+        existing_style = str(tag.get("style", "")).strip()
+        declarations = [declaration.strip() for declaration in existing_style.split(";") if declaration.strip()]
+        declarations = [
+            declaration
+            for declaration in declarations
+            if declaration.partition(":")[0].strip().lower()
+            not in {"background-image", "background-repeat"}
+        ]
+        declarations.extend(
+            [
+                f'background-image: url("../{asset.href}")',
+                "background-repeat: repeat",
+            ]
+        )
+        tag["style"] = "; ".join(declarations)
+        tag.attrs.pop(EPUB_BACKGROUND_ASSET_ATTRIBUTE, None)
+        changed = True
+
     if not changed:
         return page
 
@@ -120,6 +150,10 @@ def _page_references_any_asset(page: ProcessedPage, asset_urls: set[str]) -> boo
             continue
         attribute = ASSET_ATTRIBUTES[str(tag.name)]
         raw_url = tag.get(attribute)
+        if isinstance(raw_url, str) and raw_url in asset_urls:
+            return True
+    for tag in root.find_all(attrs={EPUB_BACKGROUND_ASSET_ATTRIBUTE: True}):
+        raw_url = tag.get(EPUB_BACKGROUND_ASSET_ATTRIBUTE)
         if isinstance(raw_url, str) and raw_url in asset_urls:
             return True
     return False

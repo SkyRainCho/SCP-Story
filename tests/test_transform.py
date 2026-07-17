@@ -849,6 +849,45 @@ def test_expands_only_included_wikidot_tab_labels():
     assert "写作指南正文" not in text
 
 
+def test_unwraps_explicitly_configured_single_wikidot_tab_and_registers_its_background_asset():
+    marble_url = "https://scp-wiki.wdfiles.com/local--files/about-the-scp-foundation/bg-marble.png"
+    html = """
+    <html><body><div id="page-content">
+      <div class="yui-navset">
+        <ul class="yui-nav">
+          <li><a><em>简介</em></a></li>
+          <li><a><em>写作指南</em></a></li>
+        </ul>
+        <div class="yui-content">
+          <div><div class="content-panel standalone">基金会简介正文。</div><h1>使命宣言</h1></div>
+          <div><p>写作指南正文。</p></div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref(),
+        html,
+        BASE_URL,
+        include_tab_titles={"简介"},
+        unwrap_single_included_tab=True,
+        background_asset_url=marble_url,
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(class_="tabview-epub") is None
+    assert soup.find(class_="tabview-panel-title") is None
+    assert "标签：简介" not in soup.get_text(" ", strip=True)
+    assert "基金会简介正文" in soup.get_text(" ", strip=True)
+    assert "写作指南正文" not in soup.get_text(" ", strip=True)
+    assert soup.find("h1").get_text(strip=True) == "使命宣言"
+    panel = soup.find("div", attrs={"class": "content-panel standalone"})
+    assert panel is not None
+    assert panel["data-epub-background-url"] == marble_url
+    assert result.asset_urls == (marble_url,)
+
+
 def test_removes_generic_hidden_css_code_styles_from_page_styles():
     html = """
     <html>

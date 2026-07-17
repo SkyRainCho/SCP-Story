@@ -152,7 +152,24 @@ def _load_configured_pages(value: Any, name: str) -> tuple[ConfiguredPage, ...]:
         url = _required_string(page.get("url"), f"{name}[{index}].url")
         slug = _optional_string(page.get("slug"), f"{name}[{index}].slug") or slug_from_url(url)
         role = _optional_string(page.get("role"), f"{name}[{index}].role") or "front-matter"
-        pages.append(ConfiguredPage(title=title, url=url, slug=slug, role=role))
+        epub_background_url = _optional_string(
+            page.get("epub_background_url"),
+            f"{name}[{index}].epub_background_url",
+        )
+        unwrap_single_included_tab = _optional_bool(
+            page.get("unwrap_single_included_tab", False),
+            f"{name}[{index}].unwrap_single_included_tab",
+        )
+        pages.append(
+            ConfiguredPage(
+                title=title,
+                url=url,
+                slug=slug,
+                role=role,
+                epub_background_url=epub_background_url,
+                unwrap_single_included_tab=unwrap_single_included_tab,
+            )
+        )
     return tuple(pages)
 
 

@@ -671,15 +671,23 @@ def _process_pages(
     processed_pages: list[ProcessedPage] = []
     processed_dir = config.processed_dir / volume.output_slug
     processed_dir.mkdir(parents=True, exist_ok=True)
+    configured_pages_by_slug = {page.slug: page for page in config.front_matter_pages}
 
     for entry in manifest:
         result = results_by_slug[entry.slug]
+        configured_page = configured_pages_by_slug.get(entry.slug)
         page = transform_page(
             entry,
             result.path.read_text(encoding="utf-8"),
             entry.url,
             manifest_slugs,
             include_tab_titles=set(config.page_tab_includes.get(entry.slug, ())),
+            unwrap_single_included_tab=bool(
+                configured_page and configured_page.unwrap_single_included_tab
+            ),
+            background_asset_url=(
+                configured_page.epub_background_url if configured_page is not None else None
+            ),
         )
         processed_pages.append(page)
         _write_processed_page(processed_dir, page)
