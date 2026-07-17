@@ -19,6 +19,8 @@ def build_parser() -> argparse.ArgumentParser:
         subparser.add_argument("--volume", default="001-099")
         subparser.add_argument("--refresh", action="store_true")
         subparser.add_argument("--missing-only", action="store_true")
+        if command == "build":
+            subparser.add_argument("--kindle", action="store_true")
 
     return parser
 

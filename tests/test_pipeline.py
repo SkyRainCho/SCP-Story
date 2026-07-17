@@ -1816,3 +1816,62 @@ def test_unknown_volume_key_raises_value_error(tmp_path: Path):
 
     with pytest.raises(ValueError, match="Unknown volume"):
         build_manifest(config, "missing-volume", fetcher=FakeFetcher(tmp_path / "cache", {}))
+
+
+def test_build_volume_kindles_pages_css_report_and_azw3_without_mutating_processed_xhtml(
+    tmp_path: Path,
+):
+    config = app_config(tmp_path)
+    manifest = [
+        PageRef("SCP-001", f"{BASE_URL}/scp-001", "scp-001", 1, "scp", order=1),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-001": simple_page(
+                "SCP-001",
+                '<div class="anom-bar-container clear-4">'
+                '<div class="top-right-box"><div class="clearance"></div></div>'
+                '<div class="risk-class"><div class="class-text">危急</div></div>'
+                '<div class="danger-diamond"></div>'
+                "</div>",
+            ),
+        },
+    )
+    conversion_calls = []
+
+    def fake_converter(epub_path: Path, azw3_path: Path) -> Path:
+        conversion_calls.append((epub_path, azw3_path))
+        assert epub_path.exists()
+        azw3_path.parent.mkdir(parents=True, exist_ok=True)
+        azw3_path.write_bytes(b"azw3")
+        return azw3_path
+
+    output_path = build_volume(
+        config,
+        "001-099",
+        fetcher=fetcher,
+        kindle=True,
+        kindle_converter=fake_converter,
+    )
+
+    assert output_path == config.output_dir / "epub" / "test-volume-Kindle.epub"
+    azw3_path = config.output_dir / "azw3" / "test-volume-Kindle.azw3"
+    assert conversion_calls == [(output_path, azw3_path)]
+    assert azw3_path.read_bytes() == b"azw3"
+
+    with zipfile.ZipFile(output_path) as archive:
+        css = archive.read("OEBPS/styles/book.css").decode("utf-8")
+        chapter = archive.read("OEBPS/text/0001-scp-001.xhtml").decode("utf-8")
+    assert ".kindle-clearance-label" in css
+    assert '<span class="kindle-clearance-label">SECRET</span>' in chapter
+    assert '<span class="kindle-danger-label">危急</span>' in chapter
+
+    processed_path = config.processed_dir / "test-volume" / "0001-scp-001.xhtml"
+    assert "kindle-clearance-label" not in processed_path.read_text(encoding="utf-8")
+    report_path = config.output_dir / "reports" / "test-volume-Kindle-report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["output_path"] == str(output_path)

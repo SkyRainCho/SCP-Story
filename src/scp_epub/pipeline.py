@@ -3,7 +3,7 @@ from __future__ import annotations
 from argparse import Namespace
 from pathlib import Path
 from html import escape
-from typing import Protocol
+from typing import Callable, Protocol
 from urllib.parse import urlparse
 
 from .appendix import (
@@ -15,7 +15,7 @@ from .appendix import (
 from .assets import localize_assets, remote_resource_page_slugs
 from .cache import CacheStore
 from .config import load_config
-from .epub import write_build_report, write_epub
+from .epub import BOOK_CSS, write_build_report, write_epub
 from .fetcher import Fetcher
 from .indexer import (
     parse_featured_scp_archive,
@@ -24,6 +24,7 @@ from .indexer import (
     parse_tales_index,
 )
 from .inline_documents import fetch_inline_document_results, inline_document_urls
+from .kindle import convert_epub_to_azw3, load_kindle_css, prepare_kindle_pages
 from .linked_appendices import (
     LINKED_APPENDIX_ROLE,
     LINKED_APPENDIX_GROUP_ROLE,
@@ -42,6 +43,7 @@ from .urls import safe_filename, slug_from_url
 
 
 APPENDIX_GROUP_ROLE = "appendix-group"
+KindleConverter = Callable[[Path, Path], Path]
 
 
 class PageFetcher(Protocol):
@@ -203,6 +205,8 @@ def build_volume(
     *,
     fetcher: PageFetcher | None = None,
     force: bool = False,
+    kindle: bool = False,
+    kindle_converter: KindleConverter | None = None,
 ) -> Path:
     volume = volume_for_key(config, volume_key)
     active_fetcher = fetcher or make_fetcher(config)
@@ -258,25 +262,32 @@ def build_volume(
     )
     remote_slugs = remote_resource_page_slugs(localized_pages, missing_assets)
 
-    output_path = config.output_dir / "epub" / f"{volume.output_slug}.epub"
+    output_slug = f"{volume.output_slug}-Kindle" if kindle else volume.output_slug
+    output_pages = prepare_kindle_pages(localized_pages) if kindle else localized_pages
+    output_path = config.output_dir / "epub" / f"{output_slug}.epub"
+    book_css = load_kindle_css() if kindle else BOOK_CSS
     write_epub(
-        localized_pages,
+        output_pages,
         output_path,
         title=volume.title,
         language=config.language,
         creator=config.creator,
-        identifier=f"urn:{config.series_id}:{volume.output_slug}",
+        identifier=f"urn:{config.series_id}:{output_slug}",
         assets=localized_assets,
         remote_resource_page_slugs=remote_slugs,
         cover_image_path=cover_image_path_for_volume(config, volume),
+        book_css=book_css,
     )
     write_build_report(
-        config.output_dir / "reports" / f"{volume.output_slug}-report.json",
+        config.output_dir / "reports" / f"{output_slug}-report.json",
         pages=processed_pages,
         output_path=output_path,
         missing_assets=missing_assets,
         missing_pages=missing_pages,
     )
+    if kindle:
+        converter = kindle_converter or convert_epub_to_azw3
+        converter(output_path, kindle_azw3_path_for_volume(config, volume))
     return output_path
 
 
@@ -579,12 +590,16 @@ def run_command(args: Namespace) -> None:
         return
 
     if command == "build":
-        output_path = (
-            build_volume(config, args.volume, force=True)
-            if force
-            else build_volume(config, args.volume)
+        kindle = bool(getattr(args, "kindle", False))
+        output_path = build_volume(
+            config,
+            args.volume,
+            force=force,
+            kindle=kindle,
         )
         print(f"Wrote {output_path}")
+        if kindle:
+            print(f"Wrote {kindle_azw3_path_for_volume(config, args.volume)}")
         return
 
     if command == "scan-linked-appendices":
@@ -617,6 +632,14 @@ def make_fetcher(config: AppConfig) -> Fetcher:
 def manifest_path_for_volume(config: AppConfig, volume: VolumeSpec | str) -> Path:
     volume_spec = volume_for_key(config, volume) if isinstance(volume, str) else volume
     return config.manifest_dir / f"{volume_spec.output_slug}.json"
+
+
+def kindle_azw3_path_for_volume(
+    config: AppConfig,
+    volume: VolumeSpec | str,
+) -> Path:
+    volume_spec = volume_for_key(config, volume) if isinstance(volume, str) else volume
+    return config.output_dir / "azw3" / f"{volume_spec.output_slug}-Kindle.azw3"
 
 
 def cover_image_path_for_volume(config: AppConfig, volume: VolumeSpec | str) -> Path | None:
