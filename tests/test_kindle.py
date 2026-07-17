@@ -1,6 +1,15 @@
 import re
+import subprocess
+from pathlib import Path
 
-from scp_epub.kindle import load_kindle_css, prepare_kindle_pages
+import pytest
+
+from scp_epub.kindle import (
+    KindleConversionError,
+    convert_epub_to_azw3,
+    load_kindle_css,
+    prepare_kindle_pages,
+)
 from scp_epub.models import PageRef, ProcessedPage
 
 
@@ -121,3 +130,76 @@ def test_kindle_css_uses_kf8_fallbacks_and_preserves_scp_components():
     assert ".anom-bar-container" in css
     assert ".kindle-clearance-label" in css
     assert ".kindle-danger-label" in css
+
+
+def test_convert_epub_to_azw3_uses_scribe_profile_and_atomically_replaces_output(
+    tmp_path: Path,
+):
+    epub_path = tmp_path / "book.epub"
+    epub_path.write_bytes(b"epub")
+    azw3_path = tmp_path / "azw3" / "book.azw3"
+    azw3_path.parent.mkdir()
+    azw3_path.write_bytes(b"old valid azw3")
+    commands = []
+
+    def fake_runner(command, **kwargs):
+        commands.append((command, kwargs))
+        Path(command[2]).write_bytes(b"new valid azw3")
+        return subprocess.CompletedProcess(command, 0, stdout="converted", stderr="")
+
+    result = convert_epub_to_azw3(
+        epub_path,
+        azw3_path,
+        executable="ebook-convert-test",
+        runner=fake_runner,
+    )
+
+    assert result == azw3_path
+    assert azw3_path.read_bytes() == b"new valid azw3"
+    command, kwargs = commands[0]
+    assert command == [
+        "ebook-convert-test",
+        str(epub_path),
+        str(tmp_path / "azw3" / "book.tmp.azw3"),
+        "--output-profile=kindle_scribe",
+        "--no-inline-toc",
+    ]
+    assert kwargs["capture_output"] is True
+    assert kwargs["text"] is True
+    assert not (tmp_path / "azw3" / "book.tmp.azw3").exists()
+
+
+def test_convert_epub_to_azw3_reports_missing_calibre(tmp_path: Path, monkeypatch):
+    epub_path = tmp_path / "book.epub"
+    epub_path.write_bytes(b"epub")
+    monkeypatch.setattr("scp_epub.kindle.shutil.which", lambda _name: None)
+
+    with pytest.raises(KindleConversionError, match="ebook-convert"):
+        convert_epub_to_azw3(epub_path, tmp_path / "book.azw3")
+
+
+def test_convert_epub_to_azw3_cleans_temp_and_preserves_previous_output_on_failure(
+    tmp_path: Path,
+):
+    epub_path = tmp_path / "book.epub"
+    epub_path.write_bytes(b"epub remains")
+    azw3_path = tmp_path / "book.azw3"
+    azw3_path.write_bytes(b"previous valid azw3")
+
+    def fake_runner(command, **_kwargs):
+        Path(command[2]).write_bytes(b"partial")
+        return subprocess.CompletedProcess(
+            command, 9, stdout="", stderr="conversion failed"
+        )
+
+    with pytest.raises(KindleConversionError, match="conversion failed"):
+        convert_epub_to_azw3(
+            epub_path,
+            azw3_path,
+            executable="ebook-convert-test",
+            runner=fake_runner,
+        )
+
+    assert epub_path.read_bytes() == b"epub remains"
+    assert azw3_path.read_bytes() == b"previous valid azw3"
+    assert not (tmp_path / "book.tmp.azw3").exists()

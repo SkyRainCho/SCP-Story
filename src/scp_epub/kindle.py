@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+import shutil
+import subprocess
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from html import escape, unescape
 from html.parser import HTMLParser
 from importlib import resources
+from pathlib import Path
 
 from .models import ProcessedPage
 
@@ -17,6 +20,79 @@ CLEARANCE_LABELS = {
     "clear-5": "TOP SECRET",
     "clear-6": "COSMIC TOP SECRET",
 }
+
+Runner = Callable[..., subprocess.CompletedProcess[str]]
+
+
+class KindleConversionError(RuntimeError):
+    pass
+
+
+def convert_epub_to_azw3(
+    epub_path: Path,
+    azw3_path: Path,
+    *,
+    executable: str | Path | None = None,
+    runner: Runner = subprocess.run,
+) -> Path:
+    if not epub_path.is_file():
+        raise KindleConversionError(f"Kindle EPUB does not exist: {epub_path}")
+
+    resolved = (
+        str(executable)
+        if executable is not None
+        else shutil.which("ebook-convert")
+    )
+    if not resolved:
+        raise KindleConversionError(
+            "Calibre ebook-convert was not found; install Calibre and ensure "
+            "ebook-convert is available on PATH"
+        )
+
+    azw3_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = azw3_path.with_name(f"{azw3_path.stem}.tmp{azw3_path.suffix}")
+    temporary_path.unlink(missing_ok=True)
+    command = [
+        resolved,
+        str(epub_path),
+        str(temporary_path),
+        "--output-profile=kindle_scribe",
+        "--no-inline-toc",
+    ]
+
+    try:
+        result = runner(
+            command,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except OSError as exc:
+        temporary_path.unlink(missing_ok=True)
+        raise KindleConversionError(
+            f"Failed to start Calibre command {command!r}: {exc}"
+        ) from exc
+
+    if result.returncode != 0:
+        temporary_path.unlink(missing_ok=True)
+        details = "\n".join(
+            value.strip()
+            for value in (result.stdout, result.stderr)
+            if value and value.strip()
+        )[-2000:]
+        raise KindleConversionError(
+            f"Calibre command {command!r} exited with {result.returncode}: {details}"
+        )
+
+    if not temporary_path.is_file() or temporary_path.stat().st_size == 0:
+        temporary_path.unlink(missing_ok=True)
+        raise KindleConversionError(
+            f"Calibre command {command!r} did not produce a nonempty AZW3"
+        )
+
+    temporary_path.replace(azw3_path)
+    return azw3_path
 
 _VOID_ELEMENTS = frozenset(
     {
