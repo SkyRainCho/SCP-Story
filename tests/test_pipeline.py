@@ -1303,7 +1303,7 @@ def test_build_volume_force_rebuilds_existing_manifest_from_refreshed_sources(tm
     assert report["slugs"] == ["scp-001", "scp-002"]
 
 
-def test_scan_linked_appendices_keeps_legacy_appendix_tab_manifest_read_only(
+def test_scan_linked_appendices_ignores_refresh_for_legacy_tab_manifest(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
@@ -1357,7 +1357,7 @@ def test_scan_linked_appendices_keeps_legacy_appendix_tab_manifest_read_only(
 
     monkeypatch.setattr("scp_epub.pipeline.build_manifest", fail_rebuild)
 
-    report_path = scan_linked_appendices_for_volume(config, "featured")
+    report_path = scan_linked_appendices_for_volume(config, "featured", force=True)
 
     assert manifest_path.read_text(encoding="utf-8") == manifest_before
     payload = json.loads(report_path.read_text(encoding="utf-8"))

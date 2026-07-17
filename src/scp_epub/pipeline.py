@@ -365,7 +365,7 @@ def scan_linked_appendices_for_volume(
         config,
         volume_key,
         None,
-        force=force,
+        force=False,
         repair_legacy_appendix_tabs=False,
     )
     documents = scan_linked_appendices(
