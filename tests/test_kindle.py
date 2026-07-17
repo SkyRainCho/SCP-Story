@@ -1,4 +1,4 @@
-from pathlib import Path
+import re
 
 from scp_epub.kindle import load_kindle_css, prepare_kindle_pages
 from scp_epub.models import PageRef, ProcessedPage
@@ -40,6 +40,35 @@ def test_prepare_kindle_pages_materializes_anomaly_labels_without_mutating_sourc
     assert "kindle-danger-label" not in source.xhtml
 
 
+def test_prepare_kindle_pages_preserves_ordinary_xhtml_exactly():
+    xhtml = (
+        '<section><svg viewBox="0 0 10 10" preserveAspectRatio="xMidYMid meet">'
+        '<path d="M0 0 L10 10" /></svg></section>\n'
+    )
+
+    [prepared] = prepare_kindle_pages([_page(xhtml)])
+
+    assert prepared.xhtml == xhtml
+
+
+def test_prepare_kindle_pages_preserves_inline_svg_when_materializing_labels():
+    svg = (
+        '<svg viewBox="0 0 10 10" preserveAspectRatio="xMidYMid meet">'
+        '<path d="M0 0 L10 10" /></svg>'
+    )
+    source = _page(
+        svg
+        + '<div class="anom-bar-container clear-4">'
+        '<div class="top-right-box"><div class="clearance"></div></div>'
+        "</div>"
+    )
+
+    [prepared] = prepare_kindle_pages([source])
+
+    assert svg in prepared.xhtml
+    assert '<span class="kindle-clearance-label">SECRET</span>' in prepared.xhtml
+
+
 def test_prepare_kindle_pages_maps_all_clearance_levels():
     expected = {
         1: "PUBLIC",
@@ -78,10 +107,12 @@ def test_kindle_css_uses_kf8_fallbacks_and_preserves_scp_components():
         ":first-child",
         ":last-child",
         "linear-gradient",
-        "transform:",
         "box-shadow",
     ):
         assert unsupported not in lowered
+
+    assert re.search(r"(?:^|[;{])\s*transform\s*:", lowered) is None
+    assert "text-transform: uppercase" in lowered
 
     assert ".content-panel" in css
     assert ".scp-image-block.block-right" in css

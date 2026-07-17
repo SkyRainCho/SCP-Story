@@ -253,6 +253,7 @@ table.wiki-content-table th {
   font-size: 1.15em;
   font-weight: bold;
   line-height: 1.1;
+  text-transform: uppercase;
 }
 
 .anom-bar-container .danger-diamond {
