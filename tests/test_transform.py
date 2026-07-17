@@ -988,7 +988,7 @@ def test_removes_only_terminal_guillemet_navigation_when_enabled():
     html = """
     <html><body><div id="page-content">
       <div id="earlier-nav">« <a href="/one">One</a> | <a href="/two">Two</a> | <a href="/three">Three</a> »</div>
-      <p>正文中的 « <a href="/one">One</a> | <a href="/two">Two</a> | <a href="/three">Three</a> » 应保留。</p>
+      <p>正文中的 « <a href="/one">One</a> | <a href="/two">Two</a> » 应保留。</p>
       <div id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> | <a href="/three">Three</a> »</div>
     </div></body></html>
     """
@@ -1006,22 +1006,66 @@ def test_removes_only_terminal_guillemet_navigation_when_enabled():
     assert "正文中的" in soup.get_text(" ", strip=True)
 
 
-def test_preserves_terminal_two_link_guillemet_content_when_cleanup_is_enabled():
+@pytest.mark.parametrize("slug", ("scp-7261", "scp-3662"))
+def test_removes_terminal_two_link_guillemet_navigation_when_enabled(slug: str):
     html = """
     <html><body><div id="page-content">
-      <p>正文。</p>
-      <div id="terminal-content">« <a href="/one">One</a> | <a href="/two">Two</a> »</div>
+      <p id="article">正文。</p>
+      <div id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> »</div>
     </div></body></html>
     """
 
     result = transform_page(
-        page_ref(),
+        page_ref(slug),
         html,
         BASE_URL,
         page_options=PageTransformOptions(remove_terminal_navigation=True),
     )
+    soup = soup_fragment(result.xhtml)
 
-    assert soup_fragment(result.xhtml).find(id="terminal-content") is not None
+    assert soup.find(id="terminal-nav") is None
+    assert soup.find(id="article") is not None
+
+
+@pytest.mark.parametrize(
+    ("slug", "trailing_wrappers"),
+    (
+        (
+            "scp-9928",
+            '<div class="list-pages-box"></div><p></p>',
+        ),
+        (
+            "scp-5109",
+            '<div><div class="code"><pre>:root { --accent: red; --header-title: "Site-120"; }</pre></div></div>',
+        ),
+        (
+            "scp-5494",
+            '<div class="list-pages-box"></div><div><div class="code"><pre>:root { --accent: red; --header-title: "Site-120"; }</pre></div></div>',
+        ),
+    ),
+)
+def test_removes_effectively_terminal_navigation_before_live_like_trailing_wrappers(
+    slug: str,
+    trailing_wrappers: str,
+):
+    html = f"""
+    <html><body><div id="page-content">
+      <p id="article">正文。</p>
+      <div id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> | <a href="/three">Three</a> »</div>
+      {trailing_wrappers}
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref(slug),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="terminal-nav") is None
+    assert soup.find(id="article") is not None
 
 
 def test_preserves_terminal_navigation_when_cleanup_is_disabled():

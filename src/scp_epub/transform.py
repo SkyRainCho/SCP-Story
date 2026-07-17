@@ -344,17 +344,26 @@ def _terminal_article_blocks(page_content: Tag) -> list[Tag]:
 def _is_terminal_article_block(block: Tag) -> bool:
     for sibling in block.next_siblings:
         if isinstance(sibling, Tag):
-            if sibling.name not in {"br", "hr"}:
+            if not _is_insignificant_trailing_node(sibling):
                 return False
         elif str(sibling).strip():
             return False
     return True
 
 
+def _is_insignificant_trailing_node(node: Tag) -> bool:
+    if node.name in {"br", "hr"}:
+        return True
+    text = node.get_text(" ", strip=True)
+    if _looks_like_css_code(text):
+        return True
+    return not text and node.find(("audio", "img", "object", "table", "video")) is None
+
+
 def _is_compact_guillemet_navigation(block: Tag) -> bool:
     text = " ".join(block.get_text(" ", strip=True).split())
     return (
-        len(block.find_all("a")) == 3
+        2 <= len(block.find_all("a")) <= 3
         and len(text) <= 240
         and len(text) >= 2
         and text[0] in {"«", "‹"}
