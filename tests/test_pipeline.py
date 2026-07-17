@@ -614,6 +614,72 @@ def test_build_featured_manifest_preserves_configured_appendix_tab_titles(
     ]
 
 
+def test_build_volume_rebuilds_legacy_featured_appendix_tab_manifest(tmp_path: Path):
+    tab_source_url = f"{BASE_URL}/personnel-and-character-dossier"
+    config = app_config(
+        tmp_path,
+        volume_key="featured",
+        index_mode="featured-scp-archive",
+        featured_archive_url="https://scp-wiki.wikidot.com/featured-scp-archive",
+        include_linked_appendices=False,
+        appendix=AppendixSpec(
+            title="附录",
+            slug="appendix",
+            sections=(
+                AppendixSection(
+                    "人事档案",
+                    tab_source_url,
+                    "personnel-and-character-dossier",
+                    mode="tabs-as-pages",
+                ),
+            ),
+        ),
+    )
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(
+        [
+            PageRef(
+                "档案",
+                tab_source_url,
+                "personnel-and-character-dossier--tab-1",
+                3,
+                "appendix-tab",
+                parent_slug="personnel-and-character-dossier--appendix-group",
+                order=1,
+            ),
+        ],
+        config.manifest_dir / "test-volume.json",
+    )
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "featured-scp-archive": """
+              <div id="page-content"><p>1. <a href="/scp-173">SCP-173</a></p></div>
+            """,
+            "personnel-and-character-dossier": """
+              <div id="page-content"><div class="yui-navset">
+                <ul class="yui-nav"><li>档案</li><li>研究</li></ul>
+                <div class="yui-content"><div>档案正文。</div><div>研究正文。</div></div>
+              </div></div>
+            """,
+            "scp-173": simple_page("SCP-173"),
+        },
+    )
+
+    build_volume(config, "featured", fetcher=fetcher)
+
+    rebuilt_tab_entries = [
+        entry
+        for entry in read_manifest(config.manifest_dir / "test-volume.json")
+        if entry.role == "appendix-tab"
+    ]
+    assert [(entry.slug, entry.tab_title) for entry in rebuilt_tab_entries] == [
+        ("personnel-and-character-dossier--tab-1", "档案"),
+        ("personnel-and-character-dossier--tab-2", "研究"),
+    ]
+
+
 def test_build_volume_materializes_appendix_groups_and_unwraps_tab_children(tmp_path: Path):
     appendix = AppendixSpec(
         title="附录",

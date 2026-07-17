@@ -870,7 +870,10 @@ def _load_or_build_manifest(
     manifest_path = manifest_path_for_volume(config, volume)
     if force or not manifest_path.exists():
         return build_manifest(config, volume_key, fetcher=fetcher, force=force)
-    return read_manifest(manifest_path)
+    manifest = read_manifest(manifest_path)
+    if _cached_manifest_requires_appendix_tab_title_rebuild(config, manifest):
+        return build_manifest(config, volume_key, fetcher=fetcher, force=force)
+    return manifest
 
 
 def _load_or_build_manifest_for_build(
@@ -883,7 +886,9 @@ def _load_or_build_manifest_for_build(
     volume = volume_for_key(config, volume_key)
     manifest_path = manifest_path_for_volume(config, volume)
     if not force and manifest_path.exists():
-        return read_manifest(manifest_path), {}
+        manifest = read_manifest(manifest_path)
+        if not _cached_manifest_requires_appendix_tab_title_rebuild(config, manifest):
+            return manifest, {}
 
     appendix_fetch_results: dict[tuple[str, str], FetchResult] = {}
     if config.index_mode == "featured-scp-archive":
@@ -897,6 +902,15 @@ def _load_or_build_manifest_for_build(
     else:
         manifest = build_manifest(config, volume_key, fetcher=fetcher, force=force)
     return manifest, appendix_fetch_results
+
+
+def _cached_manifest_requires_appendix_tab_title_rebuild(
+    config: AppConfig,
+    manifest: list[PageRef],
+) -> bool:
+    return config.appendix is not None and any(
+        entry.role == APPENDIX_TAB_ROLE and entry.tab_title is None for entry in manifest
+    )
 
 
 def _process_pages(
