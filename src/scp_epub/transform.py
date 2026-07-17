@@ -213,6 +213,7 @@ AUTHOR_WORK_LIST_LABELS = (
     "More by this author",
     "该作者的更多作品",
 )
+SUBSTANTIVE_MEDIA_TAGS = ("audio", "figure", "img", "object", "picture", "svg", "table", "video")
 TWO_LINK_TERMINAL_NAVIGATION_SLUGS = frozenset({"scp-7261", "scp-3662"})
 
 
@@ -327,25 +328,33 @@ def _apply_page_cleanup_options(
 
 
 def _remove_terminal_navigation(entry: PageRef, page_content: Tag) -> None:
-    for block in _terminal_article_blocks(page_content):
+    for block in _terminal_article_blocks(page_content, navigation_slug=entry.slug):
         if _is_compact_guillemet_navigation(entry.slug, block) or (
             entry.slug == "scp-6781" and _is_scp_6781_previous_next_navigation(block)
         ):
             block.decompose()
 
 
-def _terminal_article_blocks(page_content: Tag) -> list[Tag]:
+def _terminal_article_blocks(
+    page_content: Tag,
+    *,
+    navigation_slug: str | None = None,
+) -> list[Tag]:
     return [
         block
         for block in page_content.find_all(("div", "section"))
-        if _is_terminal_article_block(block, page_content)
+        if _is_terminal_article_block(navigation_slug, block, page_content)
     ]
 
 
-def _is_terminal_article_block(block: Tag, page_content: Tag) -> bool:
+def _is_terminal_article_block(
+    navigation_slug: str | None,
+    block: Tag,
+    page_content: Tag,
+) -> bool:
     current = block
     while current is not page_content:
-        if _has_substantive_following_sibling(current):
+        if _has_substantive_following_sibling(navigation_slug, current):
             return False
         parent = current.parent
         if not isinstance(parent, Tag):
@@ -354,23 +363,27 @@ def _is_terminal_article_block(block: Tag, page_content: Tag) -> bool:
     return True
 
 
-def _has_substantive_following_sibling(node: Tag) -> bool:
+def _has_substantive_following_sibling(navigation_slug: str | None, node: Tag) -> bool:
     for sibling in node.next_siblings:
         if isinstance(sibling, Tag):
-            if not _is_insignificant_trailing_node(sibling):
+            if not _is_insignificant_trailing_node(navigation_slug, sibling):
                 return True
         elif str(sibling).strip():
             return True
     return False
 
 
-def _is_insignificant_trailing_node(node: Tag) -> bool:
+def _is_insignificant_trailing_node(navigation_slug: str | None, node: Tag) -> bool:
     if node.name in {"br", "hr"}:
+        return True
+    if node.name in SUBSTANTIVE_MEDIA_TAGS or node.find(SUBSTANTIVE_MEDIA_TAGS) is not None:
+        return False
+    if navigation_slug == "scp-7261" and "earthworm" in _class_tokens(node):
         return True
     text = node.get_text(" ", strip=True)
     if _looks_like_css_code(text):
         return True
-    return not text and node.find(("audio", "img", "object", "table", "video")) is None
+    return not text
 
 
 def _is_compact_guillemet_navigation(slug: str, block: Tag) -> bool:

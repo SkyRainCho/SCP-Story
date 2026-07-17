@@ -1092,6 +1092,86 @@ def test_preserves_nested_navigation_when_its_ancestor_has_following_article_con
     assert soup.find(id="after") is not None
 
 
+def test_preserves_configured_navigation_followed_by_textless_figure_svg():
+    html = """
+    <html><body><div id="page-content">
+      <p id="article">正文。</p>
+      <div id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> | <a href="/three">Three</a> »</div>
+      <figure id="diagram"><svg viewBox="0 0 10 10"><path d="M0 0 L10 10" /></svg></figure>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-9928"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="terminal-nav") is not None
+    assert soup.find(id="diagram") is not None
+
+
+def test_removes_scp7261_navigation_before_earthworm_decoration():
+    html = """
+    <html><body><div id="page-content">
+      <div class="anom-bar-esoteric" id="classification">项目编号：7261</div>
+      <div id="terminal-nav">« <a href="/previous">Previous</a> | <a href="/next">Next</a> »</div>
+      <div class="earthworm" id="earthworm">SCP-7990 九异书 SCP-5938</div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-7261"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="terminal-nav") is None
+    assert soup.find(id="classification") is not None
+    assert soup.find(id="earthworm") is not None
+
+
+def test_preserves_other_pages_navigation_before_earthworm_decoration():
+    html = """
+    <html><body><div id="page-content">
+      <p id="article">正文。</p>
+      <div id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> »</div>
+      <div class="earthworm">非目标页面的装饰内容。</div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-3662"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+
+    assert soup_fragment(result.xhtml).find(id="terminal-nav") is not None
+
+
+def test_does_not_apply_scp7261_earthworm_navigation_exception_to_author_work_lists():
+    html = """
+    <html><body><div id="page-content">
+      <div id="work-list">More From This Author <a href="/author">作品</a></div>
+      <div class="earthworm">SCP-7990 九异书 SCP-5938</div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-7261"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_author_work_list=True),
+    )
+
+    assert soup_fragment(result.xhtml).find(id="work-list") is not None
+
+
 @pytest.mark.parametrize(
     ("slug", "trailing_wrappers"),
     (
