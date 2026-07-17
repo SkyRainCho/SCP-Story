@@ -220,6 +220,10 @@ def transform_page(
 ) -> ProcessedPage:
     soup = BeautifulSoup(html, "html.parser")
     page_content = soup.select_one("#page-content")
+    if page_content is None and entry.role == "appendix-group":
+        page_content = soup.body
+        if page_content is not None:
+            page_content["id"] = "page-content"
     if page_content is None:
         raise ValueError("missing #page-content")
 

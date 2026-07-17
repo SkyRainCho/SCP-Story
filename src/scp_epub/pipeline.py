@@ -6,6 +6,12 @@ from html import escape
 from typing import Protocol
 from urllib.parse import urlparse
 
+from .appendix import (
+    APPENDIX_TAB_ROLE,
+    appendix_group_html,
+    extract_facility_children,
+    extract_tab_children,
+)
 from .assets import localize_assets, remote_resource_page_slugs
 from .cache import CacheStore
 from .config import load_config
@@ -31,6 +37,9 @@ from .manifest import read_manifest, merge_manifest, supplement_missing_scp_entr
 from .models import AppConfig, FetchResult, PageRef, ProcessedPage, VolumeSpec
 from .transform import transform_page
 from .urls import safe_filename, slug_from_url
+
+
+APPENDIX_GROUP_ROLE = "appendix-group"
 
 
 class PageFetcher(Protocol):
@@ -151,9 +160,13 @@ def build_featured_manifest(
 
     entries.sort(key=lambda entry: (entry.order <= 0, entry.order))
     front_matter_entries = [_configured_page_to_page_ref(page) for page in config.front_matter_pages]
+    appendix_entries = _featured_appendix_entries(config, active_fetcher, force=force)
     manifest = [
         _with_page_order(entry, order)
-        for order, entry in enumerate([*front_matter_entries, *entries], start=1)
+        for order, entry in enumerate(
+            [*front_matter_entries, *entries, *appendix_entries],
+            start=1,
+        )
     ]
     write_manifest(manifest, manifest_path_for_volume(config, volume))
     return manifest
@@ -166,11 +179,12 @@ def fetch_manifest_pages(
     fetcher: PageFetcher | None = None,
     force: bool = False,
 ) -> list[FetchResult]:
-    active_fetcher = fetcher or make_fetcher(config)
-    return [
-        active_fetcher.fetch_page(entry.slug, entry.url, force=force)
-        for entry in manifest
-    ]
+    return _fetch_manifest_entries(
+        config,
+        manifest,
+        fetcher or make_fetcher(config),
+        force=force,
+    )
 
 
 def build_volume(
@@ -189,6 +203,7 @@ def build_volume(
         force=force,
     )
     available_manifest, fetch_results, missing_pages = fetch_build_pages(
+        config,
         manifest,
         active_fetcher,
         force=force,
@@ -388,6 +403,7 @@ def _linked_appendix_group_html(document: LinkedAppendixDocument) -> str:
 
 
 def fetch_build_pages(
+    config: AppConfig,
     manifest: list[PageRef],
     fetcher: PageFetcher,
     *,
@@ -397,9 +413,20 @@ def fetch_build_pages(
     fetch_results: list[FetchResult] = []
     missing_pages: list[dict[str, str]] = []
 
+    fetched_by_source: dict[tuple[str, str], FetchResult] = {}
+    cache = CacheStore(config.cache_dir)
+
     for entry in manifest:
         try:
-            result = fetcher.fetch_page(entry.slug, entry.url, force=force)
+            if entry.role == APPENDIX_GROUP_ROLE:
+                result = _write_appendix_group_fetch_result(cache, entry)
+            else:
+                source_slug = entry.parent_slug if entry.role == APPENDIX_TAB_ROLE else entry.slug
+                source_key = (source_slug or entry.slug, entry.url)
+                result = fetched_by_source.get(source_key)
+                if result is None:
+                    result = fetcher.fetch_page(*source_key, force=force)
+                    fetched_by_source[source_key] = result
         except Exception as exc:
             missing_pages.append(
                 {
@@ -414,6 +441,51 @@ def fetch_build_pages(
         fetch_results.append(result)
 
     return available_manifest, fetch_results, missing_pages
+
+
+def _fetch_manifest_entries(
+    config: AppConfig,
+    manifest: list[PageRef],
+    fetcher: PageFetcher,
+    *,
+    force: bool,
+) -> list[FetchResult]:
+    cache = CacheStore(config.cache_dir)
+    fetched_by_source: dict[tuple[str, str], FetchResult] = {}
+    results: list[FetchResult] = []
+
+    for entry in manifest:
+        if entry.role == APPENDIX_GROUP_ROLE:
+            results.append(_write_appendix_group_fetch_result(cache, entry))
+            continue
+
+        source_slug = entry.parent_slug if entry.role == APPENDIX_TAB_ROLE else entry.slug
+        source_key = (source_slug or entry.slug, entry.url)
+        result = fetched_by_source.get(source_key)
+        if result is None:
+            result = fetcher.fetch_page(*source_key, force=force)
+            fetched_by_source[source_key] = result
+        results.append(result)
+
+    return results
+
+
+def _write_appendix_group_fetch_result(cache: CacheStore, entry: PageRef) -> FetchResult:
+    path, metadata_path = cache.write_page(
+        entry.slug,
+        entry.url,
+        appendix_group_html(entry),
+        200,
+        "text/html",
+    )
+    return FetchResult(
+        url=entry.url,
+        path=path,
+        metadata_path=metadata_path,
+        from_cache=False,
+        status_code=200,
+        content_type="text/html",
+    )
 
 
 def run_command(args: Namespace) -> None:
@@ -528,6 +600,49 @@ def _featured_title_index_titles(
         ):
             titles.setdefault(entry.slug, entry.title)
     return titles
+
+
+def _featured_appendix_entries(
+    config: AppConfig,
+    fetcher: PageFetcher,
+    *,
+    force: bool,
+) -> list[PageRef]:
+    appendix = config.appendix
+    if appendix is None:
+        return []
+
+    source = "featured-appendix"
+    entries = [
+        PageRef(
+            title=appendix.title,
+            url=f"{config.base_url.rstrip('/')}/{appendix.slug}",
+            slug=appendix.slug,
+            level=1,
+            role=APPENDIX_GROUP_ROLE,
+            source=source,
+        )
+    ]
+    for section in appendix.sections:
+        result = fetcher.fetch_page(section.slug, section.url, force=force)
+        role = "appendix-section" if section.mode == "page" else APPENDIX_GROUP_ROLE
+        entry = PageRef(
+            title=section.title,
+            url=section.url,
+            slug=section.slug,
+            level=2,
+            role=role,
+            parent_slug=appendix.slug,
+            source=source,
+        )
+        entries.append(entry)
+        html = result.path.read_text(encoding="utf-8")
+        if section.mode == "facility-links":
+            entries.extend(extract_facility_children(entry, html, config.base_url))
+        elif section.mode == "tabs-as-pages":
+            entries.extend(extract_tab_children(entry, html))
+
+    return entries
 
 
 def _with_featured_title(entry: PageRef, title: str | None) -> PageRef:
@@ -672,19 +787,31 @@ def _process_pages(
     processed_dir = config.processed_dir / volume.output_slug
     processed_dir.mkdir(parents=True, exist_ok=True)
     configured_pages_by_slug = {page.slug: page for page in config.front_matter_pages}
+    appendix_sections_by_slug = {
+        section.slug: section for section in config.appendix.sections
+    } if config.appendix is not None else {}
 
     for entry in manifest:
         result = results_by_slug[entry.slug]
         configured_page = configured_pages_by_slug.get(entry.slug)
+        appendix_section = appendix_sections_by_slug.get(entry.slug)
+        include_tab_titles = set(config.page_tab_includes.get(entry.slug, ()))
+        unwrap_single_included_tab = bool(
+            configured_page and configured_page.unwrap_single_included_tab
+        )
+        if entry.role == APPENDIX_TAB_ROLE:
+            include_tab_titles = {entry.tab_title} if entry.tab_title else set()
+            unwrap_single_included_tab = True
+        elif appendix_section is not None:
+            include_tab_titles = set(appendix_section.include_tabs)
+            unwrap_single_included_tab = appendix_section.unwrap_single_tab
         page = transform_page(
             entry,
             result.path.read_text(encoding="utf-8"),
             entry.url,
             manifest_slugs,
-            include_tab_titles=set(config.page_tab_includes.get(entry.slug, ())),
-            unwrap_single_included_tab=bool(
-                configured_page and configured_page.unwrap_single_included_tab
-            ),
+            include_tab_titles=include_tab_titles,
+            unwrap_single_included_tab=unwrap_single_included_tab,
             background_asset_url=(
                 configured_page.epub_background_url if configured_page is not None else None
             ),

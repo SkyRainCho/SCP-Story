@@ -888,6 +888,42 @@ def test_unwraps_explicitly_configured_single_wikidot_tab_and_registers_its_back
     assert result.asset_urls == (marble_url,)
 
 
+def test_unwraps_selected_appendix_tab_child_without_the_tabview_heading_or_wrapper():
+    entry = PageRef(
+        title="研究人员",
+        url=f"{BASE_URL}/personnel-and-character-dossier",
+        slug="personnel-and-character-dossier--tab-2",
+        level=3,
+        role="appendix-tab",
+        parent_slug="personnel-and-character-dossier",
+        tab_title="研究人员",
+    )
+    html = """
+    <html><body><div id="page-content">
+      <div class="yui-navset">
+        <ul class="yui-nav"><li>人事档案</li><li>研究人员</li></ul>
+        <div class="yui-content"><div><p>档案正文。</p></div><div><p>研究正文。</p></div></div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        entry,
+        html,
+        BASE_URL,
+        include_tab_titles={entry.tab_title},
+        unwrap_single_included_tab=True,
+    )
+    soup = soup_fragment(result.xhtml)
+    text = soup.get_text(" ", strip=True)
+
+    assert "研究正文。" in text
+    assert "档案正文。" not in text
+    assert soup.find(class_="tabview-epub") is None
+    assert soup.find(class_="tabview-panel-title") is None
+    assert "标签：研究人员" not in text
+
+
 def test_removes_generic_hidden_css_code_styles_from_page_styles():
     html = """
     <html>
