@@ -38,6 +38,8 @@ def convert_epub_to_azw3(
     if not epub_path.is_file():
         raise KindleConversionError(f"Kindle EPUB does not exist: {epub_path}")
 
+    temporary_path = azw3_path.with_name(f"{azw3_path.stem}.tmp{azw3_path.suffix}")
+    temporary_path.unlink(missing_ok=True)
     resolved = (
         str(executable)
         if executable is not None
@@ -50,8 +52,6 @@ def convert_epub_to_azw3(
         )
 
     azw3_path.parent.mkdir(parents=True, exist_ok=True)
-    temporary_path = azw3_path.with_name(f"{azw3_path.stem}.tmp{azw3_path.suffix}")
-    temporary_path.unlink(missing_ok=True)
     command = [
         resolved,
         str(epub_path),

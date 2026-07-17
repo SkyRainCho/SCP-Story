@@ -172,10 +172,32 @@ def test_convert_epub_to_azw3_uses_scribe_profile_and_atomically_replaces_output
 def test_convert_epub_to_azw3_reports_missing_calibre(tmp_path: Path, monkeypatch):
     epub_path = tmp_path / "book.epub"
     epub_path.write_bytes(b"epub")
+    output_directory = tmp_path / "azw3"
     monkeypatch.setattr("scp_epub.kindle.shutil.which", lambda _name: None)
 
     with pytest.raises(KindleConversionError, match="ebook-convert"):
-        convert_epub_to_azw3(epub_path, tmp_path / "book.azw3")
+        convert_epub_to_azw3(epub_path, output_directory / "book.azw3")
+
+    assert not output_directory.exists()
+
+
+def test_convert_epub_to_azw3_cleans_stale_temp_when_calibre_is_missing(
+    tmp_path: Path, monkeypatch
+):
+    epub_path = tmp_path / "book.epub"
+    epub_path.write_bytes(b"epub remains")
+    azw3_path = tmp_path / "book.azw3"
+    azw3_path.write_bytes(b"previous valid azw3")
+    temporary_path = tmp_path / "book.tmp.azw3"
+    temporary_path.write_bytes(b"stale partial azw3")
+    monkeypatch.setattr("scp_epub.kindle.shutil.which", lambda _name: None)
+
+    with pytest.raises(KindleConversionError, match="ebook-convert"):
+        convert_epub_to_azw3(epub_path, azw3_path)
+
+    assert epub_path.read_bytes() == b"epub remains"
+    assert azw3_path.read_bytes() == b"previous valid azw3"
+    assert not temporary_path.exists()
 
 
 def test_convert_epub_to_azw3_cleans_temp_and_preserves_previous_output_on_failure(
