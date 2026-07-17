@@ -232,7 +232,7 @@ def test_featured_scp_config_declares_page_overrides():
     assert [
         (document.url, document.position)
         for document in config.page_overrides["scp-6445"].inline_documents
-    ] == [("https://scp-wiki-cn.wikidot.com/offset/1", "append")]
+    ] == [("https://scp-wiki-cn.wikidot.com/scp-6445/offset/1", "append")]
     assert [
         (document.url, document.position, document.anchor_text)
         for document in config.page_overrides["scp-2814"].inline_documents

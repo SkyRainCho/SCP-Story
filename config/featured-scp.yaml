@@ -80,7 +80,7 @@ page_overrides:
   scp-6445:
     inline_documents:
       - title: SCP-6445 Offset 1
-        url: /offset/1
+        url: /scp-6445/offset/1
         position: append
   scp-2814:
     inline_documents:
