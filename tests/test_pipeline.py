@@ -17,6 +17,7 @@ from scp_epub.models import (
     ConfiguredLink,
     ConfiguredPage,
     FetchResult,
+    PageOverride,
     PageRef,
     VolumeSpec,
 )
@@ -48,6 +49,7 @@ def app_config(
     front_matter_pages: tuple[ConfiguredPage, ...] = (),
     explicit_linked_appendices: dict[str, tuple[ConfiguredLink, ...]] | None = None,
     page_tab_includes: dict[str, tuple[str, ...]] | None = None,
+    page_overrides: dict[str, PageOverride] | None = None,
     appendix: AppendixSpec | None = None,
 ) -> AppConfig:
     volume = VolumeSpec(
@@ -85,6 +87,7 @@ def app_config(
         front_matter_pages=front_matter_pages,
         explicit_linked_appendices=explicit_linked_appendices or {},
         page_tab_includes=page_tab_includes or {},
+        page_overrides=page_overrides or {},
         appendix=appendix,
     )
 
@@ -1305,6 +1308,50 @@ def test_build_volume_includes_high_confidence_linked_appendices_under_group(tmp
         "SCP-093“蓝色”测试",
         "SCP-093 Story",
     ]
+
+
+def test_build_volume_inherits_only_scp5109_terminal_navigation_cleanup_for_linked_appendices(
+    tmp_path: Path,
+):
+    config = app_config(
+        tmp_path,
+        page_overrides={
+            "scp-5109": PageOverride(
+                remove_terminal_navigation=True,
+                remove_adult_content_warning=True,
+            )
+        },
+    )
+    manifest = [
+        PageRef("SCP-5109", f"{BASE_URL}/scp-5109", "scp-5109", 1, "scp", order=1),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-5109": simple_page(
+                "SCP-5109",
+                '<a href="/scp-5109-offset">SCP-5109附件</a>',
+            ),
+            "scp-5109-offset": """
+              <html><body><div id="page-content">
+                <p>附属文档正文。</p>
+                <div id="u-adult-warning">不应继承的成人警告清理。</div>
+                <div id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> »</div>
+              </div></body></html>
+            """,
+        },
+    )
+
+    build_volume(config, "001-099", fetcher=fetcher)
+
+    appendix_xhtml = (
+        config.processed_dir / "test-volume" / "0003-scp-5109-offset.xhtml"
+    ).read_text(encoding="utf-8")
+    assert "terminal-nav" not in appendix_xhtml
+    assert "不应继承的成人警告清理" in appendix_xhtml
 
 
 def test_build_volume_can_disable_linked_appendices_for_featured_books(tmp_path: Path):

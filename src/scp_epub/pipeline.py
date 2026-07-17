@@ -24,6 +24,7 @@ from .indexer import (
     parse_tales_index,
 )
 from .linked_appendices import (
+    LINKED_APPENDIX_ROLE,
     LINKED_APPENDIX_GROUP_ROLE,
     LinkedAppendixCandidate,
     LinkedAppendixDocument,
@@ -35,7 +36,7 @@ from .linked_appendices import (
 )
 from .manifest import read_manifest, merge_manifest, supplement_missing_scp_entries, write_manifest
 from .models import AppConfig, FetchResult, PageRef, ProcessedPage, VolumeSpec
-from .transform import transform_page
+from .transform import PageTransformOptions, transform_page
 from .urls import safe_filename, slug_from_url
 
 
@@ -980,11 +981,31 @@ def _process_pages(
             background_asset_url=(
                 configured_page.epub_background_url if configured_page is not None else None
             ),
+            page_options=_page_transform_options(config, entry),
         )
         processed_pages.append(page)
         _write_processed_page(processed_dir, page)
 
     return processed_pages
+
+
+def _page_transform_options(config: AppConfig, entry: PageRef) -> PageTransformOptions:
+    override = config.page_overrides.get(entry.slug)
+    inherited_terminal_navigation = (
+        entry.role == LINKED_APPENDIX_ROLE
+        and entry.parent_slug == linked_appendix_group_slug("scp-5109")
+        and config.page_overrides.get("scp-5109", None) is not None
+        and config.page_overrides["scp-5109"].remove_terminal_navigation
+    )
+    return PageTransformOptions(
+        remove_terminal_navigation=(
+            inherited_terminal_navigation
+            or bool(override and override.remove_terminal_navigation)
+        ),
+        remove_leading_metadata=bool(override and override.remove_leading_metadata),
+        remove_adult_content_warning=bool(override and override.remove_adult_content_warning),
+        remove_author_work_list=bool(override and override.remove_author_work_list),
+    )
 
 
 def _write_processed_page(processed_dir: Path, page: ProcessedPage) -> Path:

@@ -4,18 +4,18 @@ import pytest
 from bs4 import BeautifulSoup
 
 from scp_epub.models import PageRef
-from scp_epub.transform import transform_page
+from scp_epub.transform import PageTransformOptions, transform_page
 
 
 FIXTURE = Path(__file__).parent / "fixtures" / "page_sample.html"
 BASE_URL = "https://scp-wiki-cn.wikidot.com/scp-999"
 
 
-def page_ref() -> PageRef:
+def page_ref(slug: str = "scp-999") -> PageRef:
     return PageRef(
         title="SCP-999",
         url=BASE_URL,
-        slug="scp-999",
+        slug=slug,
         level=1,
         role="scp",
     )
@@ -982,6 +982,198 @@ def test_removes_scp173_creator_information_block():
     assert "创作者信息" not in text
     assert "加藤泉" not in text
     assert "无题 2004" not in text
+
+
+def test_removes_only_terminal_guillemet_navigation_when_enabled():
+    html = """
+    <html><body><div id="page-content">
+      <div id="earlier-nav">« <a href="/one">One</a> | <a href="/two">Two</a> »</div>
+      <p>正文中的 « <a href="/one">One</a> | <a href="/two">Two</a> » 应保留。</p>
+      <div id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> »</div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref(),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="terminal-nav") is None
+    assert soup.find(id="earlier-nav") is not None
+    assert "正文中的" in soup.get_text(" ", strip=True)
+
+
+def test_preserves_terminal_navigation_when_cleanup_is_disabled():
+    html = """
+    <html><body><div id="page-content">
+      <p>正文。</p>
+      <div id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> »</div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+
+    assert soup_fragment(result.xhtml).find(id="terminal-nav") is not None
+
+
+def test_removes_scp6781_terminal_previous_and_next_navigation_when_enabled():
+    html = """
+    <html><body><div id="page-content">
+      <p>正文。</p>
+      <div class="rnb-navbar">
+        <a href="/previous"><span class="rnb-supertitle">前情</span><br />« 档案 »</a>
+        <a href="/current">当前文档</a>
+        <a href="/next"><span class="rnb-supertitle">后事</span><br />« 后续 »</a>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-6781"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+
+    assert soup_fragment(result.xhtml).find(class_="rnb-navbar") is None
+
+
+def test_removes_scp5464_leading_hub_breadcrumb_and_author_block_when_enabled():
+    html = """
+    <html><body><div id="page-content">
+      <p id="breadcrumb"><a href="/setting-hub">设定中心</a> &gt; 波兰设定</p>
+      <div id="author-block">作者：Example Author</div>
+      <p id="article">第一段正文。</p>
+      <p>后续内容提及作者：应保留。</p>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-5464"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_leading_metadata=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="breadcrumb") is None
+    assert soup.find(id="author-block") is None
+    assert soup.find(id="article").get_text(strip=True) == "第一段正文。"
+    assert "后续内容提及作者" in soup.get_text(" ", strip=True)
+
+
+def test_preserves_leading_metadata_for_other_pages_and_when_disabled():
+    html = """
+    <html><body><div id="page-content">
+      <p id="breadcrumb"><a href="/setting-hub">设定中心</a> &gt; 波兰设定</p>
+      <div id="author-block">作者：Example Author</div>
+      <p id="article">第一段正文。</p>
+    </div></body></html>
+    """
+
+    disabled = transform_page(page_ref("scp-5464"), html, BASE_URL)
+    other_page = transform_page(
+        page_ref("scp-999"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_leading_metadata=True),
+    )
+
+    assert soup_fragment(disabled.xhtml).find(id="author-block") is not None
+    assert soup_fragment(other_page.xhtml).find(id="author-block") is not None
+
+
+def test_removes_scp7069_adult_warning_only_when_enabled():
+    html = """
+    <html><body><div id="page-content">
+      <div id="u-adult-warning"><p>成人内容警告。</p></div>
+      <p>正文。</p>
+    </div></body></html>
+    """
+
+    enabled = transform_page(
+        page_ref("scp-7069"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_adult_content_warning=True),
+    )
+    disabled = transform_page(page_ref("scp-7069"), html, BASE_URL)
+    other_page = transform_page(
+        page_ref("scp-999"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_adult_content_warning=True),
+    )
+
+    assert soup_fragment(enabled.xhtml).find(id="u-adult-warning") is None
+    assert soup_fragment(disabled.xhtml).find(id="u-adult-warning") is not None
+    assert soup_fragment(other_page.xhtml).find(id="u-adult-warning") is not None
+
+
+def test_removes_only_terminal_author_work_list_when_enabled():
+    html = """
+    <html><body><div id="page-content">
+      <p id="ordinary">More by this author appears in the article.</p>
+      <p>正文。</p>
+      <div id="work-list">该作者的更多作品<a href="/author-page">作品一</a></div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref(),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_author_work_list=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="work-list") is None
+    assert soup.find(id="ordinary") is not None
+
+
+def test_preserves_author_work_list_when_cleanup_is_disabled_or_not_terminal():
+    terminal_html = """
+    <html><body><div id="page-content">
+      <p>正文。</p><div id="work-list">More From This Author<a href="/author">作品</a></div>
+    </div></body></html>
+    """
+    non_terminal_html = """
+    <html><body><div id="page-content">
+      <div id="work-list">More by this author<a href="/author">作品</a></div><p>后续正文。</p>
+    </div></body></html>
+    """
+
+    disabled = transform_page(page_ref(), terminal_html, BASE_URL)
+    non_terminal = transform_page(
+        page_ref(),
+        non_terminal_html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_author_work_list=True),
+    )
+
+    assert soup_fragment(disabled.xhtml).find(id="work-list") is not None
+    assert soup_fragment(non_terminal.xhtml).find(id="work-list") is not None
+
+
+def test_preserves_terminal_content_that_only_starts_with_an_author_work_list_label():
+    html = """
+    <html><body><div id="page-content">
+      <p>正文。</p>
+      <div id="ordinary-terminal">More by this authoring team is archived here.</div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref(),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_author_work_list=True),
+    )
+
+    assert soup_fragment(result.xhtml).find(id="ordinary-terminal") is not None
 
 
 def test_converts_ruby_annotation_spans_to_semantic_ruby():

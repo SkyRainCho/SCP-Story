@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
+from dataclasses import dataclass
 from html import escape
 from urllib.parse import urlparse
 
@@ -207,6 +208,20 @@ SCENE_BREAK_IMAGE_STYLE = {
     "margin-right": "auto",
 }
 
+AUTHOR_WORK_LIST_LABELS = (
+    "More From This Author",
+    "More by this author",
+    "该作者的更多作品",
+)
+
+
+@dataclass(frozen=True)
+class PageTransformOptions:
+    remove_terminal_navigation: bool = False
+    remove_leading_metadata: bool = False
+    remove_adult_content_warning: bool = False
+    remove_author_work_list: bool = False
+
 
 def transform_page(
     entry: PageRef,
@@ -217,6 +232,7 @@ def transform_page(
     include_tab_titles: set[str] | None = None,
     unwrap_single_included_tab: bool = False,
     background_asset_url: str | None = None,
+    page_options: PageTransformOptions | None = None,
 ) -> ProcessedPage:
     soup = BeautifulSoup(html, "html.parser")
     page_content = soup.select_one("#page-content")
@@ -233,6 +249,8 @@ def transform_page(
 
     for tag in list(page_content.find_all(_is_unwanted_element)):
         tag.decompose()
+
+    _apply_page_cleanup_options(entry, page_content, page_options or PageTransformOptions())
 
     if _has_interactive_article_layout(page_content):
         _linearize_interactive_article_layout(page_content)
@@ -290,6 +308,111 @@ def transform_page(
         internal_links=tuple(internal_links),
         external_links=tuple(external_links),
     )
+
+
+def _apply_page_cleanup_options(
+    entry: PageRef,
+    page_content: Tag,
+    options: PageTransformOptions,
+) -> None:
+    if options.remove_terminal_navigation:
+        _remove_terminal_navigation(entry, page_content)
+    if options.remove_leading_metadata and entry.slug == "scp-5464":
+        _remove_scp_5464_leading_metadata(page_content)
+    if options.remove_adult_content_warning and entry.slug == "scp-7069":
+        _remove_scp_7069_adult_warning(page_content)
+    if options.remove_author_work_list:
+        _remove_terminal_author_work_list(page_content)
+
+
+def _remove_terminal_navigation(entry: PageRef, page_content: Tag) -> None:
+    for block in _terminal_article_blocks(page_content):
+        if _is_compact_guillemet_navigation(block) or (
+            entry.slug == "scp-6781" and _is_scp_6781_previous_next_navigation(block)
+        ):
+            block.decompose()
+
+
+def _terminal_article_blocks(page_content: Tag) -> list[Tag]:
+    return [
+        child
+        for child in page_content.find_all(recursive=False)
+        if child.name in {"div", "section"} and _is_terminal_article_block(child)
+    ]
+
+
+def _is_terminal_article_block(block: Tag) -> bool:
+    for sibling in block.next_siblings:
+        if isinstance(sibling, Tag):
+            if sibling.name not in {"br", "hr"}:
+                return False
+        elif str(sibling).strip():
+            return False
+    return True
+
+
+def _is_compact_guillemet_navigation(block: Tag) -> bool:
+    text = " ".join(block.get_text(" ", strip=True).split())
+    return (
+        len(block.find_all("a")) >= 2
+        and len(text) <= 240
+        and len(text) >= 2
+        and text[0] in {"«", "‹"}
+        and text[-1] in {"»", "›"}
+    )
+
+
+def _is_scp_6781_previous_next_navigation(block: Tag) -> bool:
+    labels = {
+        node.get_text(" ", strip=True)
+        for node in block.find_all(True)
+        if node.get_text(" ", strip=True) in {"前情", "后事"} and node.find_parent("a") is not None
+    }
+    return len(block.find_all("a")) >= 2 and labels == {"前情", "后事"}
+
+
+def _remove_scp_5464_leading_metadata(page_content: Tag) -> None:
+    for child in list(page_content.find_all(recursive=False)):
+        if _is_scp_5464_setting_hub_breadcrumb(child) or _is_scp_5464_author_block(child):
+            child.decompose()
+            continue
+        break
+
+
+def _is_scp_5464_setting_hub_breadcrumb(block: Tag) -> bool:
+    text = block.get_text(" ", strip=True)
+    links = block.find_all("a", href=True)
+    return (
+        block.name in {"div", "p"}
+        and "设定" in text
+        and bool(links)
+        and any("hub" in str(link.get("href", "")).lower() for link in links)
+    )
+
+
+def _is_scp_5464_author_block(block: Tag) -> bool:
+    return block.name in {"div", "p"} and block.get_text(" ", strip=True).startswith(("作者：", "作者:"))
+
+
+def _remove_scp_7069_adult_warning(page_content: Tag) -> None:
+    for warning in list(page_content.select("#u-adult-warning")):
+        warning.decompose()
+
+
+def _remove_terminal_author_work_list(page_content: Tag) -> None:
+    for block in _terminal_article_blocks(page_content):
+        text = block.get_text(" ", strip=True)
+        if _starts_with_author_work_list_label(text):
+            block.decompose()
+
+
+def _starts_with_author_work_list_label(text: str) -> bool:
+    for label in AUTHOR_WORK_LIST_LABELS:
+        if text == label:
+            return True
+        if text.startswith(label) and len(text) > len(label) and text[len(label)].isspace():
+            return True
+    return False
 
 
 def _normalize_assets(page_content: Tag, base_url: str, asset_urls: list[str], seen_assets: set[str]) -> None:
