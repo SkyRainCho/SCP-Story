@@ -1549,6 +1549,139 @@ def test_build_volume_excludes_auto_appendix_for_inline_url_with_host_case_and_t
         assert "相关图片" not in nav
 
 
+def test_build_volume_inlines_featured_companions_without_appendix_navigation(
+    tmp_path: Path,
+):
+    companion_specs = {
+        "scp-1898": (
+            InlineDocumentSpec(
+                "SCP-1898 相关图片",
+                f"{BASE_URL}/scp-1898-appendix",
+                "scp-1898-appendix",
+                "after_text",
+                "附录-1898-1：相关SCP-1898图片",
+            ),
+        ),
+        "scp-7503": tuple(
+            InlineDocumentSpec(
+                f"SCP-7503 Offset {index}",
+                f"{BASE_URL}/scp-7503-offset-{index}",
+                f"scp-7503-offset-{index}",
+                "append",
+            )
+            for index in range(1, 5)
+        ),
+        "scp-6445": (
+            InlineDocumentSpec(
+                "SCP-6445 Offset 1",
+                f"{BASE_URL}/scp-6445-offset-1",
+                "scp-6445-offset-1",
+                "append",
+            ),
+        ),
+        "scp-2814": (
+            InlineDocumentSpec(
+                "Document 2814-Gamma",
+                f"{BASE_URL}/scp-2814-appendix",
+                "scp-2814-appendix",
+                "before_text",
+                "Footnotes",
+            ),
+        ),
+    }
+    config = app_config(
+        tmp_path,
+        page_overrides={
+            owner: PageOverride(inline_documents=documents)
+            for owner, documents in companion_specs.items()
+        },
+    )
+    owners = [
+        PageRef("SCP-1898", f"{BASE_URL}/scp-1898", "scp-1898", 1, "scp", order=1),
+        PageRef("SCP-7503", f"{BASE_URL}/scp-7503", "scp-7503", 1, "scp", order=2),
+        PageRef("SCP-6445", f"{BASE_URL}/scp-6445", "scp-6445", 1, "scp", order=3),
+        PageRef("SCP-2814", f"{BASE_URL}/scp-2814", "scp-2814", 1, "scp", order=4),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(owners, config.manifest_dir / "test-volume.json")
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-1898": simple_page(
+                "SCP-1898",
+                "<p>附录-1898-1：相关SCP-1898图片</p>"
+                '<a href="/scp-1898-appendix">SCP-1898 附录文档</a>',
+            ),
+            "scp-1898-appendix": simple_page("SCP-1898 相关图片", "1898 附件正文。"),
+            "scp-7503": simple_page(
+                "SCP-7503",
+                "".join(
+                    f'<a href="/scp-7503-offset-{index}">SCP-7503 附录文档 {index}</a>'
+                    for index in range(1, 5)
+                ),
+            ),
+            "scp-7503-offset-1": simple_page("Offset 1", "7503 迭代 1。"),
+            "scp-7503-offset-2": simple_page("Offset 2", "7503 迭代 2。"),
+            "scp-7503-offset-3": simple_page("Offset 3", "7503 迭代 3。"),
+            "scp-7503-offset-4": simple_page("Offset 4", "7503 迭代 4。"),
+            "scp-6445": simple_page(
+                "SCP-6445",
+                '<a href="/scp-6445-offset-1">SCP-6445 附录文档</a>',
+            ),
+            "scp-6445-offset-1": simple_page("Offset 1", "6445 附件正文。"),
+            "scp-2814": simple_page(
+                "SCP-2814",
+                '<a href="/scp-2814-appendix">SCP-2814 附录文档</a>'
+                '<div class="footnotes-footer"><div class="title">Footnotes</div></div>',
+            ),
+            "scp-2814-appendix": simple_page("Document 2814-Gamma", "2814 附件正文。"),
+        },
+    )
+
+    output_path = build_volume(config, "001-099", fetcher=fetcher)
+
+    report = json.loads(
+        (config.output_dir / "reports" / "test-volume-report.json").read_text(encoding="utf-8")
+    )
+    assert report["slugs"] == [entry.slug for entry in owners]
+    assert "原文附属文档" not in report["titles"]
+
+    with zipfile.ZipFile(output_path) as archive:
+        names = "\n".join(archive.namelist())
+        opf = archive.read("OEBPS/content.opf").decode("utf-8")
+        nav = archive.read("OEBPS/nav.xhtml").decode("utf-8")
+        ncx = archive.read("OEBPS/toc.ncx").decode("utf-8")
+        chapters = {
+            entry.slug: archive.read(
+                f"OEBPS/text/{entry.order:04d}-{entry.slug}.xhtml"
+            ).decode("utf-8")
+            for entry in owners
+        }
+
+    companion_slugs = [
+        document.slug
+        for documents in companion_specs.values()
+        for document in documents
+    ]
+    for companion_slug in companion_slugs:
+        assert companion_slug not in names
+        assert companion_slug not in opf
+        assert companion_slug not in nav
+        assert companion_slug not in ncx
+    assert "原文附属文档" not in opf
+    assert "原文附属文档" not in nav
+    assert "原文附属文档" not in ncx
+    assert "1898 附件正文。" in chapters["scp-1898"]
+    assert [chapters["scp-7503"].index(f"7503 迭代 {index}。") for index in range(1, 5)] == sorted(
+        chapters["scp-7503"].index(f"7503 迭代 {index}。") for index in range(1, 5)
+    )
+    assert "6445 附件正文。" in chapters["scp-6445"]
+    assert chapters["scp-2814"].index("2814 附件正文。") < chapters["scp-2814"].index(
+        "Footnotes"
+    )
+
+
 def test_build_volume_force_rebuilds_existing_manifest_from_refreshed_sources(tmp_path: Path):
     config = app_config(tmp_path)
     stale_manifest = [
