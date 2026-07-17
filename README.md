@@ -20,6 +20,7 @@
 
 - Python 3.11 或更高版本
 - Windows PowerShell、PowerShell Core 或其他可运行 Python 的终端
+- 可选：Calibre（使用 `build --kindle` 生成 AZW3 时需要，命令 `ebook-convert` 必须可用）
 
 建议在虚拟环境中安装依赖：
 
@@ -77,6 +78,30 @@ python -m scp_epub --config config/featured-scp.yaml build --volume featured
 output/epub/SCP基金会档案精选.epub
 output/reports/SCP基金会档案精选-report.json
 ```
+
+### 构建 Kindle Scribe 优化版
+
+安装 Calibre 后，可为 Featured 精选集同时生成 Kindle 优化 EPUB 和 AZW3：
+
+```powershell
+python -m scp_epub --config config/featured-scp.yaml build --volume featured --kindle
+```
+
+生成结果：
+
+```text
+output/epub/SCP基金会档案精选-Kindle.epub
+output/azw3/SCP基金会档案精选-Kindle.azw3
+output/reports/SCP基金会档案精选-Kindle-report.json
+```
+
+Kindle EPUB 使用适合 AZW3/KF8 的专用样式，并由 Calibre 的
+`kindle_scribe` 输出配置转换；已有目录会被复用，不会插入重复的正文目录。
+该 AZW3 适用于通过 Calibre 和 USB 传入 Kindle Scribe。
+
+`--kindle` 是可选参数。不带该参数时，原有 EPUB 文件名、样式和构建行为不变。
+如果未安装 Calibre 或转换失败，命令会保留已生成的 Kindle EPUB 和报告、删除临时
+AZW3，并以错误退出；不会用不完整文件覆盖已有 AZW3。
 
 ## 常用命令
 
@@ -178,6 +203,8 @@ src/scp_epub/
   transform.py    HTML 正文清洗与链接/资源标准化
   assets.py       图片等资源本地化
   epub.py         EPUB 写入与构建报告
+  kindle.py       Kindle XHTML/CSS 适配与 Calibre AZW3 转换
+  styles/         EPUB 打包使用的可选样式资源
   config.py       YAML 配置加载与校验
   models.py       数据模型
   urls.py         URL 与文件名工具
@@ -232,6 +259,7 @@ pytest -q
 - `tests/test_transform.py`
 - `tests/test_assets.py`
 - `tests/test_epub.py`
+- `tests/test_kindle.py`
 
 修改目录或清单逻辑时重点关注：
 
@@ -244,6 +272,10 @@ pytest -q
 
 - `tests/test_cli.py`
 - `tests/test_config.py`
+
+修改 Kindle 输出时，需要覆盖 CLI、pipeline、stylesheet、转换失败和普通构建回归，
+重点关注 `tests/test_kindle.py`、`tests/test_cli.py`、`tests/test_pipeline.py` 和
+`tests/test_epub.py`。
 
 ## 开发注意事项
 

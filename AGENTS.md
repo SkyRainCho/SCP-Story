@@ -40,6 +40,16 @@ python -m scp_epub --config config/series-1.yaml build --volume 001-099
 python -m scp_epub --config config/featured-scp.yaml build --volume featured
 ```
 
+构建 Kindle Scribe 优化版精选样书：
+
+```powershell
+python -m scp_epub --config config/featured-scp.yaml build --volume featured --kindle
+```
+
+该命令生成 `output/epub/SCP基金会档案精选-Kindle.epub`、
+`output/azw3/SCP基金会档案精选-Kindle.azw3` 和独立构建报告。它依赖系统中可用的
+Calibre `ebook-convert`。不带 `--kindle` 时，原有 EPUB 输出、CSS 和命名必须保持不变。
+
 该配置从英文站 Featured SCP Archive 起始页递归读取归档分页，但 EPUB 正文使用中文站同 slug 的 SCP 主文档。精选书的主清单由 Featured 页面决定，并按页面条目编号排序；构建时仍可按高置信规则纳入主文档中的原文附属文档。
 
 扫描 Series 1 的 001-099 样书中可能需要额外处理的高置信附属文档链接：
@@ -86,6 +96,12 @@ HTML 清洗逻辑需要特别注意以下已知模式：
 - 浮动图片块需要避免覆盖后续虚线框、引用框或折叠内容。
 - `authorbox` 等作者元数据卡片不应进入正文。
 - `scene-break` SCP 图标应保持小尺寸居中，不应按普通图片放大。
+
+修改 Kindle 输出时，需要覆盖 `tests/test_kindle.py`、`tests/test_cli.py`、
+`tests/test_pipeline.py` 和 `tests/test_epub.py`。Kindle CSS 应避免依赖 KF8 不稳定的
+Grid、Flexbox、生成内容伪元素和结构伪类；许可等级等语义内容必须写入真实 XHTML，
+不能只存在于 CSS `content` 中。Calibre 转换必须使用临时 AZW3 和原子替换，失败时
+保留 Kindle EPUB、报告及已有有效 AZW3。
 
 `scan-linked-appendices` 的候选规则必须保持保守：宁可漏掉边缘链接，也不要把普通 SCP 交叉引用、系列推荐、作者页、授权页、论坛页或系统组件误报为需要打包的附属文档。正常 `build` 会把成功抓取的候选页面插入来源页面下的 `原文附属文档` 分组中，且只展开一层，不递归追踪附属页面里的链接。放宽规则或调整分组结构时必须补充测试，证明普通链接不会被误报，已有故事子目录不会和附属文档混淆。
 
