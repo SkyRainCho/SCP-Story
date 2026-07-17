@@ -6,7 +6,7 @@ from typing import Any
 
 import yaml
 
-from .models import AppConfig, ConfiguredLink, ConfiguredPage, VolumeSpec
+from .models import AppendixSection, AppendixSpec, AppConfig, ConfiguredLink, ConfiguredPage, VolumeSpec
 from .urls import normalize_url, slug_from_url
 
 
@@ -105,6 +105,11 @@ def load_config(path: str | Path) -> AppConfig:
         page_tab_includes=_load_string_tuple_mapping(
             data.get("page_tab_includes", {}),
             "page_tab_includes",
+        ),
+        appendix=_load_appendix(
+            data.get("appendix"),
+            "appendix",
+            _required_string(data["base_url"], "base_url").rstrip("/"),
         ),
     )
 
@@ -209,6 +214,45 @@ def _load_string_tuple_mapping(value: Any, name: str) -> dict[str, tuple[str, ..
             f"{name}.{key}",
         )
     return result
+
+
+def _load_appendix(value: Any, name: str, base_url: str) -> AppendixSpec | None:
+    if value is None:
+        return None
+
+    appendix = _mapping(value, name)
+    title = _required_string(appendix.get("title"), f"{name}.title")
+    slug = _required_string(appendix.get("slug"), f"{name}.slug").strip().lower()
+    raw_sections = appendix.get("sections")
+    if not isinstance(raw_sections, list):
+        raise ValueError(f"{name}.sections must be a list of section mappings")
+
+    sections: list[AppendixSection] = []
+    for index, raw_section in enumerate(raw_sections):
+        section_name = f"{name}.sections[{index}]"
+        section = _mapping(raw_section, section_name)
+        section_title = _required_string(section.get("title"), f"{section_name}.title")
+        raw_url = _required_string(section.get("url"), f"{section_name}.url")
+        url = normalize_url(base_url, raw_url)
+        section_slug = _optional_string(section.get("slug"), f"{section_name}.slug") or slug_from_url(url)
+        mode = _optional_appendix_mode(section.get("mode", "page"), f"{section_name}.mode")
+        include_tabs = _optional_string_tuple(section.get("include_tabs"), f"{section_name}.include_tabs")
+        unwrap_single_tab = _optional_bool(
+            section.get("unwrap_single_tab", False),
+            f"{section_name}.unwrap_single_tab",
+        )
+        sections.append(
+            AppendixSection(
+                title=section_title,
+                url=url,
+                slug=section_slug,
+                mode=mode,
+                include_tabs=include_tabs,
+                unwrap_single_tab=unwrap_single_tab,
+            )
+        )
+
+    return AppendixSpec(title=title, slug=slug, sections=tuple(sections))
 
 
 def _workspace_path(workspace: Path, key: str, value: Any) -> Path:
@@ -331,6 +375,15 @@ def _optional_index_mode(value: Any) -> str:
     mode = _required_string(value, "index_mode")
     if mode not in {"tales", "featured-scp-archive"}:
         raise ValueError("index_mode must be 'tales' or 'featured-scp-archive'")
+    return mode
+
+
+def _optional_appendix_mode(value: Any, name: str) -> str:
+    mode = _required_string(value, name)
+    if mode not in {"page", "facility-links", "tabs-as-pages"}:
+        raise ValueError(
+            f"{name} must be 'page', 'facility-links', or 'tabs-as-pages'"
+        )
     return mode
 
 

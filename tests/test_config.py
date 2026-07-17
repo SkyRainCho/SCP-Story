@@ -119,6 +119,30 @@ def test_featured_scp_config_uses_archive_mode_and_title_indexes():
     assert list(config.volumes) == ["featured"]
 
 
+def test_featured_scp_config_declares_appendix_structure():
+    config = load_config(Path("config/featured-scp.yaml"))
+
+    assert config.appendix is not None
+    assert config.appendix.title == "附录"
+    assert [section.title for section in config.appendix.sections] == [
+        "项目等级",
+        "安保许可等级",
+        "基金会设施",
+        "基金会部门",
+        "人事档案",
+        "O5指挥部档案",
+        "相关组织",
+        "相关地点",
+    ]
+    sections_by_title = {section.title: section for section in config.appendix.sections}
+    assert sections_by_title["安保许可等级"].mode == "page"
+    assert sections_by_title["安保许可等级"].include_tabs == ("简介",)
+    assert sections_by_title["安保许可等级"].unwrap_single_tab is True
+    assert sections_by_title["基金会设施"].mode == "facility-links"
+    assert sections_by_title["人事档案"].mode == "tabs-as-pages"
+    assert sections_by_title["O5指挥部档案"].mode == "tabs-as-pages"
+
+
 @pytest.mark.parametrize(
     ("series_number", "first_key"),
     [

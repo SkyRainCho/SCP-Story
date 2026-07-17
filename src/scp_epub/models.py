@@ -31,6 +31,23 @@ class ConfiguredLink:
 
 
 @dataclass(frozen=True)
+class AppendixSection:
+    title: str
+    url: str
+    slug: str
+    mode: str = "page"
+    include_tabs: tuple[str, ...] = ()
+    unwrap_single_tab: bool = False
+
+
+@dataclass(frozen=True)
+class AppendixSpec:
+    title: str
+    slug: str
+    sections: tuple[AppendixSection, ...]
+
+
+@dataclass(frozen=True)
 class AppConfig:
     workspace: Path
     series_id: str
@@ -59,6 +76,7 @@ class AppConfig:
     front_matter_pages: tuple[ConfiguredPage, ...] = ()
     explicit_linked_appendices: dict[str, tuple[ConfiguredLink, ...]] = field(default_factory=dict)
     page_tab_includes: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    appendix: AppendixSpec | None = None
 
     @property
     def index_url(self) -> str:

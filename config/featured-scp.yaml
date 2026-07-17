@@ -24,6 +24,32 @@ explicit_linked_appendices:
 page_tab_includes:
   about-the-scp-foundation:
     - 简介
+appendix:
+  title: 附录
+  slug: appendix
+  sections:
+    - title: 项目等级
+      url: /object-classes
+    - title: 安保许可等级
+      url: /security-clearance-levels
+      include_tabs:
+        - 简介
+      unwrap_single_tab: true
+    - title: 基金会设施
+      url: /secure-facilities-locations
+      mode: facility-links
+    - title: 基金会部门
+      url: /departments
+    - title: 人事档案
+      url: /personnel-and-character-dossier
+      mode: tabs-as-pages
+    - title: O5指挥部档案
+      url: /o5-command-dossier
+      mode: tabs-as-pages
+    - title: 相关组织
+      url: /groups-of-interest
+    - title: 相关地点
+      url: /locations-of-interest
 index_path: /featured-scp-archive
 series_index_path: /scp-series
 scp001_path: /scp-001
