@@ -630,9 +630,18 @@ def _remove_nested_author_work_links(page_content: Tag) -> None:
     for link in list(page_content.find_all("a")):
         if not _is_author_work_list_label(link.get_text(" ", strip=True)):
             continue
+        logical_link_wrapper = link.find_parent(class_="logical-link-wrap")
+        if not isinstance(logical_link_wrapper, Tag) or not _is_terminal_article_block(
+            None,
+            logical_link_wrapper,
+            page_content,
+        ):
+            continue
         layout_block = _nearest_standalone_layout_block(link, page_content)
-        if layout_block is not None:
+        if layout_block is not None and _is_standalone_layout_wrapper(layout_block):
             layout_block.decompose()
+        else:
+            logical_link_wrapper.decompose()
 
 
 def _nearest_standalone_layout_block(tag: Tag, page_content: Tag) -> Tag | None:
@@ -642,6 +651,11 @@ def _nearest_standalone_layout_block(tag: Tag, page_content: Tag) -> Tag | None:
             return current
         current = current.parent
     return None
+
+
+def _is_standalone_layout_wrapper(block: Tag) -> bool:
+    style = str(block.get("style", "")).lower()
+    return block.name in {"div", "section"} and "text-align" in style
 
 
 def _is_author_work_list_label(text: str) -> bool:

@@ -1576,6 +1576,59 @@ def test_removes_nested_author_work_link_from_centered_wrapper_when_enabled():
     assert soup.find(id="ordinary") is not None
 
 
+def test_preserves_non_terminal_article_body_author_label_links_when_enabled():
+    html = """
+    <html><body><div id="page-content">
+      <div id="article-body">
+        <p><a id="english-body-link" href="/reference">More by this author</a> is cited in this paragraph.</p>
+        <p><a id="chinese-body-link" href="/reference">该作者的更多作品</a>是本段引用的一部分。</p>
+        <p id="after-links">后续正文。</p>
+      </div>
+      <div class="footnotes-footer"><div>1. 注释。</div></div>
+      <div style="text-align: center;" id="author-work-wrapper">
+        <p><strong><span class="logical-link-wrap"><span class="logical-link-custom"><a href="/author">此作者的更多作品</a></span><span class="logical-link-original"><span class="logical-link-custom"><a href="https://example.test/author">More by this author</a></span></span></span></strong></p>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-4233"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_author_work_list=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="article-body") is not None
+    assert soup.find(id="english-body-link") is not None
+    assert soup.find(id="chinese-body-link") is not None
+    assert soup.find(id="after-links") is not None
+    assert soup.find(id="author-work-wrapper") is None
+
+
+def test_preserves_terminal_article_body_when_removing_logical_author_link():
+    html = """
+    <html><body><div id="page-content">
+      <div id="article-body">
+        <p id="before-link">正文。</p>
+        <p><strong><span class="logical-link-wrap"><span class="logical-link-custom"><a id="author-work-link" href="/author">More by this author</a></span></span></strong></p>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-4233"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_author_work_list=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="article-body") is not None
+    assert soup.find(id="author-work-link") is None
+    assert soup.find(id="before-link") is not None
+
+
 def test_preserves_author_work_list_when_cleanup_is_disabled_or_not_terminal():
     terminal_html = """
     <html><body><div id="page-content">
