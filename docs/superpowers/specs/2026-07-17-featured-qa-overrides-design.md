@@ -47,7 +47,7 @@ Each immutable `PageOverride` supports these independent fields:
 - `remove_author_work_list`: remove a qualifying author-work-list block.
 - `layout_profile`: an explicit profile name for a page-specific layout repair.
 - `inline_documents`: ordered `InlineDocumentSpec` values with a URL, title,
-  insertion rule, and optional end boundary.
+  insertion rule, and optional insertion anchor.
 
 An inline insertion rule is one of:
 
