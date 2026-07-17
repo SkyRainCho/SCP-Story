@@ -66,16 +66,16 @@ page_overrides:
   scp-7503:
     inline_documents:
       - title: SCP-7503 Offset 1
-        url: /offset/1
+        url: /scp-7503/offset/1
         position: append
       - title: SCP-7503 Offset 2
-        url: /offset/2
+        url: /scp-7503/offset/2
         position: append
       - title: SCP-7503 Offset 3
-        url: /offset/3
+        url: /scp-7503/offset/3
         position: append
       - title: SCP-7503 Offset 4
-        url: /offset/4
+        url: /scp-7503/offset/4
         position: append
   scp-6445:
     inline_documents:

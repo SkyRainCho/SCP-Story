@@ -221,7 +221,7 @@ def test_featured_scp_config_declares_page_overrides():
         )
     ]
     assert [document.url for document in config.page_overrides["scp-7503"].inline_documents] == [
-        f"https://scp-wiki-cn.wikidot.com/offset/{index}" for index in range(1, 5)
+        f"https://scp-wiki-cn.wikidot.com/scp-7503/offset/{index}" for index in range(1, 5)
     ]
     assert [document.position for document in config.page_overrides["scp-7503"].inline_documents] == [
         "append",
@@ -256,6 +256,13 @@ def test_featured_scp_config_declares_page_overrides():
         (
             """\
   scp-1234:
+    remove_terminal_navigtion: true
+""",
+            "page_overrides.scp-1234 contains unknown keys: remove_terminal_navigtion",
+        ),
+        (
+            """\
+  scp-1234:
     layout_profile: false
 """,
             "page_overrides.scp-1234.layout_profile must be a non-empty string",
@@ -274,6 +281,17 @@ def test_featured_scp_config_declares_page_overrides():
       - invalid
 """,
             "page_overrides.scp-1234.inline_documents[0] must be a mapping",
+        ),
+        (
+            """\
+  scp-1234:
+    inline_documents:
+      - title: Supplement
+        url: /supplement
+        position: append
+        anchor: Appendix
+""",
+            "page_overrides.scp-1234.inline_documents[0] contains unknown keys: anchor",
         ),
         (
             """\

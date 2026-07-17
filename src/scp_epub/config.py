@@ -243,6 +243,18 @@ def _load_page_overrides(
         slug = _required_string(raw_slug, f"{name} key").strip().lower()
         override_name = f"{name}.{slug}"
         override = _mapping(raw_override, override_name)
+        _reject_unknown_keys(
+            override,
+            {
+                "remove_terminal_navigation",
+                "remove_leading_metadata",
+                "remove_adult_content_warning",
+                "remove_author_work_list",
+                "layout_profile",
+                "inline_documents",
+            },
+            override_name,
+        )
         overrides[slug] = PageOverride(
             remove_terminal_navigation=_optional_bool(
                 override.get("remove_terminal_navigation", False),
@@ -287,6 +299,11 @@ def _load_inline_documents(
     for index, raw_document in enumerate(value):
         document_name = f"{name}[{index}]"
         document = _mapping(raw_document, document_name)
+        _reject_unknown_keys(
+            document,
+            {"title", "url", "slug", "position", "anchor_text"},
+            document_name,
+        )
         title = _required_string(document.get("title"), f"{document_name}.title")
         raw_url = _required_string(document.get("url"), f"{document_name}.url")
         url = normalize_url(base_url, raw_url)
@@ -489,6 +506,16 @@ def _inline_document_position(value: Any, name: str) -> str:
     if position not in {"after_text", "before_text", "append"}:
         raise ValueError(f"{name} must be 'after_text', 'before_text', or 'append'")
     return position
+
+
+def _reject_unknown_keys(
+    value: dict[str, Any],
+    allowed_keys: set[str],
+    name: str,
+) -> None:
+    unknown_keys = sorted(str(key) for key in value.keys() if key not in allowed_keys)
+    if unknown_keys:
+        raise ValueError(f"{name} contains unknown keys: {', '.join(unknown_keys)}")
 
 
 def _mapping(value: Any, name: str) -> dict[str, Any]:
