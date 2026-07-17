@@ -496,6 +496,7 @@ def write_epub(
     assets: list[AssetRef] | tuple[AssetRef, ...] = (),
     remote_resource_page_slugs: set[str] | tuple[str, ...] | list[str] = (),
     cover_image_path: Path | None = None,
+    book_css: str = BOOK_CSS,
 ) -> Path:
     ordered_pages = _ordered_pages(pages)
     if not ordered_pages:
@@ -532,7 +533,7 @@ def write_epub(
         )
         archive.writestr("OEBPS/nav.xhtml", _nav_xhtml(title=title, language=language, page_entries=page_entries))
         archive.writestr("OEBPS/toc.ncx", _toc_ncx(title=title, identifier=book_identifier, page_entries=page_entries))
-        archive.writestr("OEBPS/styles/book.css", BOOK_CSS)
+        archive.writestr("OEBPS/styles/book.css", book_css)
         if cover_entry:
             archive.writestr("OEBPS/cover.xhtml", _cover_xhtml(cover_entry, title=title, language=language))
             archive.write(cover_entry.path, cover_entry.archive_path)

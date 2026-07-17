@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from scp_epub.assets import AssetRef
-from scp_epub.epub import write_build_report, write_epub
+from scp_epub.epub import BOOK_CSS, write_build_report, write_epub
 from scp_epub.models import PageRef, ProcessedPage
 
 
@@ -68,6 +68,36 @@ def test_write_epub_creates_epub_zip_with_required_files(tmp_path: Path):
         assert "OEBPS/toc.ncx" in names
         assert "OEBPS/text/0001-old_kalinins-proposal.xhtml" in names
         assert "OEBPS/text/0002-scp-002.xhtml" in names
+
+
+def test_write_epub_accepts_custom_css_without_changing_default(tmp_path: Path):
+    page = _page("scp-001", "SCP-001", 1)
+    default_path = tmp_path / "default.epub"
+    custom_path = tmp_path / "custom.epub"
+
+    write_epub(
+        [page],
+        default_path,
+        title="SCP",
+        language="zh-CN",
+        creator="SCP",
+    )
+    write_epub(
+        [page],
+        custom_path,
+        title="SCP",
+        language="zh-CN",
+        creator="SCP",
+        book_css="body { color: black; }\n",
+    )
+
+    with zipfile.ZipFile(default_path) as archive:
+        default_css = archive.read("OEBPS/styles/book.css").decode("utf-8")
+    with zipfile.ZipFile(custom_path) as archive:
+        custom_css = archive.read("OEBPS/styles/book.css").decode("utf-8")
+
+    assert default_css == BOOK_CSS
+    assert custom_css == "body { color: black; }\n"
 
 
 def test_write_epub_opf_manifest_spine_and_metadata_are_ordered(tmp_path: Path):
