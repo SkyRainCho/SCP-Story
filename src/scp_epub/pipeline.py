@@ -184,12 +184,14 @@ def fetch_manifest_pages(
     *,
     fetcher: PageFetcher | None = None,
     force: bool = False,
+    appendix_fetch_results: dict[tuple[str, str], FetchResult] | None = None,
 ) -> list[FetchResult]:
     return _fetch_manifest_entries(
         config,
         manifest,
         fetcher or make_fetcher(config),
         force=force,
+        appendix_fetch_results=appendix_fetch_results,
     )
 
 
@@ -466,6 +468,7 @@ def _fetch_manifest_entries(
     fetcher: PageFetcher,
     *,
     force: bool,
+    appendix_fetch_results: dict[tuple[str, str], FetchResult] | None = None,
 ) -> list[FetchResult]:
     cache = CacheStore(config.cache_dir)
     tab_fetch_results: dict[tuple[str, str], FetchResult] = {}
@@ -480,10 +483,18 @@ def _fetch_manifest_entries(
             source_key = _tab_source_key(config, entry)
             result = tab_fetch_results.get(source_key)
             if result is None:
-                result = fetcher.fetch_page(*source_key, force=force)
+                result = (appendix_fetch_results or {}).get(source_key)
+                if result is None:
+                    result = fetcher.fetch_page(*source_key, force=force)
                 tab_fetch_results[source_key] = result
         else:
-            result = fetcher.fetch_page(entry.slug, entry.url, force=force)
+            source_key = (entry.slug, entry.url)
+            if _is_configured_appendix_page_entry(config, entry):
+                result = (appendix_fetch_results or {}).get(source_key)
+            else:
+                result = None
+            if result is None:
+                result = fetcher.fetch_page(*source_key, force=force)
         results.append(result)
 
     return results
@@ -522,12 +533,24 @@ def run_command(args: Namespace) -> None:
         return
 
     if command == "fetch":
-        manifest = _load_or_build_manifest(config, args.volume, None, force=force)
-        results = (
-            fetch_manifest_pages(config, manifest, force=True)
-            if force
-            else fetch_manifest_pages(config, manifest)
-        )
+        if force:
+            active_fetcher = make_fetcher(config)
+            manifest, appendix_fetch_results = _load_or_build_manifest_for_build(
+                config,
+                args.volume,
+                active_fetcher,
+                force=True,
+            )
+            results = fetch_manifest_pages(
+                config,
+                manifest,
+                fetcher=active_fetcher,
+                force=True,
+                appendix_fetch_results=appendix_fetch_results,
+            )
+        else:
+            manifest = _load_or_build_manifest(config, args.volume, None, force=False)
+            results = fetch_manifest_pages(config, manifest)
         cache_hits = sum(1 for result in results if result.from_cache)
         print(f"Fetched {len(results)} pages ({cache_hits} from cache)")
         return

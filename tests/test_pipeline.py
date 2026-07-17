@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import zipfile
+from argparse import Namespace
 from pathlib import Path
 
 import pytest
@@ -23,6 +24,7 @@ from scp_epub.pipeline import (
     build_volume,
     fetch_build_pages,
     fetch_manifest_pages,
+    run_command,
     scan_linked_appendices_for_volume,
 )
 
@@ -820,6 +822,48 @@ def test_force_build_reuses_configured_appendix_sources_from_manifest_expansion(
 
     assert requested_urls.count(page_source_url) == 1
     assert requested_urls.count(tab_source_url) == 1
+
+
+def test_fetch_refresh_reuses_configured_appendix_sources_from_manifest_expansion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    source_url = f"{BASE_URL}/object-classes"
+    config = app_config(
+        tmp_path,
+        volume_key="featured",
+        index_mode="featured-scp-archive",
+        featured_archive_url="https://scp-wiki.wikidot.com/featured-scp-archive",
+        appendix=AppendixSpec(
+            title="附录",
+            slug="appendix",
+            sections=(AppendixSection("项目等级", source_url, "object-classes"),),
+        ),
+    )
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "featured-scp-archive": """
+              <div id="page-content"><p>1. <a href="/scp-173">SCP-173</a></p></div>
+            """,
+            "scp-173": simple_page("SCP-173"),
+            "object-classes": simple_page("项目等级"),
+        },
+    )
+    monkeypatch.setattr("scp_epub.pipeline.load_config", lambda _path: config)
+    monkeypatch.setattr("scp_epub.pipeline.make_fetcher", lambda _config: fetcher)
+
+    run_command(
+        Namespace(
+            config=tmp_path / "featured.yaml",
+            command="fetch",
+            volume="featured",
+            refresh=True,
+        )
+    )
+
+    assert [slug for slug, _url, _force in fetcher.calls].count("object-classes") == 1
+    assert all(force for _slug, _url, force in fetcher.calls)
 
 
 def test_build_volume_fetches_transforms_and_writes_epub_report_and_processed_files(tmp_path: Path):
