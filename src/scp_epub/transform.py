@@ -1290,11 +1290,13 @@ def _apply_scp_6599_layout_profile(page_content: Tag) -> None:
         _append_style_declaration(reddit_body, "max-width", "100%")
         _append_style_declaration(reddit_body, "clear", "both")
 
-    for image_block in page_content.find_all(_is_scp_image_block):
-        _stabilize_profile_image_block(image_block, "layout-profile-scp-6599-image")
-        if _style_property_value(image_block, "width") != "100px":
+    for image_block in page_content.select(".scp-image-block.block-center"):
+        if not _is_scp_6599_fixed_width_media(image_block):
             continue
-        _add_class_token(image_block, "layout-profile-scp-6599-inline-media")
+        _stabilize_profile_image_block(
+            image_block,
+            "layout-profile-scp-6599-inline-media",
+        )
         _append_style_declaration(image_block, "width", "100%")
 
 
@@ -1308,14 +1310,17 @@ def _stabilize_profile_image_block(image_block: Tag, class_name: str) -> None:
         _append_style_declaration(image, "height", "auto")
 
 
-def _is_scp_image_block(tag: Tag) -> bool:
-    return tag.name == "div" and "scp-image-block" in _class_tokens(tag)
-
-
 def _is_fixed_width_right_float(tag: Tag) -> bool:
     return (
         _style_property_value(tag, "float") == "right"
         and _style_property_value(tag, "width") == "93.5%"
+    )
+
+
+def _is_scp_6599_fixed_width_media(image_block: Tag) -> bool:
+    return _style_property_value(image_block, "width") == "100px" and any(
+        _style_property_value(image, "width") == "300px"
+        for image in image_block.find_all("img")
     )
 
 
@@ -1357,8 +1362,8 @@ LAYOUT_PROFILE_RULES: dict[str, LayoutProfileRule] = {
         apply=_apply_scp_6599_layout_profile,
         style_rules=(
             ".layout-profile-scp-6599-reddit-body {float: none; clear: both; width: auto; max-width: 100%;}"
-            "\n.layout-profile-scp-6599-image {float: none; clear: both; max-width: 100%;}"
-            "\n.layout-profile-scp-6599-image img {max-width: 100%; height: auto;}"
+            "\n.layout-profile-scp-6599-inline-media {float: none; clear: both; max-width: 100%;}"
+            "\n.layout-profile-scp-6599-inline-media img {max-width: 100%; height: auto;}"
         ),
     ),
 }

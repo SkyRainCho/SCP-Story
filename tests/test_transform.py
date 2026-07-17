@@ -99,6 +99,8 @@ def test_scp6599_layout_profile_normalizes_reddit_posts_and_nested_media():
     soup = soup_fragment(result.xhtml)
     reddit_body = soup.find(id="reddit-body")
     image_block = soup.find(id="meme-image")
+    wide_image = soup.find(id="wide-image")
+    portrait_image = soup.find(id="portrait-image")
 
     assert reddit_body is not None
     assert "layout-profile-scp-6599-reddit-body" in reddit_body["class"]
@@ -108,6 +110,12 @@ def test_scp6599_layout_profile_normalizes_reddit_posts_and_nested_media():
     assert "layout-profile-scp-6599-inline-media" in image_block["class"]
     assert "width: 100%" in image_block["style"]
     assert "max-width: 100%" in image_block.find("img")["style"]
+    assert wide_image is not None
+    assert wide_image["class"].split() == ["scp-image-block", "block-right"]
+    assert wide_image["style"] == "width: 45%"
+    assert portrait_image is not None
+    assert portrait_image["class"].split() == ["scp-image-block", "block-right"]
+    assert portrait_image["style"] == "width: 35%"
     assert "附录继续。" in soup.get_text(" ", strip=True)
 
 
