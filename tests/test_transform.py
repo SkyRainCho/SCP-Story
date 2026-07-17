@@ -8,6 +8,7 @@ from scp_epub.transform import PageTransformOptions, insert_inline_fragments, tr
 
 
 FIXTURE = Path(__file__).parent / "fixtures" / "page_sample.html"
+FEATURED_LAYOUT_FIXTURES = Path(__file__).parent / "fixtures" / "featured-layout"
 BASE_URL = "https://scp-wiki-cn.wikidot.com/scp-999"
 
 
@@ -27,6 +28,87 @@ def transformed(manifest_slugs: set[str] | None = None):
 
 def soup_fragment(xhtml: str) -> BeautifulSoup:
     return BeautifulSoup(f"<root>{xhtml}</root>", "xml")
+
+
+@pytest.mark.parametrize("profile", ("scp-6183", "scp-4612", "scp-6599"))
+def test_featured_layout_profiles_leave_unselected_fixture_output_unchanged(profile: str):
+    html = (FEATURED_LAYOUT_FIXTURES / f"{profile}.html").read_text(encoding="utf-8")
+
+    default = transform_page(page_ref(profile), html, BASE_URL)
+    unselected = transform_page(
+        page_ref(profile),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(),
+    )
+
+    assert unselected.xhtml == default.xhtml
+    assert "layout-profile-" not in default.xhtml
+
+
+def test_scp6183_layout_profile_stabilizes_image_block_inside_table():
+    html = (FEATURED_LAYOUT_FIXTURES / "scp-6183.html").read_text(encoding="utf-8")
+
+    result = transform_page(
+        page_ref("scp-6183"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(layout_profile="scp-6183"),
+    )
+    soup = soup_fragment(result.xhtml)
+    image_block = soup.find(id="table-image")
+
+    assert image_block is not None
+    assert "layout-profile-scp-6183-table-image" in image_block["class"]
+    assert "float: none" in image_block["style"]
+    assert "max-width: 100%" in image_block["style"]
+    assert soup.find(id="table-image").find("img")["style"] == "max-width: 100%; height: auto"
+    assert soup.find("iframe") is None
+    assert "图像后的表格内容。" in soup.get_text(" ", strip=True)
+
+
+def test_scp4612_layout_profile_stabilizes_right_floated_image_blocks():
+    html = (FEATURED_LAYOUT_FIXTURES / "scp-4612.html").read_text(encoding="utf-8")
+
+    result = transform_page(
+        page_ref("scp-4612"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(layout_profile="scp-4612"),
+    )
+    soup = soup_fragment(result.xhtml)
+    image_block = soup.find(id="estate-image")
+
+    assert image_block is not None
+    assert "layout-profile-scp-4612-image" in image_block["class"]
+    assert "float: none" in image_block["style"]
+    assert "clear: both" in image_block["style"]
+    assert "max-width: 100%" in image_block.find("img")["style"]
+    assert "宅邸的调查仍在继续。" in soup.get_text(" ", strip=True)
+
+
+def test_scp6599_layout_profile_normalizes_reddit_posts_and_nested_media():
+    html = (FEATURED_LAYOUT_FIXTURES / "scp-6599.html").read_text(encoding="utf-8")
+
+    result = transform_page(
+        page_ref("scp-6599"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(layout_profile="scp-6599"),
+    )
+    soup = soup_fragment(result.xhtml)
+    reddit_body = soup.find(id="reddit-body")
+    image_block = soup.find(id="meme-image")
+
+    assert reddit_body is not None
+    assert "layout-profile-scp-6599-reddit-body" in reddit_body["class"]
+    assert "float: none" in reddit_body["style"]
+    assert "width: auto" in reddit_body["style"]
+    assert image_block is not None
+    assert "layout-profile-scp-6599-inline-media" in image_block["class"]
+    assert "width: 100%" in image_block["style"]
+    assert "max-width: 100%" in image_block.find("img")["style"]
+    assert "附录继续。" in soup.get_text(" ", strip=True)
 
 
 def test_transforms_only_page_content_and_removes_wikidot_chrome():

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from html import escape
 from urllib.parse import urlparse
@@ -243,6 +243,13 @@ class PageTransformOptions:
     remove_leading_metadata: bool = False
     remove_adult_content_warning: bool = False
     remove_author_work_list: bool = False
+    layout_profile: str | None = None
+
+
+@dataclass(frozen=True)
+class LayoutProfileRule:
+    apply: Callable[[Tag], None]
+    style_rules: str
 
 
 def transform_page(
@@ -272,7 +279,12 @@ def transform_page(
     for tag in list(page_content.find_all(_is_unwanted_element)):
         tag.decompose()
 
-    _apply_page_cleanup_options(entry, page_content, page_options or PageTransformOptions())
+    profile_style_rules = _apply_page_cleanup_options(
+        entry,
+        page_content,
+        page_options or PageTransformOptions(),
+    )
+    page_styles = _append_page_style_rules(page_styles, profile_style_rules)
 
     if _has_interactive_article_layout(page_content):
         _linearize_interactive_article_layout(page_content)
@@ -436,7 +448,7 @@ def _apply_page_cleanup_options(
     entry: PageRef,
     page_content: Tag,
     options: PageTransformOptions,
-) -> None:
+) -> str:
     if options.remove_terminal_navigation:
         _remove_terminal_navigation(entry, page_content)
     if options.remove_leading_metadata and entry.slug == "scp-5464":
@@ -445,6 +457,13 @@ def _apply_page_cleanup_options(
         _remove_scp_7069_adult_warning(page_content)
     if options.remove_author_work_list:
         _remove_terminal_author_work_list(page_content)
+
+    layout_profile_rule = LAYOUT_PROFILE_RULES.get(options.layout_profile)
+    if layout_profile_rule is None:
+        return ""
+
+    layout_profile_rule.apply(page_content)
+    return layout_profile_rule.style_rules
 
 
 def _remove_terminal_navigation(entry: PageRef, page_content: Tag) -> None:
@@ -1243,6 +1262,106 @@ def _last_child_clears_floats(tag: Tag) -> bool:
         style = child.get("style")
         return isinstance(style, str) and "clear" in style.lower() and "both" in style.lower()
     return False
+
+
+def _apply_scp_6183_layout_profile(page_content: Tag) -> None:
+    for image_block in page_content.select("table .scp-image-block"):
+        _stabilize_profile_image_block(
+            image_block,
+            "layout-profile-scp-6183-table-image",
+        )
+
+
+def _apply_scp_4612_layout_profile(page_content: Tag) -> None:
+    for image_block in page_content.select(".scp-image-block.block-right"):
+        _stabilize_profile_image_block(
+            image_block,
+            "layout-profile-scp-4612-image",
+        )
+
+
+def _apply_scp_6599_layout_profile(page_content: Tag) -> None:
+    for reddit_body in page_content.select(".reddit-post > div"):
+        if not _is_fixed_width_right_float(reddit_body):
+            continue
+        _add_class_token(reddit_body, "layout-profile-scp-6599-reddit-body")
+        _append_style_declaration(reddit_body, "float", "none")
+        _append_style_declaration(reddit_body, "width", "auto")
+        _append_style_declaration(reddit_body, "max-width", "100%")
+        _append_style_declaration(reddit_body, "clear", "both")
+
+    for image_block in page_content.find_all(_is_scp_image_block):
+        _stabilize_profile_image_block(image_block, "layout-profile-scp-6599-image")
+        if _style_property_value(image_block, "width") != "100px":
+            continue
+        _add_class_token(image_block, "layout-profile-scp-6599-inline-media")
+        _append_style_declaration(image_block, "width", "100%")
+
+
+def _stabilize_profile_image_block(image_block: Tag, class_name: str) -> None:
+    _add_class_token(image_block, class_name)
+    _append_style_declaration(image_block, "float", "none")
+    _append_style_declaration(image_block, "clear", "both")
+    _append_style_declaration(image_block, "max-width", "100%")
+    for image in image_block.find_all("img"):
+        _append_style_declaration(image, "max-width", "100%")
+        _append_style_declaration(image, "height", "auto")
+
+
+def _is_scp_image_block(tag: Tag) -> bool:
+    return tag.name == "div" and "scp-image-block" in _class_tokens(tag)
+
+
+def _is_fixed_width_right_float(tag: Tag) -> bool:
+    return (
+        _style_property_value(tag, "float") == "right"
+        and _style_property_value(tag, "width") == "93.5%"
+    )
+
+
+def _style_property_value(tag: Tag, property_name: str) -> str | None:
+    style = tag.get("style")
+    if not isinstance(style, str):
+        return None
+    normalized_property = property_name.lower()
+    for declaration in style.split(";"):
+        name, separator, value = declaration.partition(":")
+        if separator and name.strip().lower() == normalized_property:
+            return value.strip().lower()
+    return None
+
+
+def _add_class_token(tag: Tag, class_name: str) -> None:
+    classes = list(tag.get("class", []))
+    if class_name not in classes:
+        classes.append(class_name)
+    tag["class"] = classes
+
+
+LAYOUT_PROFILE_RULES: dict[str, LayoutProfileRule] = {
+    "scp-6183": LayoutProfileRule(
+        apply=_apply_scp_6183_layout_profile,
+        style_rules=(
+            ".layout-profile-scp-6183-table-image {float: none; clear: both; max-width: 100%;}"
+            "\n.layout-profile-scp-6183-table-image img {max-width: 100%; height: auto;}"
+        ),
+    ),
+    "scp-4612": LayoutProfileRule(
+        apply=_apply_scp_4612_layout_profile,
+        style_rules=(
+            ".layout-profile-scp-4612-image {float: none; clear: both; max-width: 100%;}"
+            "\n.layout-profile-scp-4612-image img {max-width: 100%; height: auto;}"
+        ),
+    ),
+    "scp-6599": LayoutProfileRule(
+        apply=_apply_scp_6599_layout_profile,
+        style_rules=(
+            ".layout-profile-scp-6599-reddit-body {float: none; clear: both; width: auto; max-width: 100%;}"
+            "\n.layout-profile-scp-6599-image {float: none; clear: both; max-width: 100%;}"
+            "\n.layout-profile-scp-6599-image img {max-width: 100%; height: auto;}"
+        ),
+    ),
+}
 
 
 def _css_content_value(style_body: str) -> str | None:
