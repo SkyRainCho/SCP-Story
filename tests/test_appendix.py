@@ -50,6 +50,22 @@ def test_extract_facility_children_selects_labelled_same_site_links_in_source_or
     ]
 
 
+def test_extract_facility_children_deduplicates_host_case_and_query_variants():
+    parent = page_ref("secure-facilities-locations", title="基金会设施")
+    html = """
+    <div id="page-content">
+      <a href="https://SCP-WIKI-CN.WIKIDOT.COM/Site-19?source=directory">安保设施档案：Site-19</a>
+      <a href="/site-19?view=full">安保设施档案：重复的 Site-19</a>
+    </div>
+    """
+
+    children = extract_facility_children(parent, html, BASE_URL)
+
+    assert [(entry.title, entry.url, entry.slug) for entry in children] == [
+        ("安保设施档案：Site-19", f"{BASE_URL}/site-19", "site-19"),
+    ]
+
+
 def test_extract_tab_children_uses_only_direct_tabviews_and_panels():
     parent = page_ref("personnel-and-character-dossier", title="人事档案")
     html = """
@@ -84,6 +100,19 @@ def test_extract_tab_children_uses_only_direct_tabviews_and_panels():
         (3, parent.slug, "appendix-tab"),
         (3, parent.slug, "appendix-tab"),
     ]
+
+
+def test_extract_tab_children_rejects_a_tabview_without_direct_navigation():
+    parent = page_ref("personnel-and-character-dossier", title="人事档案")
+    html = """
+    <div id="page-content">
+      <div class="yui-navset">
+        <div class="yui-content"><div>孤立面板内容</div></div>
+      </div>
+    </div>
+    """
+
+    assert extract_tab_children(parent, html) == []
 
 
 def test_extract_tab_children_uses_a_stable_fallback_title_when_label_is_missing():

@@ -58,7 +58,7 @@ def extract_tab_children(parent: PageRef, html: str) -> list[PageRef]:
     for tabview in content.find_all("div", class_="yui-navset", recursive=False):
         nav = tabview.find("ul", class_="yui-nav", recursive=False)
         panel_container = tabview.find("div", class_="yui-content", recursive=False)
-        if panel_container is None:
+        if nav is None or panel_container is None:
             continue
 
         labels = _tab_labels(nav)
@@ -114,7 +114,16 @@ def _same_site_page_url(href: str, base_url: str) -> str | None:
         return None
     if not parsed_url.path.strip("/"):
         return None
-    return url
+
+    slug = slug_from_url(url)
+    return parsed_base._replace(
+        scheme=parsed_base.scheme.lower(),
+        netloc=parsed_base.netloc.lower(),
+        path=f"/{slug}",
+        params="",
+        query="",
+        fragment="",
+    ).geturl()
 
 
 def _tab_labels(nav: Tag | None) -> list[str]:
