@@ -840,6 +840,7 @@ def _with_page_order(entry: PageRef, order: int) -> PageRef:
         source=entry.source,
         order=order,
         children=entry.children,
+        tab_title=entry.tab_title,
     )
 
 
