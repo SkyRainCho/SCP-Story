@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from html import escape
-from urllib.parse import urlparse
+from urllib.parse import ParseResult, urlparse
 
 from bs4 import BeautifulSoup
 from bs4.element import Tag
@@ -110,7 +110,7 @@ def _same_site_page_url(href: str, base_url: str) -> str | None:
     parsed_base = urlparse(base_url)
     if parsed_url.scheme.lower() not in {"http", "https"}:
         return None
-    if parsed_url.netloc.lower() != parsed_base.netloc.lower():
+    if _normalized_authority(parsed_url) != _normalized_authority(parsed_base):
         return None
     if not parsed_url.path.strip("/"):
         return None
@@ -134,3 +134,17 @@ def _tab_labels(nav: Tag | None) -> list[str]:
     for index, item in enumerate(nav.find_all("li", recursive=False), start=1):
         labels.append(item.get_text(" ", strip=True) or f"标签 {index}")
     return labels
+
+
+def _normalized_authority(parsed: ParseResult) -> tuple[str, int | None] | None:
+    hostname = parsed.hostname
+    if hostname is None:
+        return None
+
+    try:
+        port = parsed.port
+    except ValueError:
+        return None
+
+    default_port = {"http": 80, "https": 443}.get(parsed.scheme.lower())
+    return hostname.lower(), None if port == default_port else port

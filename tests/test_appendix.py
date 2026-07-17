@@ -66,6 +66,22 @@ def test_extract_facility_children_deduplicates_host_case_and_query_variants():
     ]
 
 
+def test_extract_facility_children_accepts_the_same_https_authority_with_default_port():
+    parent = page_ref("secure-facilities-locations", title="基金会设施")
+    html = """
+    <div id="page-content">
+      <a href="https://scp-wiki-cn.wikidot.com:443/site-19">安保设施档案：Site-19</a>
+      <a href="https://example.test:443/site-99">安保设施档案：站外设施</a>
+    </div>
+    """
+
+    children = extract_facility_children(parent, html, BASE_URL)
+
+    assert [(entry.title, entry.url, entry.slug) for entry in children] == [
+        ("安保设施档案：Site-19", f"{BASE_URL}/site-19", "site-19"),
+    ]
+
+
 def test_extract_tab_children_uses_only_direct_tabviews_and_panels():
     parent = page_ref("personnel-and-character-dossier", title="人事档案")
     html = """
