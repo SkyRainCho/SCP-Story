@@ -26,7 +26,8 @@ The listed fixes fall into three groups:
 The initial override map is explicit:
 
 - Terminal navigation: SCP-9928, SCP-7261, SCP-3662, SCP-5550, SCP-5514,
-  SCP-5109, SCP-5494, and SCP-5109's generated linked-appendix children.
+  SCP-5109, SCP-5494, SCP-6781, and SCP-5109's generated linked-appendix
+  children.
 - Leading metadata: SCP-5464.
 - Author work lists: SCP-6698, SCP-4233, and SCP-5595.
 - Adult-content warning: SCP-7069.
@@ -82,7 +83,9 @@ The transformer removes a terminal navigation block only when all of these are
 true: the override is enabled, the candidate is at the end of article content,
 and its visible text matches the compact three-link navigation shape (including
 the left/right guillemets). It does not remove similar text inside normal
-paragraphs.
+paragraphs. SCP-6781 additionally permits a terminal two-link sequence marked
+by the standalone labels `前情` and `后事`; this alternate pattern is still
+available only under its explicit page override.
 
 Author-work-list and leading-metadata cleanup use page-scoped DOM/text markers,
 not a global phrase blacklist. The SCP-7069 warning removal is likewise scoped
