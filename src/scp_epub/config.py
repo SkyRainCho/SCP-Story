@@ -226,6 +226,8 @@ def _load_appendix(value: Any, name: str, base_url: str) -> AppendixSpec | None:
     raw_sections = appendix.get("sections")
     if not isinstance(raw_sections, list):
         raise ValueError(f"{name}.sections must be a list of section mappings")
+    if not raw_sections:
+        raise ValueError(f"{name}.sections must define at least one section")
 
     sections: list[AppendixSection] = []
     for index, raw_section in enumerate(raw_sections):
