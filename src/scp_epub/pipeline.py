@@ -1070,6 +1070,7 @@ def _page_transform_options(config: AppConfig, entry: PageRef) -> PageTransformO
         remove_leading_metadata=bool(override and override.remove_leading_metadata),
         remove_adult_content_warning=bool(override and override.remove_adult_content_warning),
         remove_author_work_list=bool(override and override.remove_author_work_list),
+        layout_profile=override.layout_profile if override is not None else None,
     )
 
 

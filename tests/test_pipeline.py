@@ -1356,6 +1356,40 @@ def test_build_volume_inherits_only_scp5109_terminal_navigation_cleanup_for_link
     assert "不应继承的成人警告清理" in appendix_xhtml
 
 
+def test_build_volume_applies_configured_layout_profile(tmp_path: Path):
+    config = app_config(
+        tmp_path,
+        page_overrides={
+            "scp-4612": PageOverride(layout_profile="scp-4612"),
+        },
+    )
+    manifest = [
+        PageRef("SCP-4612", f"{BASE_URL}/scp-4612", "scp-4612", 1, "scp", order=1),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-4612": simple_page(
+                "SCP-4612",
+                '<div id="estate-image" class="scp-image-block block-right" '
+                'style="float: right; width: 320px"><img src="/estate.jpg" /></div>'
+                "<p>宅邸的调查仍在继续。</p>",
+            ),
+        },
+    )
+
+    build_volume(config, "001-099", fetcher=fetcher)
+
+    page_xhtml = (config.processed_dir / "test-volume" / "0001-scp-4612.xhtml").read_text(
+        encoding="utf-8"
+    )
+    assert "layout-profile-scp-4612-image" in page_xhtml
+    assert 'style="width: 320px; float: none; clear: both; max-width: 100%"' in page_xhtml
+
+
 def test_build_volume_can_disable_linked_appendices_for_featured_books(tmp_path: Path):
     config = app_config(tmp_path, include_linked_appendices=False)
     manifest = [
