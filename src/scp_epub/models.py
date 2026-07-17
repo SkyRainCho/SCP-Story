@@ -19,6 +19,8 @@ class ConfiguredPage:
     url: str
     slug: str
     role: str = "front-matter"
+    epub_background_url: str | None = None
+    unwrap_single_included_tab: bool = False
 
 
 @dataclass(frozen=True)

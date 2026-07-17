@@ -106,6 +106,10 @@ def test_featured_scp_config_uses_archive_mode_and_title_indexes():
     assert config.include_linked_appendices is True
     assert [page.slug for page in config.front_matter_pages] == ["about-the-scp-foundation"]
     assert config.front_matter_pages[0].title == "关于SCP基金会"
+    assert config.front_matter_pages[0].epub_background_url == (
+        "https://scp-wiki.wdfiles.com/local--files/about-the-scp-foundation/bg-marble.png"
+    )
+    assert config.front_matter_pages[0].unwrap_single_included_tab is True
     assert config.page_tab_includes == {"about-the-scp-foundation": ("简介",)}
     assert [link.slug for link in config.explicit_linked_appendices["scp-5170"]] == [
         "scp-5170/offset/1",

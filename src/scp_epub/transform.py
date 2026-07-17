@@ -215,6 +215,8 @@ def transform_page(
     manifest_slugs: set[str] | None = None,
     *,
     include_tab_titles: set[str] | None = None,
+    unwrap_single_included_tab: bool = False,
+    background_asset_url: str | None = None,
 ) -> ProcessedPage:
     soup = BeautifulSoup(html, "html.parser")
     page_content = soup.select_one("#page-content")
@@ -239,10 +241,21 @@ def transform_page(
     _stabilize_float_layout(soup, page_content)
     _normalize_scene_break_images(page_content)
     if entry.slug != "scp-001":
-        _expand_wikidot_tabs(soup, page_content, include_tab_titles=include_tab_titles)
+        _expand_wikidot_tabs(
+            soup,
+            page_content,
+            include_tab_titles=include_tab_titles,
+            unwrap_single_included_tab=unwrap_single_included_tab,
+        )
 
     asset_urls: list[str] = []
     seen_assets: set[str] = set()
+    _apply_configured_background_asset(
+        page_content,
+        background_asset_url,
+        asset_urls,
+        seen_assets,
+    )
     _normalize_assets(page_content, base_url, asset_urls, seen_assets)
 
     internal_links: list[str] = []
@@ -814,6 +827,7 @@ def _expand_wikidot_tabs(
     page_content: Tag,
     *,
     include_tab_titles: set[str] | None = None,
+    unwrap_single_included_tab: bool = False,
 ) -> None:
     normalized_include_titles = {
         _normalize_tab_label(label)
@@ -848,7 +862,35 @@ def _expand_wikidot_tabs(
             _move_children(panel, section)
             expanded.append(section)
 
+        sections = expanded.find_all("section", class_="tabview-panel-epub", recursive=False)
+        if unwrap_single_included_tab and len(sections) == 1:
+            heading = sections[0].find("h3", class_="tabview-panel-title", recursive=False)
+            if heading is not None:
+                heading.decompose()
+            tabview.replace_with(sections[0])
+            sections[0].unwrap()
+            continue
+
         tabview.replace_with(expanded)
+
+
+def _apply_configured_background_asset(
+    page_content: Tag,
+    background_asset_url: str | None,
+    asset_urls: list[str],
+    seen_assets: set[str],
+) -> None:
+    if not background_asset_url:
+        return
+
+    panel = page_content.find(class_="content-panel")
+    if panel is None:
+        return
+
+    panel["data-epub-background-url"] = background_asset_url
+    if background_asset_url not in seen_assets:
+        seen_assets.add(background_asset_url)
+        asset_urls.append(background_asset_url)
 
 
 def _tab_labels(nav: Tag) -> list[str]:
