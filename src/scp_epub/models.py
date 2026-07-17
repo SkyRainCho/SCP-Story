@@ -102,6 +102,7 @@ class PageRef:
     source: str = "index"
     order: int = 0
     children: tuple["PageRef", ...] = field(default_factory=tuple)
+    tab_title: str | None = None
 
 
 @dataclass(frozen=True)

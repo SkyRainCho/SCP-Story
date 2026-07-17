@@ -15,6 +15,7 @@ MANIFEST_FIELDS = (
     "parent_slug",
     "source",
     "order",
+    "tab_title",
 )
 SCP_SLUG_RE = re.compile(r"^scp-(?P<number>\d{3,4})$", re.IGNORECASE)
 
@@ -175,6 +176,7 @@ def _with_order(entry: PageRef, order: int) -> PageRef:
         source=entry.source,
         order=order,
         children=entry.children,
+        tab_title=entry.tab_title,
     )
 
 
@@ -189,6 +191,7 @@ def _as_top_level_scp001_proposal(entry: PageRef) -> PageRef:
         source=entry.source,
         order=entry.order,
         children=entry.children,
+        tab_title=entry.tab_title,
     )
 
 
@@ -207,6 +210,7 @@ def _to_manifest_dict(entry: PageRef) -> dict[str, object]:
         "parent_slug": entry.parent_slug,
         "source": entry.source,
         "order": entry.order,
+        "tab_title": entry.tab_title,
     }
     return {field: values[field] for field in MANIFEST_FIELDS}
 
@@ -227,4 +231,9 @@ def _from_manifest_dict(entry: dict[str, object]) -> PageRef:
         parent_slug=parent_slug if parent_slug is None else str(parent_slug),
         source=str(entry["source"]),
         order=int(entry["order"]),
+        tab_title=_optional_tab_title(entry.get("tab_title")),
     )
+
+
+def _optional_tab_title(value: object) -> str | None:
+    return None if value is None else str(value)

@@ -455,9 +455,34 @@ def test_write_and_read_manifest_round_trips_utf8_json(tmp_path):
         "parent_slug",
         "source",
         "order",
+        "tab_title",
     ]
     assert [entry["slug"] for entry in data] == ["scp-001", "scp-001-o5"]
     assert round_tripped == entries
+
+
+def test_write_and_read_manifest_round_trips_tab_title(tmp_path):
+    entries = [
+        PageRef(
+            title="O5成员",
+            url="https://scp-wiki-cn.wikidot.com/o5-command-dossier",
+            slug="o5-command-dossier--tab-1",
+            level=3,
+            role="appendix-tab",
+            parent_slug="o5-command-dossier",
+            tab_title="O5成员",
+        )
+    ]
+    path = tmp_path / "manifest.json"
+
+    from scp_epub.manifest import read_manifest, write_manifest
+
+    write_manifest(entries, path)
+    data = json.loads(path.read_text(encoding="utf-8"))
+
+    assert list(data[0])[-1] == "tab_title"
+    assert data[0]["tab_title"] == "O5成员"
+    assert read_manifest(path) == entries
 
 
 def test_write_manifest_rejects_non_flat_entries(tmp_path):
