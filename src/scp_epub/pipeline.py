@@ -108,6 +108,7 @@ def build_featured_manifest(
     *,
     fetcher: PageFetcher | None = None,
     force: bool = False,
+    appendix_fetch_results: dict[tuple[str, str], FetchResult] | None = None,
 ) -> list[PageRef]:
     volume = volume_for_key(config, volume_key)
     active_fetcher = fetcher or make_fetcher(config)
@@ -160,7 +161,12 @@ def build_featured_manifest(
 
     entries.sort(key=lambda entry: (entry.order <= 0, entry.order))
     front_matter_entries = [_configured_page_to_page_ref(page) for page in config.front_matter_pages]
-    appendix_entries = _featured_appendix_entries(config, active_fetcher, force=force)
+    appendix_entries = _featured_appendix_entries(
+        config,
+        active_fetcher,
+        force=force,
+        fetch_results=appendix_fetch_results,
+    )
     manifest = [
         _with_page_order(entry, order)
         for order, entry in enumerate(
@@ -196,7 +202,7 @@ def build_volume(
 ) -> Path:
     volume = volume_for_key(config, volume_key)
     active_fetcher = fetcher or make_fetcher(config)
-    manifest = _load_or_build_manifest(
+    manifest, appendix_fetch_results = _load_or_build_manifest_for_build(
         config,
         volume_key,
         active_fetcher,
@@ -207,6 +213,7 @@ def build_volume(
         manifest,
         active_fetcher,
         force=force,
+        appendix_fetch_results=appendix_fetch_results,
     )
     available_manifest, fetch_results, linked_appendix_documents, linked_missing_pages = (
         (
@@ -408,25 +415,35 @@ def fetch_build_pages(
     fetcher: PageFetcher,
     *,
     force: bool = False,
+    appendix_fetch_results: dict[tuple[str, str], FetchResult] | None = None,
 ) -> tuple[list[PageRef], list[FetchResult], list[dict[str, str]]]:
     available_manifest: list[PageRef] = []
     fetch_results: list[FetchResult] = []
     missing_pages: list[dict[str, str]] = []
 
-    fetched_by_source: dict[tuple[str, str], FetchResult] = {}
+    tab_fetch_results: dict[tuple[str, str], FetchResult] = {}
     cache = CacheStore(config.cache_dir)
 
     for entry in manifest:
         try:
             if entry.role == APPENDIX_GROUP_ROLE:
                 result = _write_appendix_group_fetch_result(cache, entry)
+            elif entry.role == APPENDIX_TAB_ROLE:
+                source_key = _tab_source_key(config, entry)
+                result = tab_fetch_results.get(source_key)
+                if result is None:
+                    result = (appendix_fetch_results or {}).get(source_key)
+                    if result is None:
+                        result = fetcher.fetch_page(*source_key, force=force)
+                    tab_fetch_results[source_key] = result
             else:
-                source_slug = entry.parent_slug if entry.role == APPENDIX_TAB_ROLE else entry.slug
-                source_key = (source_slug or entry.slug, entry.url)
-                result = fetched_by_source.get(source_key)
+                source_key = (entry.slug, entry.url)
+                if _is_configured_appendix_page_entry(config, entry):
+                    result = (appendix_fetch_results or {}).get(source_key)
+                else:
+                    result = None
                 if result is None:
                     result = fetcher.fetch_page(*source_key, force=force)
-                    fetched_by_source[source_key] = result
         except Exception as exc:
             missing_pages.append(
                 {
@@ -451,7 +468,7 @@ def _fetch_manifest_entries(
     force: bool,
 ) -> list[FetchResult]:
     cache = CacheStore(config.cache_dir)
-    fetched_by_source: dict[tuple[str, str], FetchResult] = {}
+    tab_fetch_results: dict[tuple[str, str], FetchResult] = {}
     results: list[FetchResult] = []
 
     for entry in manifest:
@@ -459,12 +476,14 @@ def _fetch_manifest_entries(
             results.append(_write_appendix_group_fetch_result(cache, entry))
             continue
 
-        source_slug = entry.parent_slug if entry.role == APPENDIX_TAB_ROLE else entry.slug
-        source_key = (source_slug or entry.slug, entry.url)
-        result = fetched_by_source.get(source_key)
-        if result is None:
-            result = fetcher.fetch_page(*source_key, force=force)
-            fetched_by_source[source_key] = result
+        if entry.role == APPENDIX_TAB_ROLE:
+            source_key = _tab_source_key(config, entry)
+            result = tab_fetch_results.get(source_key)
+            if result is None:
+                result = fetcher.fetch_page(*source_key, force=force)
+                tab_fetch_results[source_key] = result
+        else:
+            result = fetcher.fetch_page(entry.slug, entry.url, force=force)
         results.append(result)
 
     return results
@@ -607,6 +626,7 @@ def _featured_appendix_entries(
     fetcher: PageFetcher,
     *,
     force: bool,
+    fetch_results: dict[tuple[str, str], FetchResult] | None = None,
 ) -> list[PageRef]:
     appendix = config.appendix
     if appendix is None:
@@ -625,24 +645,81 @@ def _featured_appendix_entries(
     ]
     for section in appendix.sections:
         result = fetcher.fetch_page(section.slug, section.url, force=force)
-        role = "appendix-section" if section.mode == "page" else APPENDIX_GROUP_ROLE
-        entry = PageRef(
+        if fetch_results is not None:
+            fetch_results[(section.slug, section.url)] = result
+        source_entry = PageRef(
             title=section.title,
             url=section.url,
             slug=section.slug,
             level=2,
-            role=role,
+            role="appendix-section",
+            parent_slug=appendix.slug,
+            source=source,
+        )
+        group_slug = _appendix_group_slug(section.slug)
+        entry = PageRef(
+            title=section.title,
+            url=section.url,
+            slug=section.slug if section.mode == "page" else group_slug,
+            level=2,
+            role="appendix-section" if section.mode == "page" else APPENDIX_GROUP_ROLE,
             parent_slug=appendix.slug,
             source=source,
         )
         entries.append(entry)
         html = result.path.read_text(encoding="utf-8")
         if section.mode == "facility-links":
-            entries.extend(extract_facility_children(entry, html, config.base_url))
+            entries.extend(
+                _with_parent_slug(
+                    extract_facility_children(source_entry, html, config.base_url),
+                    entry.slug,
+                )
+            )
         elif section.mode == "tabs-as-pages":
-            entries.extend(extract_tab_children(entry, html))
+            entries.extend(_with_parent_slug(extract_tab_children(source_entry, html), entry.slug))
 
     return entries
+
+
+def _appendix_group_slug(source_slug: str) -> str:
+    return f"{source_slug}--appendix-group"
+
+
+def _with_parent_slug(entries: list[PageRef], parent_slug: str) -> list[PageRef]:
+    return [
+        PageRef(
+            title=entry.title,
+            url=entry.url,
+            slug=entry.slug,
+            level=entry.level,
+            role=entry.role,
+            parent_slug=parent_slug,
+            source=entry.source,
+            order=entry.order,
+            children=entry.children,
+            tab_title=entry.tab_title,
+        )
+        for entry in entries
+    ]
+
+
+def _tab_source_key(config: AppConfig, entry: PageRef) -> tuple[str, str]:
+    appendix = config.appendix
+    if appendix is not None:
+        for section in appendix.sections:
+            if _appendix_group_slug(section.slug) == entry.parent_slug:
+                return section.slug, section.url
+    return entry.parent_slug or entry.slug, entry.url
+
+
+def _is_configured_appendix_page_entry(config: AppConfig, entry: PageRef) -> bool:
+    if entry.role != "appendix-section" or entry.source != "featured-appendix":
+        return False
+    appendix = config.appendix
+    return appendix is not None and any(
+        section.mode == "page" and section.slug == entry.slug and section.url == entry.url
+        for section in appendix.sections
+    )
 
 
 def _with_featured_title(entry: PageRef, title: str | None) -> PageRef:
@@ -770,6 +847,32 @@ def _load_or_build_manifest(
     if force or not manifest_path.exists():
         return build_manifest(config, volume_key, fetcher=fetcher, force=force)
     return read_manifest(manifest_path)
+
+
+def _load_or_build_manifest_for_build(
+    config: AppConfig,
+    volume_key: str,
+    fetcher: PageFetcher,
+    *,
+    force: bool,
+) -> tuple[list[PageRef], dict[tuple[str, str], FetchResult]]:
+    volume = volume_for_key(config, volume_key)
+    manifest_path = manifest_path_for_volume(config, volume)
+    if not force and manifest_path.exists():
+        return read_manifest(manifest_path), {}
+
+    appendix_fetch_results: dict[tuple[str, str], FetchResult] = {}
+    if config.index_mode == "featured-scp-archive":
+        manifest = build_featured_manifest(
+            config,
+            volume_key,
+            fetcher=fetcher,
+            force=force,
+            appendix_fetch_results=appendix_fetch_results,
+        )
+    else:
+        manifest = build_manifest(config, volume_key, fetcher=fetcher, force=force)
+    return manifest, appendix_fetch_results
 
 
 def _process_pages(

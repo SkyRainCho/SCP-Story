@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from scp_epub.cache import CacheStore
+from scp_epub.fetcher import Fetcher
 from scp_epub.models import (
     AppConfig,
     AppendixSection,
@@ -19,6 +21,7 @@ from scp_epub.models import (
 from scp_epub.pipeline import (
     build_manifest,
     build_volume,
+    fetch_build_pages,
     fetch_manifest_pages,
     scan_linked_appendices_for_volume,
 )
@@ -542,12 +545,12 @@ def test_build_featured_manifest_appends_configured_appendix_sections_and_childr
         "相关地点",
     ]
     assert [(entry.title, entry.parent_slug) for entry in manifest if entry.level == 3] == [
-        ("安保设施档案：Site-19", "secure-facilities-locations"),
-        ("安保设施档案：Site-06", "secure-facilities-locations"),
-        ("人事档案", "personnel-and-character-dossier"),
-        ("研究人员", "personnel-and-character-dossier"),
-        ("O5成员", "o5-command-dossier"),
-        ("历任成员", "o5-command-dossier"),
+        ("安保设施档案：Site-19", "secure-facilities-locations--appendix-group"),
+        ("安保设施档案：Site-06", "secure-facilities-locations--appendix-group"),
+        ("人事档案", "personnel-and-character-dossier--appendix-group"),
+        ("研究人员", "personnel-and-character-dossier--appendix-group"),
+        ("O5成员", "o5-command-dossier--appendix-group"),
+        ("历任成员", "o5-command-dossier--appendix-group"),
     ]
     assert [entry.order for entry in manifest] == list(range(1, len(manifest) + 1))
 
@@ -571,7 +574,7 @@ def test_build_volume_materializes_appendix_groups_and_unwraps_tab_children(tmp_
         PageRef(
             "人事档案",
             f"{BASE_URL}/personnel-and-character-dossier",
-            "personnel-and-character-dossier",
+            "personnel-and-character-dossier--appendix-group",
             2,
             "appendix-group",
             parent_slug="appendix",
@@ -583,7 +586,7 @@ def test_build_volume_materializes_appendix_groups_and_unwraps_tab_children(tmp_
             "personnel-and-character-dossier--tab-1",
             3,
             "appendix-tab",
-            parent_slug="personnel-and-character-dossier",
+            parent_slug="personnel-and-character-dossier--appendix-group",
             order=3,
             tab_title="人事档案",
         ),
@@ -593,7 +596,7 @@ def test_build_volume_materializes_appendix_groups_and_unwraps_tab_children(tmp_
             "personnel-and-character-dossier--tab-2",
             3,
             "appendix-tab",
-            parent_slug="personnel-and-character-dossier",
+            parent_slug="personnel-and-character-dossier--appendix-group",
             order=4,
             tab_title="研究人员",
         ),
@@ -645,6 +648,178 @@ def test_fetch_manifest_pages_fetches_each_manifest_entry(tmp_path: Path):
 
     assert [result.from_cache for result in results] == [False, True]
     assert [slug for slug, _url, _force in fetcher.calls] == ["scp-001", "scp-002"]
+
+
+def test_fetch_paths_preserve_normal_duplicate_fetches_and_reuse_appendix_tab_sources(
+    tmp_path: Path,
+):
+    config = app_config(tmp_path)
+    manifest = [
+        PageRef("SCP-001", f"{BASE_URL}/scp-001", "scp-001", 1, "scp", order=1),
+        PageRef("SCP-001", f"{BASE_URL}/scp-001", "scp-001", 1, "scp", order=2),
+        PageRef(
+            "档案",
+            f"{BASE_URL}/personnel-and-character-dossier",
+            "personnel-and-character-dossier--tab-1",
+            3,
+            "appendix-tab",
+            parent_slug="personnel-and-character-dossier",
+            order=3,
+            tab_title="档案",
+        ),
+        PageRef(
+            "研究",
+            f"{BASE_URL}/personnel-and-character-dossier",
+            "personnel-and-character-dossier--tab-2",
+            3,
+            "appendix-tab",
+            parent_slug="personnel-and-character-dossier",
+            order=4,
+            tab_title="研究",
+        ),
+    ]
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-001": simple_page("SCP-001"),
+            "personnel-and-character-dossier": simple_page("人事档案"),
+        },
+    )
+
+    fetch_manifest_pages(config, manifest, fetcher=fetcher)
+
+    assert [slug for slug, _url, _force in fetcher.calls] == [
+        "scp-001",
+        "scp-001",
+        "personnel-and-character-dossier",
+    ]
+    fetcher.calls.clear()
+
+    available_manifest, _results, missing_pages = fetch_build_pages(config, manifest, fetcher)
+
+    assert available_manifest == manifest
+    assert missing_pages == []
+    assert [slug for slug, _url, _force in fetcher.calls] == [
+        "scp-001",
+        "scp-001",
+        "personnel-and-character-dossier",
+    ]
+
+
+def test_fetching_generated_appendix_groups_does_not_replace_cached_facility_source(
+    tmp_path: Path,
+):
+    source_url = f"{BASE_URL}/secure-facilities-locations"
+    config = app_config(
+        tmp_path,
+        volume_key="featured",
+        index_mode="featured-scp-archive",
+        featured_archive_url="https://scp-wiki.wikidot.com/featured-scp-archive",
+        appendix=AppendixSpec(
+            title="附录",
+            slug="appendix",
+            sections=(
+                AppendixSection(
+                    "基金会设施",
+                    source_url,
+                    "secure-facilities-locations",
+                    mode="facility-links",
+                ),
+            ),
+        ),
+    )
+    requested_urls: list[str] = []
+    pages = {
+        "https://scp-wiki.wikidot.com/featured-scp-archive": """
+          <div id="page-content"><p>1. <a href="/scp-173">SCP-173</a></p></div>
+        """,
+        f"{BASE_URL}/scp-173": simple_page("SCP-173"),
+        f"{BASE_URL}/site-19": simple_page("Site-19"),
+        source_url: """
+          <div id="page-content"><a href="/site-19">安保设施档案：Site-19</a></div>
+        """,
+    }
+
+    def http_client(url: str, *, headers: dict[str, str]):
+        requested_urls.append(url)
+        return pages[url], 200, "text/html"
+
+    fetcher = Fetcher(CacheStore(config.cache_dir), http_client=http_client)
+    manifest = build_manifest(config, "featured", fetcher=fetcher)
+
+    fetch_manifest_pages(config, manifest, fetcher=fetcher)
+    rebuilt_manifest = build_manifest(config, "featured", fetcher=fetcher)
+
+    facility_group = next(
+        entry for entry in rebuilt_manifest if entry.title == "基金会设施"
+    )
+    assert facility_group.slug == "secure-facilities-locations--appendix-group"
+    assert [
+        (entry.title, entry.parent_slug)
+        for entry in rebuilt_manifest
+        if entry.role == "appendix-facility"
+    ] == [("安保设施档案：Site-19", facility_group.slug)]
+    assert requested_urls == [
+        "https://scp-wiki.wikidot.com/featured-scp-archive",
+        source_url,
+        f"{BASE_URL}/scp-173",
+        f"{BASE_URL}/site-19",
+    ]
+
+
+def test_force_build_reuses_configured_appendix_sources_from_manifest_expansion(
+    tmp_path: Path,
+):
+    page_source_url = f"{BASE_URL}/object-classes"
+    tab_source_url = f"{BASE_URL}/personnel-and-character-dossier"
+    config = app_config(
+        tmp_path,
+        volume_key="featured",
+        index_mode="featured-scp-archive",
+        featured_archive_url="https://scp-wiki.wikidot.com/featured-scp-archive",
+        include_linked_appendices=False,
+        appendix=AppendixSpec(
+            title="附录",
+            slug="appendix",
+            sections=(
+                AppendixSection("项目等级", page_source_url, "object-classes"),
+                AppendixSection(
+                    "人事档案",
+                    tab_source_url,
+                    "personnel-and-character-dossier",
+                    mode="tabs-as-pages",
+                ),
+            ),
+        ),
+    )
+    requested_urls: list[str] = []
+    pages = {
+        "https://scp-wiki.wikidot.com/featured-scp-archive": """
+          <div id="page-content"><p>1. <a href="/scp-173">SCP-173</a></p></div>
+        """,
+        f"{BASE_URL}/scp-173": simple_page("SCP-173"),
+        page_source_url: simple_page("项目等级"),
+        tab_source_url: """
+          <div id="page-content"><div class="yui-navset">
+            <ul class="yui-nav"><li>档案</li><li>研究</li></ul>
+            <div class="yui-content"><div>档案正文。</div><div>研究正文。</div></div>
+          </div></div>
+        """,
+    }
+
+    def http_client(url: str, *, headers: dict[str, str]):
+        requested_urls.append(url)
+        return pages[url], 200, "text/html"
+
+    build_volume(
+        config,
+        "featured",
+        fetcher=Fetcher(CacheStore(config.cache_dir), http_client=http_client),
+        force=True,
+    )
+
+    assert requested_urls.count(page_source_url) == 1
+    assert requested_urls.count(tab_source_url) == 1
 
 
 def test_build_volume_fetches_transforms_and_writes_epub_report_and_processed_files(tmp_path: Path):
