@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup, Tag
 
-from scp_epub.models import PageRef, ProcessedPage
+from scp_epub.models import InlineDocumentSpec, PageRef, ProcessedPage
 from scp_epub.urls import normalize_url, slug_from_url
 
 
@@ -310,6 +310,89 @@ def transform_page(
         internal_links=tuple(internal_links),
         external_links=tuple(external_links),
     )
+
+
+def insert_inline_fragments(
+    owner: ProcessedPage,
+    fragments: Iterable[tuple[InlineDocumentSpec, ProcessedPage]],
+) -> ProcessedPage:
+    soup = BeautifulSoup(f"<root>{owner.xhtml}</root>", "html.parser")
+    root = soup.find("root")
+    if root is None:
+        return owner
+
+    after_anchors: dict[int, Tag] = {}
+    before_anchors: dict[int, Tag] = {}
+    assets = list(owner.asset_urls)
+    internal_links = list(owner.internal_links)
+    external_links = list(owner.external_links)
+    seen_assets = set(assets)
+    seen_internal = set(internal_links)
+    seen_external = set(external_links)
+
+    for spec, fragment in fragments:
+        section = _inline_document_section(soup, spec, fragment.xhtml)
+        anchor = _find_exact_visible_text(root, spec.anchor_text)
+        if spec.position == "after_text" and anchor is not None:
+            insertion_point = after_anchors.get(id(anchor), anchor)
+            insertion_point.insert_after(section)
+            after_anchors[id(anchor)] = section
+        elif spec.position == "before_text" and anchor is not None:
+            insertion_point = before_anchors.get(id(anchor))
+            if insertion_point is None:
+                anchor.insert_before(section)
+            else:
+                insertion_point.insert_after(section)
+            before_anchors[id(anchor)] = section
+        else:
+            root.append(section)
+
+        for value in fragment.asset_urls:
+            _append_once(assets, seen_assets, value)
+        for value in fragment.internal_links:
+            _append_once(internal_links, seen_internal, value)
+        for value in fragment.external_links:
+            _append_once(external_links, seen_external, value)
+
+    return ProcessedPage(
+        entry=owner.entry,
+        xhtml="".join(str(child) for child in root.contents).strip(),
+        asset_urls=tuple(assets),
+        internal_links=tuple(internal_links),
+        external_links=tuple(external_links),
+    )
+
+
+def _inline_document_section(
+    soup: BeautifulSoup,
+    spec: InlineDocumentSpec,
+    xhtml: str,
+) -> Tag:
+    section = soup.new_tag("section", attrs={"class": "inline-document-epub"})
+    fragment_soup = BeautifulSoup(f"<root>{xhtml}</root>", "html.parser")
+    fragment_root = fragment_soup.find("root")
+    if fragment_root is not None:
+        if fragment_root.find(("h1", "h2")) is None:
+            heading = soup.new_tag("h2")
+            heading.string = spec.title
+            section.append(heading)
+        for child in list(fragment_root.contents):
+            section.append(child.extract())
+    return section
+
+
+def _find_exact_visible_text(root: Tag, anchor_text: str | None) -> Tag | None:
+    if anchor_text is None:
+        return None
+    expected = _normalized_visible_text(anchor_text)
+    for tag in root.find_all(True):
+        if _normalized_visible_text(tag.get_text()) == expected:
+            return tag
+    return None
+
+
+def _normalized_visible_text(value: str) -> str:
+    return " ".join(value.split())
 
 
 def _apply_page_cleanup_options(

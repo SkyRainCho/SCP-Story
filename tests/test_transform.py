@@ -3,8 +3,8 @@ from pathlib import Path
 import pytest
 from bs4 import BeautifulSoup
 
-from scp_epub.models import PageRef
-from scp_epub.transform import PageTransformOptions, transform_page
+from scp_epub.models import InlineDocumentSpec, PageRef, ProcessedPage
+from scp_epub.transform import PageTransformOptions, insert_inline_fragments, transform_page
 
 
 FIXTURE = Path(__file__).parent / "fixtures" / "page_sample.html"
@@ -1471,3 +1471,117 @@ def test_converts_ruby_annotation_spans_to_semantic_ruby():
 def test_missing_page_content_raises_value_error():
     with pytest.raises(ValueError, match="#page-content"):
         transform_page(page_ref(), "<html><body><p>No content</p></body></html>", BASE_URL)
+
+
+def inline_spec(
+    title: str,
+    position: str,
+    *,
+    anchor_text: str | None = None,
+) -> InlineDocumentSpec:
+    return InlineDocumentSpec(
+        title=title,
+        url=f"{BASE_URL}/{title.lower()}",
+        slug=title.lower(),
+        position=position,
+        anchor_text=anchor_text,
+    )
+
+
+def inline_page(title: str, xhtml: str, *, assets: tuple[str, ...] = (), internal: tuple[str, ...] = (), external: tuple[str, ...] = ()) -> ProcessedPage:
+    return ProcessedPage(
+        entry=PageRef(title, f"{BASE_URL}/{title.lower()}", title.lower(), 1, "scp"),
+        xhtml=xhtml,
+        asset_urls=assets,
+        internal_links=internal,
+        external_links=external,
+    )
+
+
+def test_inserts_inline_document_after_normalized_exact_visible_text():
+    owner = inline_page(
+        "Owner",
+        "<p>前文。</p><p>附录-1898-1：相关 <strong>SCP-1898</strong>图片</p><p>后文。</p>",
+    )
+    fragment = inline_page("After", "<p>内联正文。</p>")
+
+    result = insert_inline_fragments(
+        owner,
+        fragments=((inline_spec("After", "after_text", anchor_text="附录-1898-1：相关 SCP-1898图片"), fragment),),
+    )
+
+    soup = soup_fragment(result.xhtml)
+    assert [node.get_text(" ", strip=True) for node in soup.root.find_all(recursive=False)] == [
+        "前文。",
+        "附录-1898-1：相关 SCP-1898 图片",
+        "After 内联正文。",
+        "后文。",
+    ]
+    assert soup.find("section", class_="inline-document-epub") is not None
+
+
+def test_inserts_inline_document_before_exact_visible_text():
+    owner = inline_page("Owner", "<p>正文。</p><h2>Footnotes</h2><p>注释。</p>")
+    fragment = inline_page("Before", "<p>内联正文。</p>")
+
+    result = insert_inline_fragments(
+        owner,
+        fragments=((inline_spec("Before", "before_text", anchor_text="Footnotes"), fragment),),
+    )
+
+    soup = soup_fragment(result.xhtml)
+    assert [node.get_text(" ", strip=True) for node in soup.root.find_all(recursive=False)] == [
+        "正文。",
+        "Before 内联正文。",
+        "Footnotes",
+        "注释。",
+    ]
+
+
+def test_appends_inline_documents_in_configured_order():
+    owner = inline_page("Owner", "<p>正文。</p>")
+    first = inline_page("Offset One", "<h2>第一份</h2><p>一。</p>")
+    second = inline_page("Offset Two", "<p>二。</p>")
+
+    result = insert_inline_fragments(
+        owner,
+        fragments=(
+            (inline_spec("Offset One", "append"), first),
+            (inline_spec("Offset Two", "append"), second),
+        ),
+    )
+
+    soup = soup_fragment(result.xhtml)
+    sections = soup.find_all("section", class_="inline-document-epub")
+    assert [section.get_text(" ", strip=True) for section in sections] == [
+        "第一份 一。",
+        "Offset Two 二。",
+    ]
+    assert sections[0].find("h2").get_text(strip=True) == "第一份"
+    assert sections[1].find("h2").get_text(strip=True) == "Offset Two"
+
+
+def test_unions_inline_document_assets_and_links_without_duplicates():
+    owner = inline_page(
+        "Owner",
+        "<p>正文。</p>",
+        assets=("asset-owner",),
+        internal=("internal-owner",),
+        external=("external-owner",),
+    )
+    fragment = inline_page(
+        "Inline",
+        "<p>内联正文。</p>",
+        assets=("asset-owner", "asset-inline"),
+        internal=("internal-owner", "internal-inline"),
+        external=("external-owner", "external-inline"),
+    )
+
+    result = insert_inline_fragments(
+        owner,
+        fragments=((inline_spec("Inline", "append"), fragment),),
+    )
+
+    assert result.asset_urls == ("asset-owner", "asset-inline")
+    assert result.internal_links == ("internal-owner", "internal-inline")
+    assert result.external_links == ("external-owner", "external-inline")

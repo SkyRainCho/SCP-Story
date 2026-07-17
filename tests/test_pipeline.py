@@ -17,6 +17,7 @@ from scp_epub.models import (
     ConfiguredLink,
     ConfiguredPage,
     FetchResult,
+    InlineDocumentSpec,
     PageOverride,
     PageRef,
     VolumeSpec,
@@ -32,6 +33,7 @@ from scp_epub.pipeline import (
     run_command,
     scan_linked_appendices_for_volume,
 )
+from scp_epub.inline_documents import fetch_inline_document_results
 
 
 BASE_URL = "https://scp-wiki-cn.wikidot.com"
@@ -1429,6 +1431,88 @@ def test_build_volume_includes_configured_linked_appendix_chain(tmp_path: Path):
         "scp-5170/offset/2",
         "scp-5170/offset/3",
     ]
+
+
+def test_fetch_inline_documents_skips_configured_owner_absent_from_manifest(tmp_path: Path):
+    config = app_config(
+        tmp_path,
+        page_overrides={
+            "scp-1898": PageOverride(
+                inline_documents=(
+                    InlineDocumentSpec(
+                        "相关图片",
+                        f"{BASE_URL}/scp-1898-offset",
+                        "scp-1898-offset",
+                        "append",
+                    ),
+                ),
+            ),
+        },
+    )
+    manifest = [PageRef("SCP-001", f"{BASE_URL}/scp-001", "scp-001", 1, "scp", order=1)]
+    fetcher = FakeFetcher(tmp_path / "cache", {"scp-001": simple_page("SCP-001")})
+
+    results = fetch_inline_document_results(config, manifest, fetcher, force=False)
+
+    assert results == {}
+    assert fetcher.calls == []
+
+
+def test_build_volume_inlines_configured_document_without_manifest_or_nav_entry_and_excludes_auto_appendix(
+    tmp_path: Path,
+):
+    inline_url = f"{BASE_URL}/scp-1898-offset"
+    config = app_config(
+        tmp_path,
+        page_overrides={
+            "scp-1898": PageOverride(
+                inline_documents=(
+                    InlineDocumentSpec(
+                        "相关图片",
+                        inline_url,
+                        "scp-1898-offset",
+                        "after_text",
+                        "附录-1898-1：相关SCP-1898图片",
+                    ),
+                ),
+            ),
+        },
+    )
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(
+        [PageRef("SCP-1898", f"{BASE_URL}/scp-1898", "scp-1898", 1, "scp", order=1)],
+        config.manifest_dir / "test-volume.json",
+    )
+    image_url = f"{BASE_URL}/images/inline.png"
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-1898": simple_page(
+                "SCP-1898",
+                '<p>附录-1898-1：相关SCP-1898图片</p><a href="/scp-1898-offset">附录图片</a>',
+            ),
+            "scp-1898-offset": simple_page(
+                "相关图片",
+                '<p>内联文档正文 <img src="/images/inline.png"/><a href="/scp-1898">返回</a></p>',
+            ),
+        },
+        assets={image_url: ("inline.png", b"png", "image/png")},
+    )
+
+    output_path = build_volume(config, "001-099", fetcher=fetcher)
+
+    assert [slug for slug, _url, _force in fetcher.calls] == ["scp-1898", "scp-1898-offset"]
+    report = json.loads((config.output_dir / "reports" / "test-volume-report.json").read_text(encoding="utf-8"))
+    assert report["slugs"] == ["scp-1898"]
+    assert report["asset_urls"] == [image_url]
+    processed = (config.processed_dir / "test-volume" / "0001-scp-1898.xhtml").read_text(encoding="utf-8")
+    assert "inline-document-epub" in processed
+    assert "内联文档正文" in processed
+    with zipfile.ZipFile(output_path) as archive:
+        nav = archive.read("OEBPS/nav.xhtml").decode("utf-8")
+        assert "scp-1898-offset" not in "\n".join(archive.namelist())
+        assert "相关图片" not in nav
 
 
 def test_build_volume_force_rebuilds_existing_manifest_from_refreshed_sources(tmp_path: Path):
