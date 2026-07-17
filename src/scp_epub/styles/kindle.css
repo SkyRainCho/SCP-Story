@@ -1,0 +1,316 @@
+body {
+  line-height: 1.55;
+}
+
+h1 {
+  color: #660011;
+}
+
+h2 {
+  margin: 0.75em 0;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid #777;
+  margin: 1.5em 0;
+}
+
+img {
+  height: auto;
+}
+
+.content-panel {
+  margin: 1em 0;
+  padding: 0.9em 1em;
+  border: 1px solid #777;
+  border-radius: 0.35em;
+  background: #f7f7f7;
+}
+
+.yui-navset {
+  margin: 0.5em 0;
+}
+
+.yui-navset .yui-nav {
+  margin: 0 0 0.8em;
+  padding: 0;
+  text-align: right;
+  list-style: none;
+}
+
+.yui-navset .yui-nav li {
+  display: inline-block;
+  margin: 0 0 0.35em 0.8em;
+}
+
+.yui-navset .yui-nav a {
+  color: #660011;
+  text-decoration: none;
+}
+
+.yui-navset .yui-nav a em {
+  font-style: normal;
+}
+
+.yui-navset .yui-nav .selected a {
+  color: #111;
+  font-weight: bold;
+}
+
+.yui-navset .yui-content {
+  padding: 0.25em 0;
+  text-align: center;
+}
+
+.yui-navset .divider {
+  margin: 1em 0 0.45em;
+  padding-top: 0.35em;
+  border-top: 1px solid #aaa;
+  color: #555;
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: bold;
+  text-align: center;
+}
+
+.tabview-epub {
+  margin: 1em 0;
+}
+
+.tabview-panel-epub {
+  margin: 1em 0;
+  padding: 0.9em 1em;
+  border: 1px solid #888;
+  border-left: 0.3em solid #660011;
+  background: #f7f7f7;
+}
+
+.tabview-panel-title {
+  margin: 0 0 0.75em;
+  padding-bottom: 0.35em;
+  border-bottom: 1px solid #aaa;
+  color: #660011;
+  font-size: 1.05em;
+}
+
+blockquote,
+.blockquote {
+  margin: 1em 1.5em;
+  padding: 0.75em 1em;
+  border: 1px dashed #777;
+  background: #f7f7f7;
+}
+
+table.wiki-content-table {
+  width: 100%;
+  margin: 1em auto;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+table.wiki-content-table th,
+table.wiki-content-table td {
+  padding: 0.4em 0.55em;
+  border: 1px solid #666;
+  vertical-align: top;
+  word-wrap: break-word;
+}
+
+table.wiki-content-table th {
+  background: #e8e8e8;
+  font-weight: bold;
+  text-align: center;
+}
+
+.scp-image-block {
+  width: 42%;
+  margin: 0.75em 0 1em;
+  border: 1px solid #555;
+  background: #fff;
+}
+
+.scp-image-block.block-right {
+  float: right;
+  clear: right;
+  margin: 0 0 1em 1.2em;
+}
+
+.scp-image-block.block-left {
+  float: left;
+  clear: left;
+  margin: 0 1.2em 1em 0;
+}
+
+.scp-image-block.block-center {
+  clear: both;
+  width: 70%;
+  margin: 1em auto;
+}
+
+.scp-image-block img {
+  display: block;
+  width: 100%;
+}
+
+.scp-image-caption {
+  padding: 0.3em 0.5em;
+  border-top: 1px solid #555;
+  text-align: center;
+  font-size: 0.9em;
+  font-weight: bold;
+}
+
+.anom-bar-container {
+  width: 100%;
+  margin: 1.2em 0;
+  padding: 0.65em;
+  border: 2px solid #7a1726;
+  background: #e7e7e7;
+  color: #111;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.anom-bar-container .lang-tr {
+  display: none;
+}
+
+.anom-bar-container .top-box,
+.anom-bar-container .bottom-box,
+.anom-bar-container .main-class {
+  display: table;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0.35em;
+}
+
+.anom-bar-container .top-left-box,
+.anom-bar-container .top-center-box,
+.anom-bar-container .top-right-box,
+.anom-bar-container .text-part,
+.anom-bar-container .diamond-part,
+.anom-bar-container .contain-class,
+.anom-bar-container .second-class {
+  display: table-cell;
+  vertical-align: middle;
+}
+
+.anom-bar-container .top-left-box {
+  width: 28%;
+}
+
+.anom-bar-container .top-center-box {
+  width: 44%;
+  border-top: 0.35em solid #111;
+  border-bottom: 0.35em solid #111;
+}
+
+.anom-bar-container .top-right-box {
+  width: 28%;
+  text-align: center;
+}
+
+.anom-bar-container .number {
+  font-size: 2em;
+  font-weight: bold;
+  letter-spacing: 0.08em;
+}
+
+.anom-bar-container .level {
+  font-size: 1.5em;
+  font-weight: bold;
+}
+
+.kindle-clearance-label {
+  display: block;
+  margin-top: 0.2em;
+  font-size: 0.78em;
+  font-weight: bold;
+}
+
+.anom-bar-container .text-part {
+  width: 76%;
+}
+
+.anom-bar-container .diamond-part {
+  width: 24%;
+  text-align: center;
+}
+
+.anom-bar-container .contain-class,
+.anom-bar-container .second-class,
+.anom-bar-container .disrupt-class,
+.anom-bar-container .risk-class {
+  padding: 0.35em 0.5em;
+  border-left: 0.45em solid #7a1726;
+  background: #f2f2f2;
+}
+
+.anom-bar-container .class-category {
+  font-size: 0.78em;
+}
+
+.anom-bar-container .class-text {
+  font-size: 1.15em;
+  font-weight: bold;
+  line-height: 1.1;
+}
+
+.anom-bar-container .danger-diamond {
+  display: inline-block;
+  width: 5.5em;
+  min-height: 5.5em;
+  padding: 0.5em;
+  border: 0.25em double #111;
+  background: #fff;
+  text-align: center;
+}
+
+.anom-bar-container .danger-diamond a,
+.anom-bar-container .danger-diamond .arrows,
+.anom-bar-container .danger-diamond .octagon,
+.anom-bar-container .danger-diamond .quadrants,
+.anom-bar-container .danger-diamond .top-icon,
+.anom-bar-container .danger-diamond .right-icon,
+.anom-bar-container .danger-diamond .left-icon,
+.anom-bar-container .danger-diamond .bottom-icon {
+  display: none;
+}
+
+.kindle-danger-label {
+  display: block;
+  padding-top: 1.5em;
+  font-size: 1em;
+  font-weight: bold;
+}
+
+@media (max-width: 600px) {
+  .scp-image-block,
+  .scp-image-block.block-left,
+  .scp-image-block.block-right,
+  .scp-image-block.block-center {
+    float: none;
+    clear: both;
+    width: 80%;
+    margin: 1em auto;
+  }
+
+  .anom-bar-container .top-box,
+  .anom-bar-container .bottom-box,
+  .anom-bar-container .main-class,
+  .anom-bar-container .top-left-box,
+  .anom-bar-container .top-center-box,
+  .anom-bar-container .top-right-box,
+  .anom-bar-container .text-part,
+  .anom-bar-container .diamond-part,
+  .anom-bar-container .contain-class,
+  .anom-bar-container .second-class {
+    display: block;
+    width: auto;
+  }
+
+  .anom-bar-container .top-right-box,
+  .anom-bar-container .diamond-part {
+    margin-top: 0.6em;
+    text-align: left;
+  }
+}
