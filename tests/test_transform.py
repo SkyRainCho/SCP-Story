@@ -1118,7 +1118,7 @@ def test_removes_scp7261_navigation_before_earthworm_decoration():
     <html><body><div id="page-content">
       <div class="anom-bar-esoteric" id="classification">项目编号：7261</div>
       <div id="terminal-nav">« <a href="/previous">Previous</a> | <a href="/next">Next</a> »</div>
-      <div class="earthworm" id="earthworm">SCP-7990 九异书 SCP-5938</div>
+      <div class="earthworm" id="earthworm"><img src="/images/earthworm.png" alt="earthworm" />SCP-7990 九异书 SCP-5938</div>
     </div></body></html>
     """
 

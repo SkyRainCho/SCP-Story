@@ -376,10 +376,10 @@ def _has_substantive_following_sibling(navigation_slug: str | None, node: Tag) -
 def _is_insignificant_trailing_node(navigation_slug: str | None, node: Tag) -> bool:
     if node.name in {"br", "hr"}:
         return True
-    if node.name in SUBSTANTIVE_MEDIA_TAGS or node.find(SUBSTANTIVE_MEDIA_TAGS) is not None:
-        return False
     if navigation_slug == "scp-7261" and "earthworm" in _class_tokens(node):
         return True
+    if node.name in SUBSTANTIVE_MEDIA_TAGS or node.find(SUBSTANTIVE_MEDIA_TAGS) is not None:
+        return False
     text = node.get_text(" ", strip=True)
     if _looks_like_css_code(text):
         return True
