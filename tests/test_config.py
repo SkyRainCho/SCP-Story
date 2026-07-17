@@ -69,6 +69,14 @@ def write_config_with_appendix(config_path: Path, appendix_yaml: str) -> None:
     )
 
 
+def write_config_with_page_overrides(config_path: Path, overrides_yaml: str) -> None:
+    write_config(config_path)
+    config_path.write_text(
+        f"{config_path.read_text(encoding='utf-8')}\npage_overrides:\n{overrides_yaml}",
+        encoding="utf-8",
+    )
+
+
 def test_load_config_builds_absolute_urls_and_paths(tmp_path: Path):
     config_path = tmp_path / "series.yaml"
     write_config(config_path)
@@ -127,6 +135,187 @@ def test_featured_scp_config_uses_archive_mode_and_title_indexes():
         "scp-5170/offset/3",
     ]
     assert list(config.volumes) == ["featured"]
+
+
+def test_load_config_parses_page_overrides_and_inline_documents(tmp_path: Path):
+    config_path = tmp_path / "series.yaml"
+    write_config_with_page_overrides(
+        config_path,
+        """\
+  scp-1234:
+    remove_terminal_navigation: true
+    remove_leading_metadata: true
+    remove_adult_content_warning: true
+    remove_author_work_list: true
+    layout_profile: scp-1234
+    inline_documents:
+      - title: Supplement
+        url: supplement
+        position: after_text
+        anchor_text: Anchor
+      - title: Footnote
+        url: /footnote
+        position: before_text
+        anchor_text: Footnotes
+      - title: Appendix
+        url: /appendix
+        slug: custom-appendix
+        position: append
+""",
+    )
+
+    override = load_config(config_path).page_overrides["scp-1234"]
+
+    assert override.remove_terminal_navigation is True
+    assert override.remove_leading_metadata is True
+    assert override.remove_adult_content_warning is True
+    assert override.remove_author_work_list is True
+    assert override.layout_profile == "scp-1234"
+    assert [(document.title, document.url, document.slug, document.position, document.anchor_text) for document in override.inline_documents] == [
+        ("Supplement", "https://example.test/supplement", "supplement", "after_text", "Anchor"),
+        ("Footnote", "https://example.test/footnote", "footnote", "before_text", "Footnotes"),
+        ("Appendix", "https://example.test/appendix", "custom-appendix", "append", None),
+    ]
+
+
+def test_featured_scp_config_declares_page_overrides():
+    config = load_config(Path("config/featured-scp.yaml"))
+
+    assert {
+        slug
+        for slug, override in config.page_overrides.items()
+        if override.remove_terminal_navigation
+    } == {
+        "scp-9928",
+        "scp-7261",
+        "scp-3662",
+        "scp-5550",
+        "scp-5514",
+        "scp-5109",
+        "scp-5494",
+        "scp-6781",
+    }
+    assert config.page_overrides["scp-5464"].remove_leading_metadata is True
+    assert {
+        slug
+        for slug, override in config.page_overrides.items()
+        if override.remove_author_work_list
+    } == {"scp-6698", "scp-4233", "scp-5595"}
+    assert config.page_overrides["scp-7069"].remove_adult_content_warning is True
+    assert {
+        slug: config.page_overrides[slug].layout_profile
+        for slug in ("scp-6183", "scp-4612", "scp-6599")
+    } == {
+        "scp-6183": "scp-6183",
+        "scp-4612": "scp-4612",
+        "scp-6599": "scp-6599",
+    }
+    assert [
+        (document.url, document.position, document.anchor_text)
+        for document in config.page_overrides["scp-1898"].inline_documents
+    ] == [
+        (
+            "https://scp-wiki-cn.wikidot.com/attached-scp-1898-photographs",
+            "after_text",
+            "附录-1898-1：相关SCP-1898图片",
+        )
+    ]
+    assert [document.url for document in config.page_overrides["scp-7503"].inline_documents] == [
+        f"https://scp-wiki-cn.wikidot.com/offset/{index}" for index in range(1, 5)
+    ]
+    assert [document.position for document in config.page_overrides["scp-7503"].inline_documents] == [
+        "append",
+        "append",
+        "append",
+        "append",
+    ]
+    assert [
+        (document.url, document.position)
+        for document in config.page_overrides["scp-6445"].inline_documents
+    ] == [("https://scp-wiki-cn.wikidot.com/offset/1", "append")]
+    assert [
+        (document.url, document.position, document.anchor_text)
+        for document in config.page_overrides["scp-2814"].inline_documents
+    ] == [
+        ("https://scp-wiki-cn.wikidot.com/document-2814-gamma", "before_text", "Footnotes")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("overrides_yaml", "expected"),
+    [
+        ("  - invalid\n", "page_overrides must be a mapping"),
+        ("  scp-1234: invalid\n", "page_overrides.scp-1234 must be a mapping"),
+        (
+            """\
+  scp-1234:
+    remove_terminal_navigation: invalid
+""",
+            "page_overrides.scp-1234.remove_terminal_navigation must be a boolean",
+        ),
+        (
+            """\
+  scp-1234:
+    layout_profile: false
+""",
+            "page_overrides.scp-1234.layout_profile must be a non-empty string",
+        ),
+        (
+            """\
+  scp-1234:
+    inline_documents: invalid
+""",
+            "page_overrides.scp-1234.inline_documents must be a list of inline document mappings",
+        ),
+        (
+            """\
+  scp-1234:
+    inline_documents:
+      - invalid
+""",
+            "page_overrides.scp-1234.inline_documents[0] must be a mapping",
+        ),
+        (
+            """\
+  scp-1234:
+    inline_documents:
+      - title: Supplement
+        url: /supplement
+        position: within_text
+""",
+            "page_overrides.scp-1234.inline_documents[0].position must be 'after_text', 'before_text', or 'append'",
+        ),
+        (
+            """\
+  scp-1234:
+    inline_documents:
+      - title: Supplement
+        url: /supplement
+        position: after_text
+""",
+            "page_overrides.scp-1234.inline_documents[0].anchor_text is required for position 'after_text'",
+        ),
+        (
+            """\
+  scp-1234:
+    inline_documents:
+      - title: Supplement
+        url: /supplement
+        position: before_text
+        anchor_text: ""
+""",
+            "page_overrides.scp-1234.inline_documents[0].anchor_text is required for position 'before_text'",
+        ),
+    ],
+)
+def test_load_config_rejects_invalid_page_overrides(
+    tmp_path: Path, overrides_yaml: str, expected: str
+):
+    config_path = tmp_path / "series.yaml"
+    write_config_with_page_overrides(config_path, overrides_yaml)
+
+    with pytest.raises(ValueError, match=re.escape(expected)):
+        load_config(config_path)
 
 
 def test_featured_scp_config_declares_appendix_structure():

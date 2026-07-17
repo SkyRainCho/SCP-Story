@@ -6,7 +6,16 @@ from typing import Any
 
 import yaml
 
-from .models import AppendixSection, AppendixSpec, AppConfig, ConfiguredLink, ConfiguredPage, VolumeSpec
+from .models import (
+    AppendixSection,
+    AppendixSpec,
+    AppConfig,
+    ConfiguredLink,
+    ConfiguredPage,
+    InlineDocumentSpec,
+    PageOverride,
+    VolumeSpec,
+)
 from .urls import normalize_url, slug_from_url
 
 
@@ -105,6 +114,11 @@ def load_config(path: str | Path) -> AppConfig:
         page_tab_includes=_load_string_tuple_mapping(
             data.get("page_tab_includes", {}),
             "page_tab_includes",
+        ),
+        page_overrides=_load_page_overrides(
+            data.get("page_overrides", {}),
+            "page_overrides",
+            _required_string(data["base_url"], "base_url").rstrip("/"),
         ),
         appendix=_load_appendix(
             data.get("appendix"),
@@ -214,6 +228,87 @@ def _load_string_tuple_mapping(value: Any, name: str) -> dict[str, tuple[str, ..
             f"{name}.{key}",
         )
     return result
+
+
+def _load_page_overrides(
+    value: Any,
+    name: str,
+    base_url: str,
+) -> dict[str, PageOverride]:
+    if value is None:
+        return {}
+
+    overrides: dict[str, PageOverride] = {}
+    for raw_slug, raw_override in _mapping(value, name).items():
+        slug = _required_string(raw_slug, f"{name} key").strip().lower()
+        override_name = f"{name}.{slug}"
+        override = _mapping(raw_override, override_name)
+        overrides[slug] = PageOverride(
+            remove_terminal_navigation=_optional_bool(
+                override.get("remove_terminal_navigation", False),
+                f"{override_name}.remove_terminal_navigation",
+            ),
+            remove_leading_metadata=_optional_bool(
+                override.get("remove_leading_metadata", False),
+                f"{override_name}.remove_leading_metadata",
+            ),
+            remove_adult_content_warning=_optional_bool(
+                override.get("remove_adult_content_warning", False),
+                f"{override_name}.remove_adult_content_warning",
+            ),
+            remove_author_work_list=_optional_bool(
+                override.get("remove_author_work_list", False),
+                f"{override_name}.remove_author_work_list",
+            ),
+            layout_profile=_optional_string(
+                override.get("layout_profile"),
+                f"{override_name}.layout_profile",
+            ),
+            inline_documents=_load_inline_documents(
+                override.get("inline_documents"),
+                f"{override_name}.inline_documents",
+                base_url,
+            ),
+        )
+    return overrides
+
+
+def _load_inline_documents(
+    value: Any,
+    name: str,
+    base_url: str,
+) -> tuple[InlineDocumentSpec, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, list):
+        raise ValueError(f"{name} must be a list of inline document mappings")
+
+    documents: list[InlineDocumentSpec] = []
+    for index, raw_document in enumerate(value):
+        document_name = f"{name}[{index}]"
+        document = _mapping(raw_document, document_name)
+        title = _required_string(document.get("title"), f"{document_name}.title")
+        raw_url = _required_string(document.get("url"), f"{document_name}.url")
+        url = normalize_url(base_url, raw_url)
+        slug = _optional_string(document.get("slug"), f"{document_name}.slug") or slug_from_url(url)
+        position = _inline_document_position(document.get("position"), f"{document_name}.position")
+        raw_anchor_text = document.get("anchor_text")
+        if position in {"after_text", "before_text"} and (
+            raw_anchor_text is None
+            or isinstance(raw_anchor_text, str) and not raw_anchor_text.strip()
+        ):
+            raise ValueError(f"{document_name}.anchor_text is required for position '{position}'")
+        anchor_text = _optional_string(raw_anchor_text, f"{document_name}.anchor_text")
+        documents.append(
+            InlineDocumentSpec(
+                title=title,
+                url=url,
+                slug=slug,
+                position=position,
+                anchor_text=anchor_text,
+            )
+        )
+    return tuple(documents)
 
 
 def _load_appendix(value: Any, name: str, base_url: str) -> AppendixSpec | None:
@@ -387,6 +482,13 @@ def _optional_appendix_mode(value: Any, name: str) -> str:
             f"{name} must be 'page', 'facility-links', or 'tabs-as-pages'"
         )
     return mode
+
+
+def _inline_document_position(value: Any, name: str) -> str:
+    position = _required_string(value, name)
+    if position not in {"after_text", "before_text", "append"}:
+        raise ValueError(f"{name} must be 'after_text', 'before_text', or 'append'")
+    return position
 
 
 def _mapping(value: Any, name: str) -> dict[str, Any]:

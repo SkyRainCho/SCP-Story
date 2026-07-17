@@ -24,6 +24,70 @@ explicit_linked_appendices:
 page_tab_includes:
   about-the-scp-foundation:
     - 简介
+page_overrides:
+  scp-9928:
+    remove_terminal_navigation: true
+  scp-7261:
+    remove_terminal_navigation: true
+  scp-3662:
+    remove_terminal_navigation: true
+  scp-5550:
+    remove_terminal_navigation: true
+  scp-5514:
+    remove_terminal_navigation: true
+  scp-5109:
+    remove_terminal_navigation: true
+  scp-5494:
+    remove_terminal_navigation: true
+  scp-6781:
+    remove_terminal_navigation: true
+  scp-5464:
+    remove_leading_metadata: true
+  scp-6698:
+    remove_author_work_list: true
+  scp-4233:
+    remove_author_work_list: true
+  scp-5595:
+    remove_author_work_list: true
+  scp-7069:
+    remove_adult_content_warning: true
+  scp-6183:
+    layout_profile: scp-6183
+  scp-4612:
+    layout_profile: scp-4612
+  scp-6599:
+    layout_profile: scp-6599
+  scp-1898:
+    inline_documents:
+      - title: SCP-1898 相关图片
+        url: /attached-scp-1898-photographs
+        position: after_text
+        anchor_text: 附录-1898-1：相关SCP-1898图片
+  scp-7503:
+    inline_documents:
+      - title: SCP-7503 Offset 1
+        url: /offset/1
+        position: append
+      - title: SCP-7503 Offset 2
+        url: /offset/2
+        position: append
+      - title: SCP-7503 Offset 3
+        url: /offset/3
+        position: append
+      - title: SCP-7503 Offset 4
+        url: /offset/4
+        position: append
+  scp-6445:
+    inline_documents:
+      - title: SCP-6445 Offset 1
+        url: /offset/1
+        position: append
+  scp-2814:
+    inline_documents:
+      - title: Document 2814-Gamma
+        url: /document-2814-gamma
+        position: before_text
+        anchor_text: Footnotes
 appendix:
   title: 附录
   slug: appendix
