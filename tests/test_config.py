@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import pytest
@@ -60,6 +61,14 @@ def write_config(config_path: Path, **overrides: str) -> None:
     config_path.write_text(VALID_CONFIG.format(**values), encoding="utf-8")
 
 
+def write_config_with_appendix(config_path: Path, appendix_yaml: str) -> None:
+    write_config(config_path)
+    config_path.write_text(
+        f"{config_path.read_text(encoding='utf-8')}\nappendix:\n{appendix_yaml}",
+        encoding="utf-8",
+    )
+
+
 def test_load_config_builds_absolute_urls_and_paths(tmp_path: Path):
     config_path = tmp_path / "series.yaml"
     write_config(config_path)
@@ -78,6 +87,7 @@ def test_load_config_builds_absolute_urls_and_paths(tmp_path: Path):
     assert config.asset_retry_count == 1
     assert config.volumes["001-099"].start == 1
     assert config.workspace == tmp_path
+    assert config.appendix is None
 
 
 def test_series_1_config_defines_all_volume_ranges():
@@ -117,6 +127,127 @@ def test_featured_scp_config_uses_archive_mode_and_title_indexes():
         "scp-5170/offset/3",
     ]
     assert list(config.volumes) == ["featured"]
+
+
+def test_featured_scp_config_declares_appendix_structure():
+    config = load_config(Path("config/featured-scp.yaml"))
+
+    assert config.appendix is not None
+    assert config.appendix.title == "附录"
+    assert [section.title for section in config.appendix.sections] == [
+        "项目等级",
+        "安保许可等级",
+        "基金会设施",
+        "基金会部门",
+        "人事档案",
+        "O5指挥部档案",
+        "相关组织",
+        "相关地点",
+    ]
+    sections_by_title = {section.title: section for section in config.appendix.sections}
+    assert sections_by_title["安保许可等级"].mode == "page"
+    assert sections_by_title["安保许可等级"].include_tabs == ("简介",)
+    assert sections_by_title["安保许可等级"].unwrap_single_tab is True
+    assert sections_by_title["基金会设施"].mode == "facility-links"
+    assert sections_by_title["人事档案"].mode == "tabs-as-pages"
+    assert sections_by_title["O5指挥部档案"].mode == "tabs-as-pages"
+
+
+def test_load_config_rejects_empty_appendix_sections(tmp_path: Path):
+    config_path = tmp_path / "series.yaml"
+    write_config_with_appendix(
+        config_path,
+        """\
+  title: Appendix
+  slug: appendix
+  sections: []
+""",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape("appendix.sections must define at least one section"),
+    ):
+        load_config(config_path)
+
+
+@pytest.mark.parametrize(
+    ("appendix_yaml", "expected"),
+    [
+        ("  - invalid\n", "appendix must be a mapping"),
+        (
+            """\
+  title: Appendix
+  slug: appendix
+  sections:
+    - invalid
+""",
+            "appendix.sections[0] must be a mapping",
+        ),
+    ],
+)
+def test_load_config_rejects_invalid_appendix_mappings(
+    tmp_path: Path, appendix_yaml: str, expected: str
+):
+    config_path = tmp_path / "series.yaml"
+    write_config_with_appendix(config_path, appendix_yaml)
+
+    with pytest.raises(ValueError, match=re.escape(expected)):
+        load_config(config_path)
+
+
+@pytest.mark.parametrize(
+    ("section_setting", "expected"),
+    [
+        (
+            "mode: grouped",
+            "appendix.sections[0].mode must be 'page', 'facility-links', or 'tabs-as-pages'",
+        ),
+        (
+            "include_tabs: false",
+            "appendix.sections[0].include_tabs must be a string or list of strings",
+        ),
+        ("unwrap_single_tab: []", "appendix.sections[0].unwrap_single_tab must be a boolean"),
+    ],
+)
+def test_load_config_rejects_invalid_appendix_section_options(
+    tmp_path: Path, section_setting: str, expected: str
+):
+    config_path = tmp_path / "series.yaml"
+    write_config_with_appendix(
+        config_path,
+        f"""\
+  title: Appendix
+  slug: appendix
+  sections:
+    - title: Reference
+      url: /reference
+      {section_setting}
+""",
+    )
+
+    with pytest.raises(ValueError, match=re.escape(expected)):
+        load_config(config_path)
+
+
+def test_load_config_normalizes_appendix_section_url_and_derives_slug(tmp_path: Path):
+    config_path = tmp_path / "series.yaml"
+    write_config_with_appendix(
+        config_path,
+        """\
+  title: Appendix
+  slug: appendix
+  sections:
+    - title: Reference
+      url: reference-page
+""",
+    )
+
+    appendix = load_config(config_path).appendix
+
+    assert appendix is not None
+    assert appendix.sections[0].url == "https://example.test/reference-page"
+    assert appendix.sections[0].slug == "reference-page"
 
 
 @pytest.mark.parametrize(
