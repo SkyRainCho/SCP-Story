@@ -241,6 +241,8 @@ def _load_page_overrides(
     overrides: dict[str, PageOverride] = {}
     for raw_slug, raw_override in _mapping(value, name).items():
         slug = _required_string(raw_slug, f"{name} key").strip().lower()
+        if slug in overrides:
+            raise ValueError(f"{name} contains duplicate key after normalization: {slug}")
         override_name = f"{name}.{slug}"
         override = _mapping(raw_override, override_name)
         _reject_unknown_keys(

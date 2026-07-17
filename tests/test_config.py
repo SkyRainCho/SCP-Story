@@ -248,6 +248,15 @@ def test_featured_scp_config_declares_page_overrides():
         ("  scp-1234: invalid\n", "page_overrides.scp-1234 must be a mapping"),
         (
             """\
+  SCP-1234:
+    remove_terminal_navigation: true
+  scp-1234:
+    remove_author_work_list: true
+""",
+            "page_overrides contains duplicate key after normalization: scp-1234",
+        ),
+        (
+            """\
   scp-1234:
     remove_terminal_navigation: invalid
 """,
