@@ -354,7 +354,7 @@ def _is_terminal_article_block(block: Tag) -> bool:
 def _is_compact_guillemet_navigation(block: Tag) -> bool:
     text = " ".join(block.get_text(" ", strip=True).split())
     return (
-        len(block.find_all("a")) >= 2
+        len(block.find_all("a")) == 3
         and len(text) <= 240
         and len(text) >= 2
         and text[0] in {"«", "‹"}
@@ -363,12 +363,15 @@ def _is_compact_guillemet_navigation(block: Tag) -> bool:
 
 
 def _is_scp_6781_previous_next_navigation(block: Tag) -> bool:
-    labels = {
-        node.get_text(" ", strip=True)
+    label_links = {
+        node.get_text(" ", strip=True): node.find_parent("a")
         for node in block.find_all(True)
         if node.get_text(" ", strip=True) in {"前情", "后事"} and node.find_parent("a") is not None
     }
-    return len(block.find_all("a")) >= 2 and labels == {"前情", "后事"}
+    return (
+        set(label_links) == {"前情", "后事"}
+        and len({id(link) for link in label_links.values()}) == 2
+    )
 
 
 def _remove_scp_5464_leading_metadata(page_content: Tag) -> None:
@@ -376,7 +379,14 @@ def _remove_scp_5464_leading_metadata(page_content: Tag) -> None:
         if _is_scp_5464_setting_hub_breadcrumb(child) or _is_scp_5464_author_block(child):
             child.decompose()
             continue
+        if _is_scp_5464_leading_template_or_empty_node(child):
+            continue
         break
+
+
+def _is_scp_5464_leading_template_or_empty_node(block: Tag) -> bool:
+    text = block.get_text(" ", strip=True)
+    return not text or _looks_like_css_code(text)
 
 
 def _is_scp_5464_setting_hub_breadcrumb(block: Tag) -> bool:

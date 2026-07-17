@@ -987,9 +987,9 @@ def test_removes_scp173_creator_information_block():
 def test_removes_only_terminal_guillemet_navigation_when_enabled():
     html = """
     <html><body><div id="page-content">
-      <div id="earlier-nav">« <a href="/one">One</a> | <a href="/two">Two</a> »</div>
-      <p>正文中的 « <a href="/one">One</a> | <a href="/two">Two</a> » 应保留。</p>
-      <div id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> »</div>
+      <div id="earlier-nav">« <a href="/one">One</a> | <a href="/two">Two</a> | <a href="/three">Three</a> »</div>
+      <p>正文中的 « <a href="/one">One</a> | <a href="/two">Two</a> | <a href="/three">Three</a> » 应保留。</p>
+      <div id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> | <a href="/three">Three</a> »</div>
     </div></body></html>
     """
 
@@ -1004,6 +1004,24 @@ def test_removes_only_terminal_guillemet_navigation_when_enabled():
     assert soup.find(id="terminal-nav") is None
     assert soup.find(id="earlier-nav") is not None
     assert "正文中的" in soup.get_text(" ", strip=True)
+
+
+def test_preserves_terminal_two_link_guillemet_content_when_cleanup_is_enabled():
+    html = """
+    <html><body><div id="page-content">
+      <p>正文。</p>
+      <div id="terminal-content">« <a href="/one">One</a> | <a href="/two">Two</a> »</div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref(),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+
+    assert soup_fragment(result.xhtml).find(id="terminal-content") is not None
 
 
 def test_preserves_terminal_navigation_when_cleanup_is_disabled():
@@ -1022,7 +1040,7 @@ def test_preserves_terminal_navigation_when_cleanup_is_disabled():
 def test_removes_scp6781_terminal_previous_and_next_navigation_when_enabled():
     html = """
     <html><body><div id="page-content">
-      <p>正文。</p>
+      <p id="article">正文。</p>
       <div class="rnb-navbar">
         <a href="/previous"><span class="rnb-supertitle">前情</span><br />« 档案 »</a>
         <a href="/current">当前文档</a>
@@ -1038,7 +1056,45 @@ def test_removes_scp6781_terminal_previous_and_next_navigation_when_enabled():
         page_options=PageTransformOptions(remove_terminal_navigation=True),
     )
 
-    assert soup_fragment(result.xhtml).find(class_="rnb-navbar") is None
+    soup = soup_fragment(result.xhtml)
+    assert soup.find(class_="rnb-navbar") is None
+    assert soup.find(id="article") is not None
+
+
+def test_preserves_scp6781_navigation_when_disabled_or_labels_do_not_link():
+    navigation = """
+      <div class="rnb-navbar">
+        <a href="/previous"><span class="rnb-supertitle">前情</span><br />« 档案 »</a>
+        <a href="/next"><span class="rnb-supertitle">后事</span><br />« 后续 »</a>
+      </div>
+    """
+    disabled_html = f"""
+    <html><body><div id="page-content">
+      <p id="before">相邻正文。</p>{navigation}
+    </div></body></html>
+    """
+    nonmatching_html = """
+    <html><body><div id="page-content">
+      <p id="before">相邻正文。</p>
+      <div class="rnb-navbar">
+        <a href="/previous"><span class="rnb-supertitle">前情</span><span class="rnb-supertitle">后事</span></a>
+        <a href="/next">« 后续 »</a>
+      </div>
+    </div></body></html>
+    """
+
+    disabled = transform_page(page_ref("scp-6781"), disabled_html, BASE_URL)
+    nonmatching = transform_page(
+        page_ref("scp-6781"),
+        nonmatching_html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+
+    for result in (disabled, nonmatching):
+        soup = soup_fragment(result.xhtml)
+        assert soup.find(class_="rnb-navbar") is not None
+        assert soup.find(id="before") is not None
 
 
 def test_removes_scp5464_leading_hub_breadcrumb_and_author_block_when_enabled():
@@ -1063,6 +1119,34 @@ def test_removes_scp5464_leading_hub_breadcrumb_and_author_block_when_enabled():
     assert soup.find(id="author-block") is None
     assert soup.find(id="article").get_text(strip=True) == "第一段正文。"
     assert "后续内容提及作者" in soup.get_text(" ", strip=True)
+
+
+def test_removes_scp5464_metadata_after_live_dom_template_and_empty_nodes():
+    html = """
+    <html><body><div id="page-content">
+      <div class="list-pages-box"></div>
+      <p></p>
+      <div><div class="code"><pre>:root { --accent: red; --header-title: "Site-120"; }</pre></div></div>
+      <p></p>
+      <div class="pseudocrumbs"><a href="/canon-hub">设定中心</a> » <a href="/from-120-s-archives-hub">120站档案馆中心页</a> » SCP-5464</div>
+      <div></div>
+      <div style="text-align: center;"><p><span style="font-size:80%;">作者：<strong>Ralliston</strong></span></p></div>
+      <div class="anom-bar-container">项目编号：SCP-5464</div>
+      <p id="first-body"><strong>特殊收容措施：</strong>第一段正文必须保留。</p>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-5464"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_leading_metadata=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(class_="pseudocrumbs") is None
+    assert "作者：" not in soup.get_text(" ", strip=True)
+    assert soup.find(id="first-body").get_text(" ", strip=True).endswith("第一段正文必须保留。")
 
 
 def test_preserves_leading_metadata_for_other_pages_and_when_disabled():
@@ -1090,7 +1174,7 @@ def test_removes_scp7069_adult_warning_only_when_enabled():
     html = """
     <html><body><div id="page-content">
       <div id="u-adult-warning"><p>成人内容警告。</p></div>
-      <p>正文。</p>
+      <p id="article">正文。</p>
     </div></body></html>
     """
 
@@ -1109,6 +1193,7 @@ def test_removes_scp7069_adult_warning_only_when_enabled():
     )
 
     assert soup_fragment(enabled.xhtml).find(id="u-adult-warning") is None
+    assert soup_fragment(enabled.xhtml).find(id="article") is not None
     assert soup_fragment(disabled.xhtml).find(id="u-adult-warning") is not None
     assert soup_fragment(other_page.xhtml).find(id="u-adult-warning") is not None
 

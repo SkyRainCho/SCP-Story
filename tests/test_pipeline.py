@@ -1339,7 +1339,7 @@ def test_build_volume_inherits_only_scp5109_terminal_navigation_cleanup_for_link
               <html><body><div id="page-content">
                 <p>附属文档正文。</p>
                 <div id="u-adult-warning">不应继承的成人警告清理。</div>
-                <div id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> »</div>
+                <div id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> | <a href="/three">Three</a> »</div>
               </div></body></html>
             """,
         },
