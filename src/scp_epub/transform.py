@@ -213,6 +213,7 @@ AUTHOR_WORK_LIST_LABELS = (
     "More by this author",
     "该作者的更多作品",
 )
+TWO_LINK_TERMINAL_NAVIGATION_SLUGS = frozenset({"scp-7261", "scp-3662"})
 
 
 @dataclass(frozen=True)
@@ -327,7 +328,7 @@ def _apply_page_cleanup_options(
 
 def _remove_terminal_navigation(entry: PageRef, page_content: Tag) -> None:
     for block in _terminal_article_blocks(page_content):
-        if _is_compact_guillemet_navigation(block) or (
+        if _is_compact_guillemet_navigation(entry.slug, block) or (
             entry.slug == "scp-6781" and _is_scp_6781_previous_next_navigation(block)
         ):
             block.decompose()
@@ -335,20 +336,32 @@ def _remove_terminal_navigation(entry: PageRef, page_content: Tag) -> None:
 
 def _terminal_article_blocks(page_content: Tag) -> list[Tag]:
     return [
-        child
-        for child in page_content.find_all(recursive=False)
-        if child.name in {"div", "section"} and _is_terminal_article_block(child)
+        block
+        for block in page_content.find_all(("div", "section"))
+        if _is_terminal_article_block(block, page_content)
     ]
 
 
-def _is_terminal_article_block(block: Tag) -> bool:
-    for sibling in block.next_siblings:
+def _is_terminal_article_block(block: Tag, page_content: Tag) -> bool:
+    current = block
+    while current is not page_content:
+        if _has_substantive_following_sibling(current):
+            return False
+        parent = current.parent
+        if not isinstance(parent, Tag):
+            return False
+        current = parent
+    return True
+
+
+def _has_substantive_following_sibling(node: Tag) -> bool:
+    for sibling in node.next_siblings:
         if isinstance(sibling, Tag):
             if not _is_insignificant_trailing_node(sibling):
-                return False
+                return True
         elif str(sibling).strip():
-            return False
-    return True
+            return True
+    return False
 
 
 def _is_insignificant_trailing_node(node: Tag) -> bool:
@@ -360,10 +373,11 @@ def _is_insignificant_trailing_node(node: Tag) -> bool:
     return not text and node.find(("audio", "img", "object", "table", "video")) is None
 
 
-def _is_compact_guillemet_navigation(block: Tag) -> bool:
+def _is_compact_guillemet_navigation(slug: str, block: Tag) -> bool:
     text = " ".join(block.get_text(" ", strip=True).split())
+    link_count = len(block.find_all("a"))
     return (
-        2 <= len(block.find_all("a")) <= 3
+        (link_count == 3 or (link_count == 2 and slug in TWO_LINK_TERMINAL_NAVIGATION_SLUGS))
         and len(text) <= 240
         and len(text) >= 2
         and text[0] in {"«", "‹"}

@@ -1027,6 +1027,71 @@ def test_removes_terminal_two_link_guillemet_navigation_when_enabled(slug: str):
     assert soup.find(id="article") is not None
 
 
+def test_removes_nested_scp7261_terminal_navigation_before_insignificant_wrappers():
+    html = """
+    <html><body><div id="page-content">
+      <p id="article">正文。</p>
+      <div class="terminal-layout">
+        <div class="earthworm" id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> »</div>
+        <div class="list-pages-box"></div>
+        <div><div class="code"><pre>:root { --accent: red; --header-title: "Site-120"; }</pre></div></div>
+      </div>
+      <p></p>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-7261"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="terminal-nav") is None
+    assert soup.find(id="article") is not None
+
+
+def test_preserves_non_target_terminal_two_link_guillemet_content_when_enabled():
+    html = """
+    <html><body><div id="page-content">
+      <p id="article">正文。</p>
+      <div id="terminal-content">« <a href="/one">One</a> | <a href="/two">Two</a> »</div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-9928"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+
+    assert soup_fragment(result.xhtml).find(id="terminal-content") is not None
+
+
+def test_preserves_nested_navigation_when_its_ancestor_has_following_article_content():
+    html = """
+    <html><body><div id="page-content">
+      <div class="terminal-layout">
+        <div id="terminal-nav">« <a href="/one">One</a> | <a href="/two">Two</a> »</div>
+        <p id="after">后续正文。</p>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-7261"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="terminal-nav") is not None
+    assert soup.find(id="after") is not None
+
+
 @pytest.mark.parametrize(
     ("slug", "trailing_wrappers"),
     (
