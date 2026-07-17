@@ -1538,6 +1538,48 @@ def test_inserts_inline_document_before_exact_visible_text():
     ]
 
 
+def test_inserts_inline_document_before_footnotes_footer_instead_of_nested_title():
+    owner = inline_page(
+        "Owner",
+        "<p>正文。</p><div class=\"footnotes-footer\"><div class=\"title\">Footnotes</div><ol><li>注释。</li></ol></div>",
+    )
+    fragment = inline_page("Before", "<p>内联正文。</p>")
+
+    result = insert_inline_fragments(
+        owner,
+        fragments=((inline_spec("Before", "before_text", anchor_text="Footnotes"), fragment),),
+    )
+
+    soup = soup_fragment(result.xhtml)
+    root_children = soup.root.find_all(recursive=False)
+    footer = soup.find("div", class_="footnotes-footer")
+    assert [node.name for node in root_children] == ["p", "section", "div"]
+    assert footer is not None
+    assert footer.find("section", class_="inline-document-epub") is None
+
+
+def test_removes_inline_fragment_page_styles_but_preserves_inline_markup_and_styles():
+    owner = inline_page("Owner", "<p>正文。</p>")
+    fragment = inline_page(
+        "Inline",
+        "<style>p { color: red; } h2 { display: none; }</style><p style=\"font-weight: bold\"><em>内联正文。</em></p>",
+    )
+
+    result = insert_inline_fragments(
+        owner,
+        fragments=((inline_spec("Inline", "append"), fragment),),
+    )
+
+    soup = soup_fragment(result.xhtml)
+    section = soup.find("section", class_="inline-document-epub")
+    assert section is not None
+    assert section.find("style") is None
+    assert "p { color: red; }" not in result.xhtml
+    assert "h2 { display: none; }" not in result.xhtml
+    assert section.find("p")["style"] == "font-weight: bold"
+    assert section.find("em").get_text(strip=True) == "内联正文。"
+
+
 def test_appends_inline_documents_in_configured_order():
     owner = inline_page("Owner", "<p>正文。</p>")
     first = inline_page("Offset One", "<h2>第一份</h2><p>一。</p>")

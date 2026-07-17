@@ -14,6 +14,26 @@ from scp_epub.urls import normalize_url, slug_from_url
 
 NON_DOWNLOADABLE_ASSET_SCHEMES = {"data", "mailto", "tel"}
 HEADING_NAMES = frozenset(f"h{level}" for level in range(1, 7))
+INLINE_ANCHOR_BLOCK_TAGS = frozenset(
+    {
+        "article",
+        "aside",
+        "blockquote",
+        "div",
+        "dl",
+        "figure",
+        "footer",
+        "header",
+        *HEADING_NAMES,
+        "li",
+        "ol",
+        "p",
+        "pre",
+        "section",
+        "table",
+        "ul",
+    }
+)
 UNWANTED_TAGS = {"script", "style", "iframe", "nav", "aside"}
 SAFE_STYLE_PROPERTIES = {
     "background",
@@ -372,6 +392,8 @@ def _inline_document_section(
     fragment_soup = BeautifulSoup(f"<root>{xhtml}</root>", "html.parser")
     fragment_root = fragment_soup.find("root")
     if fragment_root is not None:
+        for style in fragment_root.find_all("style"):
+            style.decompose()
         if fragment_root.find(("h1", "h2")) is None:
             heading = soup.new_tag("h2")
             heading.string = spec.title
@@ -387,8 +409,23 @@ def _find_exact_visible_text(root: Tag, anchor_text: str | None) -> Tag | None:
     expected = _normalized_visible_text(anchor_text)
     for tag in root.find_all(True):
         if _normalized_visible_text(tag.get_text()) == expected:
-            return tag
+            return _container_safe_inline_anchor(tag)
     return None
+
+
+def _container_safe_inline_anchor(tag: Tag) -> Tag:
+    footer = tag if "footnotes-footer" in _class_tokens(tag) else tag.find_parent(
+        class_="footnotes-footer"
+    )
+    if isinstance(footer, Tag):
+        return footer
+
+    current: Tag | None = tag
+    while current is not None:
+        if current.name in INLINE_ANCHOR_BLOCK_TAGS:
+            return current
+        current = current.parent if isinstance(current.parent, Tag) else None
+    return tag
 
 
 def _normalized_visible_text(value: str) -> str:

@@ -859,11 +859,14 @@ def _exclude_configured_inline_documents(
     urls_by_owner = inline_document_urls(config)
     filtered_documents: list[LinkedAppendixDocument] = []
     for document in documents:
-        excluded_urls = urls_by_owner.get(document.entry.slug, set())
+        excluded_page_slugs = {
+            slug_from_url(url)
+            for url in urls_by_owner.get(document.entry.slug, set())
+        }
         candidates = tuple(
             candidate
             for candidate in document.candidates
-            if candidate.url not in excluded_urls
+            if slug_from_url(candidate.url) not in excluded_page_slugs
         )
         if candidates:
             filtered_documents.append(

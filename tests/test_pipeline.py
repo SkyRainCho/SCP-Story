@@ -1458,10 +1458,10 @@ def test_fetch_inline_documents_skips_configured_owner_absent_from_manifest(tmp_
     assert fetcher.calls == []
 
 
-def test_build_volume_inlines_configured_document_without_manifest_or_nav_entry_and_excludes_auto_appendix(
+def test_build_volume_excludes_auto_appendix_for_inline_url_with_host_case_and_trailing_slash(
     tmp_path: Path,
 ):
-    inline_url = f"{BASE_URL}/scp-1898-offset"
+    inline_url = "https://SCP-WIKI-CN.WIKIDOT.COM/scp-1898-offset/"
     config = app_config(
         tmp_path,
         page_overrides={
@@ -1484,7 +1484,7 @@ def test_build_volume_inlines_configured_document_without_manifest_or_nav_entry_
         [PageRef("SCP-1898", f"{BASE_URL}/scp-1898", "scp-1898", 1, "scp", order=1)],
         config.manifest_dir / "test-volume.json",
     )
-    image_url = f"{BASE_URL}/images/inline.png"
+    image_url = "https://SCP-WIKI-CN.WIKIDOT.COM/images/inline.png"
     fetcher = FakeFetcher(
         tmp_path / "cache",
         {
