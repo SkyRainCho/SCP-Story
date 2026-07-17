@@ -81,9 +81,10 @@ SCP-2814, Document 2814-Gamma is inserted before the `Footnotes` boundary.
 
 The transformer removes a terminal navigation block only when all of these are
 true: the override is enabled, the candidate is at the end of article content,
-and its visible text matches the compact three-link navigation shape (including
-the left/right guillemets). It does not remove similar text inside normal
-paragraphs. SCP-6781 additionally permits a terminal two-link sequence marked
+and its visible text matches the compact two- or three-link navigation shape
+(including the left/right guillemets). Empty/template wrappers after the
+candidate do not prevent it from qualifying. It does not remove similar text
+inside normal paragraphs. SCP-6781 additionally permits a terminal two-link sequence marked
 by the standalone labels `前情` and `后事`; this alternate pattern is still
 available only under its explicit page override.
 
