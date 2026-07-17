@@ -21,6 +21,8 @@ from scp_epub.models import (
     VolumeSpec,
 )
 from scp_epub.pipeline import (
+    _load_or_build_manifest,
+    _load_or_build_manifest_for_build,
     build_featured_manifest,
     build_manifest,
     build_volume,
@@ -721,6 +723,79 @@ def test_build_volume_rebuilds_legacy_featured_manifest_without_appendix_root(
         "appendix",
         "object-classes",
     ]
+
+
+def test_build_manifest_load_reuses_non_featured_appendix_cache_without_root(
+    tmp_path: Path,
+):
+    config = app_config(
+        tmp_path,
+        appendix=AppendixSpec(
+            title="附录",
+            slug="appendix",
+            sections=(
+                AppendixSection("项目等级", f"{BASE_URL}/object-classes", "object-classes"),
+            ),
+        ),
+    )
+    cached_manifest = [
+        PageRef("SCP-173", f"{BASE_URL}/scp-173", "scp-173", 1, "scp", order=1),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(cached_manifest, config.manifest_dir / "test-volume.json")
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-series-1-tales-edition": simple_page("故事索引"),
+            "scp-series": simple_page("SCP索引"),
+        },
+    )
+
+    manifest, appendix_fetch_results = _load_or_build_manifest_for_build(
+        config,
+        "001-099",
+        fetcher,
+        force=False,
+    )
+
+    assert manifest == cached_manifest
+    assert appendix_fetch_results == {}
+    assert fetcher.calls == []
+
+
+def test_fetch_manifest_load_reuses_legacy_featured_manifest_without_appendix_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    config = app_config(
+        tmp_path,
+        volume_key="featured",
+        index_mode="featured-scp-archive",
+        featured_archive_url="https://scp-wiki.wikidot.com/featured-scp-archive",
+        appendix=AppendixSpec(
+            title="附录",
+            slug="appendix",
+            sections=(
+                AppendixSection("项目等级", f"{BASE_URL}/object-classes", "object-classes"),
+            ),
+        ),
+    )
+    cached_manifest = [
+        PageRef("SCP-173", f"{BASE_URL}/scp-173", "scp-173", 1, "scp", order=1),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(cached_manifest, config.manifest_dir / "test-volume.json")
+
+    def fail_rebuild(*args: object, **kwargs: object) -> list[PageRef]:
+        pytest.fail("normal fetch must not rebuild a manifest missing the appendix root")
+
+    monkeypatch.setattr("scp_epub.pipeline.build_manifest", fail_rebuild)
+
+    manifest = _load_or_build_manifest(config, "featured", None, force=False)
+
+    assert manifest == cached_manifest
 
 
 def test_build_volume_materializes_appendix_groups_and_unwraps_tab_children(tmp_path: Path):

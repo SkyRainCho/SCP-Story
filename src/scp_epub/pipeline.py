@@ -896,7 +896,10 @@ def _load_or_build_manifest_for_build(
     manifest_path = manifest_path_for_volume(config, volume)
     if not force and manifest_path.exists():
         manifest = read_manifest(manifest_path)
-        if not _cached_manifest_requires_appendix_tab_title_rebuild(config, manifest):
+        if not (
+            _cached_manifest_requires_appendix_tab_title_rebuild(config, manifest)
+            or _cached_featured_manifest_requires_appendix_root_rebuild(config, manifest)
+        ):
             return manifest, {}
 
     appendix_fetch_results: dict[tuple[str, str], FetchResult] = {}
@@ -917,10 +920,20 @@ def _cached_manifest_requires_appendix_tab_title_rebuild(
     config: AppConfig,
     manifest: list[PageRef],
 ) -> bool:
+    return config.appendix is not None and any(
+        entry.role == APPENDIX_TAB_ROLE and entry.tab_title is None for entry in manifest
+    )
+
+
+def _cached_featured_manifest_requires_appendix_root_rebuild(
+    config: AppConfig,
+    manifest: list[PageRef],
+) -> bool:
     appendix = config.appendix
-    return appendix is not None and (
-        not any(entry.slug == appendix.slug for entry in manifest)
-        or any(entry.role == APPENDIX_TAB_ROLE and entry.tab_title is None for entry in manifest)
+    return (
+        config.index_mode == "featured-scp-archive"
+        and appendix is not None
+        and not any(entry.slug == appendix.slug for entry in manifest)
     )
 
 
