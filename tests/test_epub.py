@@ -373,6 +373,81 @@ def test_write_epub_nav_places_appendix_after_scp_roots_and_nests_facility(tmp_p
     assert f"{appendix}\n          <ol>\n            {facilities}\n              <ol>\n                {facility}\n" in nav
 
 
+def test_write_epub_keeps_featured_inline_documents_out_of_manifest_and_navigation(
+    tmp_path: Path,
+):
+    inline_titles = (
+        "SCP-1898 相关图片",
+        "SCP-7503 Offset 1",
+        "SCP-7503 Offset 2",
+        "SCP-7503 Offset 3",
+        "SCP-7503 Offset 4",
+        "SCP-6445 Offset 1",
+        "Document 2814-Gamma",
+    )
+    pages = [
+        _page(
+            "scp-1898",
+            "SCP-1898",
+            1,
+            xhtml=(
+                "<p>附录-1898-1：相关SCP-1898图片</p>"
+                '<section class="inline-document-epub"><h2>SCP-1898 相关图片</h2></section>'
+            ),
+        ),
+        _page(
+            "scp-7503",
+            "SCP-7503",
+            2,
+            xhtml="".join(
+                f'<section class="inline-document-epub"><h2>SCP-7503 Offset {index}</h2></section>'
+                for index in range(1, 5)
+            ),
+        ),
+        _page(
+            "scp-6445",
+            "SCP-6445",
+            3,
+            xhtml='<section class="inline-document-epub"><h2>SCP-6445 Offset 1</h2></section>',
+        ),
+        _page(
+            "scp-2814",
+            "SCP-2814",
+            4,
+            xhtml=(
+                '<section class="inline-document-epub"><h2>Document 2814-Gamma</h2></section>'
+                "<h2>Footnotes</h2>"
+            ),
+        ),
+    ]
+    output_path = tmp_path / "featured.epub"
+
+    write_epub(pages, output_path, title="精选", language="zh-CN", creator="SCP")
+
+    with zipfile.ZipFile(output_path) as archive:
+        names = archive.namelist()
+        opf = archive.read("OEBPS/content.opf").decode("utf-8")
+        nav = archive.read("OEBPS/nav.xhtml").decode("utf-8")
+        ncx = archive.read("OEBPS/toc.ncx").decode("utf-8")
+
+    assert [name for name in names if name.startswith("OEBPS/text/")] == [
+        "OEBPS/text/0001-scp-1898.xhtml",
+        "OEBPS/text/0002-scp-7503.xhtml",
+        "OEBPS/text/0003-scp-6445.xhtml",
+        "OEBPS/text/0004-scp-2814.xhtml",
+    ]
+    assert opf.count('<item id="page-') == 4
+    assert opf.count('<itemref idref="page-') == 4
+    assert nav.count('<li class="level-1">') == 4
+    assert '<li class="level-2">' not in nav
+    assert "原文附属文档" not in nav
+    assert "原文附属文档" not in ncx
+    for title in inline_titles:
+        assert title not in opf
+        assert title not in nav
+        assert title not in ncx
+
+
 def test_write_epub_includes_localized_assets_in_archive_and_manifest(tmp_path: Path):
     asset_path = tmp_path / "cache" / "photo.png"
     asset_path.parent.mkdir(parents=True)
