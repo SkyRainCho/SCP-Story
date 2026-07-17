@@ -361,7 +361,13 @@ def scan_linked_appendices_for_volume(
     force: bool = False,
 ) -> Path:
     volume = volume_for_key(config, volume_key)
-    manifest = _load_or_build_manifest(config, volume_key, None, force=force)
+    manifest = _load_or_build_manifest(
+        config,
+        volume_key,
+        None,
+        force=force,
+        repair_legacy_appendix_tabs=False,
+    )
     documents = scan_linked_appendices(
         manifest,
         CacheStore(config.cache_dir),
@@ -865,13 +871,16 @@ def _load_or_build_manifest(
     fetcher: PageFetcher | None,
     *,
     force: bool,
+    repair_legacy_appendix_tabs: bool = True,
 ) -> list[PageRef]:
     volume = volume_for_key(config, volume_key)
     manifest_path = manifest_path_for_volume(config, volume)
     if force or not manifest_path.exists():
         return build_manifest(config, volume_key, fetcher=fetcher, force=force)
     manifest = read_manifest(manifest_path)
-    if _cached_manifest_requires_appendix_tab_title_rebuild(config, manifest):
+    if repair_legacy_appendix_tabs and _cached_manifest_requires_appendix_tab_title_rebuild(
+        config, manifest
+    ):
         return build_manifest(config, volume_key, fetcher=fetcher, force=force)
     return manifest
 

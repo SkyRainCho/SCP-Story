@@ -1303,6 +1303,68 @@ def test_build_volume_force_rebuilds_existing_manifest_from_refreshed_sources(tm
     assert report["slugs"] == ["scp-001", "scp-002"]
 
 
+def test_scan_linked_appendices_keeps_legacy_appendix_tab_manifest_read_only(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    tab_source_url = f"{BASE_URL}/personnel-and-character-dossier"
+    config = app_config(
+        tmp_path,
+        volume_key="featured",
+        index_mode="featured-scp-archive",
+        featured_archive_url="https://scp-wiki.wikidot.com/featured-scp-archive",
+        appendix=AppendixSpec(
+            title="附录",
+            slug="appendix",
+            sections=(
+                AppendixSection(
+                    "人事档案",
+                    tab_source_url,
+                    "personnel-and-character-dossier",
+                    mode="tabs-as-pages",
+                ),
+            ),
+        ),
+    )
+    legacy_entry = PageRef(
+        "档案",
+        tab_source_url,
+        "personnel-and-character-dossier--tab-1",
+        3,
+        "appendix-tab",
+        parent_slug="personnel-and-character-dossier--appendix-group",
+        order=1,
+    )
+    from scp_epub.manifest import write_manifest
+
+    manifest_path = config.manifest_dir / "test-volume.json"
+    write_manifest([legacy_entry], manifest_path)
+    manifest_before = manifest_path.read_text(encoding="utf-8")
+    CacheStore(config.cache_dir).write_page(
+        legacy_entry.slug,
+        legacy_entry.url,
+        """
+        <html><body><div id="page-content">
+          <a href="/scp-093-blue-test">SCP-093“蓝色”测试</a>
+        </div></body></html>
+        """,
+        200,
+        "text/html",
+    )
+
+    def fail_rebuild(*args: object, **kwargs: object) -> list[PageRef]:
+        pytest.fail("scan-linked-appendices must not rebuild a cached manifest")
+
+    monkeypatch.setattr("scp_epub.pipeline.build_manifest", fail_rebuild)
+
+    report_path = scan_linked_appendices_for_volume(config, "featured")
+
+    assert manifest_path.read_text(encoding="utf-8") == manifest_before
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert payload[0]["source_slug"] == legacy_entry.slug
+    assert payload[0]["candidates"][0]["slug"] == "scp-093-blue-test"
+
+
 def test_scan_linked_appendices_for_volume_writes_report_from_cached_pages(tmp_path: Path):
     config = app_config(tmp_path)
     manifest = [
