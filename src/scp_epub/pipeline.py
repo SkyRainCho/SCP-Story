@@ -917,8 +917,10 @@ def _cached_manifest_requires_appendix_tab_title_rebuild(
     config: AppConfig,
     manifest: list[PageRef],
 ) -> bool:
-    return config.appendix is not None and any(
-        entry.role == APPENDIX_TAB_ROLE and entry.tab_title is None for entry in manifest
+    appendix = config.appendix
+    return appendix is not None and (
+        not any(entry.slug == appendix.slug for entry in manifest)
+        or any(entry.role == APPENDIX_TAB_ROLE and entry.tab_title is None for entry in manifest)
     )
 
 

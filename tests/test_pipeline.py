@@ -680,6 +680,49 @@ def test_build_volume_rebuilds_legacy_featured_appendix_tab_manifest(tmp_path: P
     ]
 
 
+def test_build_volume_rebuilds_legacy_featured_manifest_without_appendix_root(
+    tmp_path: Path,
+):
+    config = app_config(
+        tmp_path,
+        volume_key="featured",
+        index_mode="featured-scp-archive",
+        featured_archive_url="https://scp-wiki.wikidot.com/featured-scp-archive",
+        include_linked_appendices=False,
+        appendix=AppendixSpec(
+            title="附录",
+            slug="appendix",
+            sections=(
+                AppendixSection("项目等级", f"{BASE_URL}/object-classes", "object-classes"),
+            ),
+        ),
+    )
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(
+        [PageRef("SCP-173", f"{BASE_URL}/scp-173", "scp-173", 1, "scp", order=1)],
+        config.manifest_dir / "test-volume.json",
+    )
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "featured-scp-archive": """
+              <div id="page-content"><p>1. <a href="/scp-173">SCP-173</a></p></div>
+            """,
+            "object-classes": simple_page("项目等级"),
+            "scp-173": simple_page("SCP-173"),
+        },
+    )
+
+    build_volume(config, "featured", fetcher=fetcher)
+
+    assert [entry.slug for entry in read_manifest(config.manifest_dir / "test-volume.json")] == [
+        "scp-173",
+        "appendix",
+        "object-classes",
+    ]
+
+
 def test_build_volume_materializes_appendix_groups_and_unwraps_tab_children(tmp_path: Path):
     appendix = AppendixSpec(
         title="附录",
