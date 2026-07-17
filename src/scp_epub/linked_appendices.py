@@ -215,6 +215,7 @@ def expand_manifest_with_linked_appendices(
             source=entry.source,
             order=index,
             children=entry.children,
+            tab_title=entry.tab_title,
         )
         for index, entry in enumerate(expanded, start=1)
     ]

@@ -1,7 +1,13 @@
 from pathlib import Path
 
 from scp_epub.cache import CacheStore
-from scp_epub.linked_appendices import scan_linked_appendices, write_linked_appendix_report
+from scp_epub.linked_appendices import (
+    LinkedAppendixCandidate,
+    LinkedAppendixDocument,
+    expand_manifest_with_linked_appendices,
+    scan_linked_appendices,
+    write_linked_appendix_report,
+)
 from scp_epub.models import PageRef
 
 
@@ -172,3 +178,43 @@ def test_write_linked_appendix_report(tmp_path):
     assert path == tmp_path / "report.json"
     assert '"source_slug": "scp-026"' in path.read_text(encoding="utf-8")
     assert '"slug": "interview-log-026-01"' in path.read_text(encoding="utf-8")
+
+
+def test_expand_manifest_preserves_appendix_tab_title_when_renumbering():
+    source = PageRef(
+        title="SCP-093 - 红海物件",
+        url="https://scp-wiki-cn.wikidot.com/scp-093",
+        slug="scp-093",
+        level=1,
+        role="scp",
+        order=1,
+    )
+    appendix_tab = PageRef(
+        title="人事档案",
+        url="https://scp-wiki-cn.wikidot.com/personnel-and-character-dossier",
+        slug="personnel-and-character-dossier--tab-1",
+        level=3,
+        role="appendix-tab",
+        parent_slug="personnel-and-character-dossier",
+        order=2,
+        tab_title="人事档案",
+    )
+    documents = [
+        LinkedAppendixDocument(
+            entry=source,
+            candidates=(
+                LinkedAppendixCandidate(
+                    title="SCP-093 测试记录",
+                    url="https://scp-wiki-cn.wikidot.com/scp-093-test-log",
+                    slug="scp-093-test-log",
+                    reason="same-scp-appendix",
+                ),
+            ),
+        )
+    ]
+
+    expanded = expand_manifest_with_linked_appendices([source, appendix_tab], documents)
+
+    expanded_tab = next(entry for entry in expanded if entry.slug == appendix_tab.slug)
+    assert expanded_tab.tab_title == "人事档案"
+    assert [entry.order for entry in expanded] == list(range(1, len(expanded) + 1))
