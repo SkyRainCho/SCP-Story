@@ -344,6 +344,35 @@ def test_write_epub_nav_preserves_hierarchical_manifest_structure(tmp_path: Path
     )
 
 
+def test_write_epub_nav_places_appendix_after_scp_roots_and_nests_facility(tmp_path: Path):
+    pages = [
+        _page("scp-173", "SCP-173", 1, level=1),
+        _page("appendix", "附录", 2, level=1),
+        _page("secure-facilities-locations", "基金会设施", 3, level=2, parent_slug="appendix"),
+        _page(
+            "site-19",
+            "安保设施档案：Site-19",
+            4,
+            level=3,
+            parent_slug="secure-facilities-locations",
+        ),
+    ]
+    output_path = tmp_path / "featured.epub"
+
+    write_epub(pages, output_path, title="精选", language="zh-CN", creator="SCP")
+
+    with zipfile.ZipFile(output_path) as archive:
+        nav = archive.read("OEBPS/nav.xhtml").decode("utf-8")
+
+    scp_root = '<li class="level-1"><a href="text/0001-scp-173.xhtml">SCP-173</a></li>'
+    appendix = '<li class="level-1"><a href="text/0002-appendix.xhtml">附录</a>'
+    facilities = '<li class="level-2"><a href="text/0003-secure-facilities-locations.xhtml">基金会设施</a>'
+    facility = '<li class="level-3"><a href="text/0004-site-19.xhtml">安保设施档案：Site-19</a></li>'
+
+    assert nav.index(scp_root) < nav.index(appendix)
+    assert f"{appendix}\n          <ol>\n            {facilities}\n              <ol>\n                {facility}\n" in nav
+
+
 def test_write_epub_includes_localized_assets_in_archive_and_manifest(tmp_path: Path):
     asset_path = tmp_path / "cache" / "photo.png"
     asset_path.parent.mkdir(parents=True)
