@@ -6,6 +6,7 @@ import re
 import shutil
 import struct
 import subprocess
+import warnings
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from html import escape, unescape
@@ -13,6 +14,7 @@ from html.parser import HTMLParser
 from importlib import resources
 from pathlib import Path
 
+from lxml import etree
 from PIL import Image, UnidentifiedImageError
 
 from .assets import AssetRef
@@ -187,6 +189,10 @@ def _prepare_kindle_asset(
         content_type.startswith("image/") and content_type != "image/svg+xml"
     ) or asset.path.suffix.lower() in _RASTER_SUFFIXES
     if raster_format is None:
+        if expects_image and _is_safe_svg(data):
+            if content_type == "image/svg+xml":
+                return asset
+            return replace(asset, content_type="image/svg+xml")
         return None if expects_raster else asset
 
     if raster_format in {"jpeg", "gif"}:
@@ -213,12 +219,20 @@ def _prepare_kindle_asset(
 
     if raster_format in {"webp", "bmp"}:
         try:
-            with Image.open(io.BytesIO(data)) as image:
-                image.seek(0)
-                image.load()
-                output = io.BytesIO()
-                image.save(output, format="PNG")
-        except (OSError, UnidentifiedImageError, ValueError):
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", Image.DecompressionBombWarning)
+                with Image.open(io.BytesIO(data)) as image:
+                    image.seek(0)
+                    image.load()
+                    output = io.BytesIO()
+                    image.save(output, format="PNG")
+        except (
+            OSError,
+            UnidentifiedImageError,
+            ValueError,
+            Image.DecompressionBombError,
+            Image.DecompressionBombWarning,
+        ):
             return None
         return _write_prepared_png(asset, output_dir, output.getvalue())
 
@@ -254,6 +268,23 @@ def _raster_format(data: bytes) -> str | None:
     return None
 
 
+def _is_safe_svg(data: bytes) -> bool:
+    parser = etree.XMLParser(
+        resolve_entities=False,
+        no_network=True,
+        load_dtd=False,
+        recover=False,
+        huge_tree=False,
+    )
+    try:
+        root = etree.fromstring(data, parser=parser)
+        if root.getroottree().docinfo.doctype:
+            return False
+        return etree.QName(root).localname == "svg"
+    except (etree.XMLSyntaxError, ValueError):
+        return False
+
+
 def _looks_like_html(data: bytes) -> bool:
     prefix = data[:4096]
     if prefix.startswith(b"\xef\xbb\xbf"):
@@ -280,9 +311,17 @@ def _looks_like_html(data: bytes) -> bool:
 
 def _pillow_verifies(data: bytes) -> bool:
     try:
-        with Image.open(io.BytesIO(data)) as image:
-            image.verify()
-    except (OSError, UnidentifiedImageError, ValueError):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(io.BytesIO(data)) as image:
+                image.verify()
+    except (
+        OSError,
+        UnidentifiedImageError,
+        ValueError,
+        Image.DecompressionBombError,
+        Image.DecompressionBombWarning,
+    ):
         return False
     return True
 

@@ -234,6 +234,107 @@ def test_html_sniffer_handles_wrappers_before_error_page(payload: bytes):
     assert kindle_module._looks_like_html(payload)
 
 
+@pytest.mark.parametrize(
+    ("xhtml", "payload"),
+    [
+        (
+            '<img src="../assets/mark.svg" alt="标志"/>',
+            b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1">'
+            b'<path d="M0 0h1v1z"/></svg>',
+        ),
+        (
+            '<picture><source src="../assets/mark.svg" type="image/svg+xml"/>'
+            '<img src="fallback.png" alt="标志"/></picture>',
+            b'\xef\xbb\xbf<?xml version="1.0" encoding="UTF-8"?>\n'
+            b'<!-- generated mark -->\n'
+            b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>',
+        ),
+    ],
+    ids=("img", "picture-source-with-xml-wrappers"),
+)
+def test_prepare_kindle_assets_preserves_valid_svg_images(
+    tmp_path: Path, xhtml: str, payload: bytes
+):
+    source_path = tmp_path / "mark.svg"
+    source_path.write_bytes(payload)
+    asset = AssetRef(
+        "https://example.test/mark.svg",
+        source_path,
+        "assets/mark.svg",
+        "application/octet-stream",
+    )
+
+    [page], [prepared], missing = kindle_module.prepare_kindle_assets(
+        [_page(xhtml)], [asset], tmp_path / "kindle-assets", []
+    )
+
+    assert missing == []
+    assert prepared.path == asset.path
+    assert prepared.href == asset.href
+    assert prepared.path.read_bytes() == payload
+    assert prepared.content_type == "image/svg+xml"
+    assert page.xhtml == xhtml
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b"<!doctype html><html><body><svg></svg></body></html>",
+        b'<svg xmlns="http://www.w3.org/2000/svg"><path></svg>',
+        b'<?xml version="1.0"?><document/>',
+        (
+            b'<!DOCTYPE svg [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>'
+            b'<svg xmlns="http://www.w3.org/2000/svg"><text>&xxe;</text></svg>'
+        ),
+    ],
+    ids=("html", "broken-svg", "non-svg-xml", "external-entity"),
+)
+def test_prepare_kindle_assets_rejects_unsafe_or_invalid_svg_images(
+    tmp_path: Path, payload: bytes
+):
+    source_url = "https://example.test/broken.svg"
+    source_path = tmp_path / "broken.svg"
+    source_path.write_bytes(payload)
+    asset = AssetRef(
+        source_url,
+        source_path,
+        "assets/broken.svg",
+        "image/svg+xml",
+    )
+    xhtml = '<img src="../assets/broken.svg" alt="损坏的图标"/>'
+
+    [page], prepared_assets, missing = kindle_module.prepare_kindle_assets(
+        [_page(xhtml)], [asset], tmp_path / "kindle-assets", []
+    )
+
+    assert prepared_assets == []
+    assert missing == [source_url]
+    assert "../assets/broken.svg" not in page.xhtml
+    assert "损坏的图标" in page.xhtml
+
+
+def test_prepare_kindle_assets_preserves_non_image_xml_resource(tmp_path: Path):
+    payload = b'<?xml version="1.0"?><document><title>Metadata</title></document>'
+    source_path = tmp_path / "metadata.xml"
+    source_path.write_bytes(payload)
+    asset = AssetRef(
+        "https://example.test/metadata.xml",
+        source_path,
+        "assets/metadata.xml",
+        "application/xml",
+    )
+    xhtml = '<object data="../assets/metadata.xml">Metadata</object>'
+
+    [page], prepared_assets, missing = kindle_module.prepare_kindle_assets(
+        [_page(xhtml)], [asset], tmp_path / "kindle-assets", []
+    )
+
+    assert prepared_assets == [asset]
+    assert missing == []
+    assert page.xhtml == xhtml
+    assert source_path.read_bytes() == payload
+
+
 @pytest.mark.parametrize(("format_name", "suffix"), [("WEBP", ".webp"), ("BMP", ".bin")])
 def test_prepare_kindle_assets_transcodes_unsafe_rasters_and_rewrites_page(
     tmp_path: Path, format_name: str, suffix: str
@@ -261,6 +362,73 @@ def test_prepare_kindle_assets_transcodes_unsafe_rasters_and_rewrites_page(
     assert prepared.path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
     assert f'../{prepared.href}' in pages[0].xhtml
     assert f'../assets/source{suffix}' not in pages[0].xhtml
+
+
+@pytest.mark.parametrize(
+    "max_image_pixels",
+    [1, 3],
+    ids=("decompression-bomb-error", "decompression-bomb-warning"),
+)
+def test_prepare_kindle_assets_rejects_decompression_bomb_during_verification(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    max_image_pixels: int,
+):
+    payload = _image_bytes("PNG")
+    source_url = "https://example.test/oversized.png"
+    source_path = tmp_path / "oversized.png"
+    source_path.write_bytes(payload)
+    asset = AssetRef(
+        source_url,
+        source_path,
+        "assets/oversized.png",
+        "image/png",
+    )
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", max_image_pixels)
+
+    [page], prepared_assets, missing = kindle_module.prepare_kindle_assets(
+        [_page('<img src="../assets/oversized.png" alt="超限图片"/>')],
+        [asset],
+        tmp_path / "kindle-assets",
+        [],
+    )
+
+    assert prepared_assets == []
+    assert missing == [source_url]
+    assert "../assets/oversized.png" not in page.xhtml
+    assert "超限图片" in page.xhtml
+
+
+@pytest.mark.parametrize("format_name", ["WEBP", "BMP"])
+def test_prepare_kindle_assets_rejects_decompression_bomb_during_transcode(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    format_name: str,
+):
+    payload = _image_bytes(format_name)
+    suffix = format_name.lower()
+    source_url = f"https://example.test/oversized.{suffix}"
+    source_path = tmp_path / f"oversized.{suffix}"
+    source_path.write_bytes(payload)
+    asset = AssetRef(
+        source_url,
+        source_path,
+        f"assets/oversized.{suffix}",
+        f"image/{suffix}",
+    )
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 1)
+
+    [page], prepared_assets, missing = kindle_module.prepare_kindle_assets(
+        [_page(f'<img src="../assets/oversized.{suffix}" alt="超限图片"/>')],
+        [asset],
+        tmp_path / "kindle-assets",
+        [],
+    )
+
+    assert prepared_assets == []
+    assert missing == [source_url]
+    assert f"../assets/oversized.{suffix}" not in page.xhtml
+    assert "超限图片" in page.xhtml
 
 
 def test_prepare_kindle_assets_strips_problem_png_metadata_without_reencoding_pixels(
