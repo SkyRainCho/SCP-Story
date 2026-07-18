@@ -401,7 +401,12 @@ def _expected_image_hrefs(pages: Sequence[ProcessedPage]) -> set[str]:
             continue
         for element in parser.elements:
             attrs = dict(element.attrs)
-            if element.tag in {"img", "source"}:
+            is_picture_source = (
+                element.tag == "source"
+                and element.parent is not None
+                and element.parent.tag == "picture"
+            )
+            if element.tag == "img" or is_picture_source:
                 href = _local_asset_href(attrs.get("src"))
                 if href is not None:
                     hrefs.add(href)

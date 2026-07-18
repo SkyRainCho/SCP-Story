@@ -191,6 +191,38 @@ def test_prepare_kindle_assets_rejects_unsigned_octet_stream_used_as_image(
 
 
 @pytest.mark.parametrize(
+    ("container", "media_type"),
+    [("audio", "audio/mpeg"), ("video", "video/mp4")],
+)
+def test_prepare_kindle_assets_preserves_octet_stream_media_source(
+    tmp_path: Path, container: str, media_type: str
+):
+    source_url = f"https://example.test/{container}.bin"
+    source_path = tmp_path / f"{container}.bin"
+    source_path.write_bytes(b"opaque media bytes")
+    href = f"assets/{container}.bin"
+    asset = AssetRef(
+        source_url,
+        source_path,
+        href,
+        "application/octet-stream",
+    )
+    xhtml = (
+        f'<{container} controls="controls">'
+        f'<source src="../{href}" type="{media_type}" />'
+        f'</{container}>'
+    )
+
+    [page], prepared_assets, missing = kindle_module.prepare_kindle_assets(
+        [_page(xhtml)], [asset], tmp_path / "kindle-assets", []
+    )
+
+    assert prepared_assets == [asset]
+    assert missing == []
+    assert page.xhtml == xhtml
+
+
+@pytest.mark.parametrize(
     "payload",
     [
         b"\xef\xbb\xbf  <!doctype html><title>404</title>",
