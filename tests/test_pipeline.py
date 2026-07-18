@@ -1960,6 +1960,65 @@ def test_build_volume_prepares_only_kindle_assets_and_reports_invalid_images(
     assert list((config.processed_dir / "test-volume" / "kindle-assets").glob("*.png"))
 
 
+def test_build_volume_kindle_rejects_svg_local_file_read_before_rendering(
+    tmp_path: Path,
+):
+    config = app_config(tmp_path)
+    manifest = [
+        PageRef("SCP-001", f"{BASE_URL}/scp-001", "scp-001", 1, "scp", order=1),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    secret_path = tmp_path / "local-red.png"
+    secret_path.write_bytes(image_bytes("PNG"))
+    svg_url = f"{BASE_URL}/images/lfi.svg"
+    malicious_svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2">'
+        f'<image href="{secret_path.as_uri()}" width="2" height="2"/></svg>'
+    ).encode("utf-8")
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-001": simple_page(
+                "SCP-001", '<img src="/images/lfi.svg" alt="本地红图"/>'
+            ),
+        },
+        assets={
+            svg_url: ("lfi.svg", malicious_svg, "image/svg+xml"),
+        },
+    )
+
+    def fake_converter(epub_path: Path, azw3_path: Path) -> Path:
+        with zipfile.ZipFile(epub_path) as archive:
+            names = archive.namelist()
+            chapter = archive.read("OEBPS/text/0001-scp-001.xhtml").decode("utf-8")
+            assert not any(name.startswith("OEBPS/assets/") for name in names)
+            assert "../assets/lfi.svg" not in chapter
+            assert "本地红图" in chapter
+            assert "kindle-missing-image" in chapter
+        azw3_path.parent.mkdir(parents=True, exist_ok=True)
+        azw3_path.write_bytes(b"azw3")
+        return azw3_path
+
+    output_path = build_volume(
+        config,
+        "001-099",
+        fetcher=fetcher,
+        kindle=True,
+        kindle_converter=fake_converter,
+    )
+
+    report = json.loads(
+        (config.output_dir / "reports" / "test-volume-Kindle-report.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert output_path.is_file()
+    assert report["missing_assets"] == [svg_url]
+    assert list((config.processed_dir / "test-volume" / "kindle-assets").glob("*.png")) == []
+
+
 def test_build_volume_default_keeps_unvalidated_asset_and_missing_report_unchanged(
     tmp_path: Path,
 ):

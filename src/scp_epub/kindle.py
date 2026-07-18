@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import io
 import math
@@ -18,6 +20,7 @@ from pathlib import Path
 from lxml import etree
 from PIL import Image, UnidentifiedImageError
 import resvg_py
+import tinycss2
 
 from .assets import AssetRef
 from .models import ProcessedPage
@@ -195,6 +198,8 @@ def _prepare_kindle_asset(
     if raster_format is None:
         svg_root = _parse_safe_svg(data) if expects_image else None
         if svg_root is not None:
+            if not _svg_references_are_safe(svg_root):
+                return None
             rendered = _render_svg_png(data, svg_root)
             if rendered is None:
                 return None
@@ -291,6 +296,103 @@ def _parse_safe_svg(data: bytes) -> etree._Element | None:
         return root
     except (etree.XMLSyntaxError, ValueError):
         return None
+
+
+_XML_BASE_ATTRIBUTE = "{http://www.w3.org/XML/1998/namespace}base"
+_DATA_IMAGE_RE = re.compile(
+    r"\Adata:image/(?P<format>png|jpeg|gif|webp);base64,(?P<payload>.*)\Z",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _svg_references_are_safe(root: etree._Element) -> bool:
+    for element in root.iter():
+        for name, value in element.attrib.items():
+            if name == _XML_BASE_ATTRIBUTE:
+                return False
+            local_name = etree.QName(name).localname
+            if local_name == "href" and not _svg_reference_is_safe(value):
+                return False
+            if local_name == "style" and not _svg_css_is_safe(value, declarations=True):
+                return False
+        if etree.QName(element).localname == "style":
+            css = "".join(element.itertext())
+            if not _svg_css_is_safe(css, declarations=False):
+                return False
+    return True
+
+
+def _svg_reference_is_safe(value: str) -> bool:
+    if value.startswith("#"):
+        return len(value) > 1 and not any(character.isspace() for character in value)
+
+    match = _DATA_IMAGE_RE.fullmatch(value)
+    if match is None:
+        return False
+    payload = re.sub(r"[\t\n\r\f ]+", "", match.group("payload"))
+    try:
+        decoded = base64.b64decode(payload, validate=True)
+    except (binascii.Error, ValueError):
+        return False
+    expected_format = match.group("format").lower()
+    if _raster_format(decoded) != expected_format:
+        return False
+    return _pillow_verifies(decoded)
+
+
+def _svg_css_is_safe(css: str, *, declarations: bool) -> bool:
+    if declarations:
+        nodes = tinycss2.parse_declaration_list(
+            css,
+            skip_comments=True,
+            skip_whitespace=True,
+        )
+    else:
+        nodes = tinycss2.parse_stylesheet(
+            css,
+            skip_comments=True,
+            skip_whitespace=True,
+        )
+    return _css_nodes_are_safe(nodes)
+
+
+def _css_nodes_are_safe(nodes: Sequence[object]) -> bool:
+    for node in nodes:
+        node_type = getattr(node, "type", "")
+        if node_type in {"error", "bad-string", "bad-url"}:
+            return False
+        if node_type == "url":
+            if not _svg_reference_is_safe(str(node.value)):
+                return False
+            continue
+        if node_type == "function" and getattr(node, "lower_name", "") == "url":
+            reference = _css_url_function_reference(node.arguments)
+            if reference is None or not _svg_reference_is_safe(reference):
+                return False
+            continue
+        if node_type == "at-rule" and getattr(node, "lower_at_keyword", "") == "import":
+            return False
+        if node_type == "at-keyword" and str(getattr(node, "value", "")).lower() == "import":
+            return False
+        for attribute in ("value", "prelude", "content", "arguments"):
+            children = getattr(node, attribute, None)
+            if isinstance(children, list) and not _css_nodes_are_safe(children):
+                return False
+    return True
+
+
+def _css_url_function_reference(arguments: Sequence[object]) -> str | None:
+    values = [
+        token
+        for token in arguments
+        if getattr(token, "type", "") not in {"comment", "whitespace"}
+    ]
+    if len(values) != 1:
+        return None
+    token = values[0]
+    if getattr(token, "type", "") not in {"string", "url"}:
+        return None
+    return str(token.value)
 
 
 def _render_svg_png(data: bytes, root: etree._Element) -> bytes | None:

@@ -15,6 +15,7 @@ dependencies = [
   "Pillow>=10.2",
   "PyYAML>=6.0",
   "resvg-py>=0.3.3,<0.4",
+  "tinycss2>=1.2,<2",
 ]
 
 [project.optional-dependencies]

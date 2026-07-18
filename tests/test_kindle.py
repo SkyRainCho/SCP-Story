@@ -316,6 +316,206 @@ def test_prepare_kindle_assets_renders_svg_with_embedded_png(tmp_path: Path):
 
 
 @pytest.mark.parametrize(
+    ("attribute", "reference"),
+    [
+        ("href", r"C:\secret\red.png"),
+        ("href", "/etc/passwd"),
+        ("href", "../red.png"),
+        ("href", "red.png"),
+        ("href", "file:///etc/passwd"),
+        ("href", "http://example.test/red.png"),
+        ("href", "https://example.test/red.png"),
+        ("href", "//example.test/red.png"),
+        ("xlink:href", "file:///etc/passwd"),
+        ("href", "data:image/svg+xml;base64,PHN2Zy8+"),
+        ("href", "data:text/plain;base64,cmVk"),
+    ],
+    ids=(
+        "windows-absolute",
+        "unix-absolute",
+        "parent-relative",
+        "plain-relative",
+        "file-uri",
+        "http-uri",
+        "https-uri",
+        "protocol-relative",
+        "xlink-file-uri",
+        "nested-svg-data",
+        "non-image-data",
+    ),
+)
+def test_prepare_kindle_assets_rejects_external_svg_href_before_rendering(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    attribute: str,
+    reference: str,
+):
+    namespace = ' xmlns:xlink="http://www.w3.org/1999/xlink"' if attribute == "xlink:href" else ""
+    payload = (
+        f'<svg xmlns="http://www.w3.org/2000/svg"{namespace} viewBox="0 0 1 1">'
+        f'<image {attribute}="{reference}" width="1" height="1"/></svg>'
+    ).encode("utf-8")
+    source_url = "https://example.test/external.svg"
+    source_path = tmp_path / "external.svg"
+    source_path.write_bytes(payload)
+    asset = AssetRef(
+        source_url,
+        source_path,
+        "assets/external.svg",
+        "image/svg+xml",
+    )
+    renderer_calls = []
+
+    def record_render(**kwargs):
+        renderer_calls.append(kwargs)
+        return _image_bytes("PNG")
+
+    monkeypatch.setattr(resvg_py, "svg_to_bytes", record_render)
+
+    [page], prepared_assets, missing = kindle_module.prepare_kindle_assets(
+        [_page('<img src="../assets/external.svg" alt="外部引用"/>')],
+        [asset],
+        tmp_path / "kindle-assets",
+        [],
+    )
+
+    assert renderer_calls == []
+    assert prepared_assets == []
+    assert missing == [source_url]
+    assert "../assets/external.svg" not in page.xhtml
+    assert "外部引用" in page.xhtml
+
+
+@pytest.mark.parametrize(
+    "xml_base",
+    ["file:///etc/", "../images/"],
+    ids=("absolute", "relative"),
+)
+def test_prepare_kindle_assets_rejects_svg_xml_base_before_rendering(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, xml_base: str
+):
+    payload = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" xml:base="{xml_base}" '
+        'viewBox="0 0 1 1"><rect width="1" height="1"/></svg>'
+    ).encode("utf-8")
+    source_url = "https://example.test/xml-base.svg"
+    source_path = tmp_path / "xml-base.svg"
+    source_path.write_bytes(payload)
+    asset = AssetRef(
+        source_url,
+        source_path,
+        "assets/xml-base.svg",
+        "image/svg+xml",
+    )
+    renderer_calls = []
+    monkeypatch.setattr(
+        resvg_py,
+        "svg_to_bytes",
+        lambda **kwargs: renderer_calls.append(kwargs) or _image_bytes("PNG"),
+    )
+
+    _pages, prepared_assets, missing = kindle_module.prepare_kindle_assets(
+        [_page('<img src="../assets/xml-base.svg"/>')],
+        [asset],
+        tmp_path / "kindle-assets",
+        [],
+    )
+
+    assert renderer_calls == []
+    assert prepared_assets == []
+    assert missing == [source_url]
+
+
+@pytest.mark.parametrize(
+    "svg_content",
+    [
+        '<rect style="fill: url(file:///etc/passwd)"/>',
+        '<style>.x { fill: url(https://example.test/red.png) }</style>',
+        '<style>@import url("https://example.test/evil.css");</style>',
+        r'<style>@im\70ort "https://example.test/evil.css";</style>',
+        r'<rect style="fill: u\72l(&quot;file:///etc/passwd&quot;)"/>',
+        '<rect style="fill: image-set(url(&quot;../red.png&quot;) 1x)"/>',
+    ],
+    ids=(
+        "style-attribute-url",
+        "style-element-url",
+        "style-import",
+        "escaped-import",
+        "escaped-url",
+        "nested-function-url",
+    ),
+)
+def test_prepare_kindle_assets_rejects_external_svg_css_before_rendering(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, svg_content: str
+):
+    payload = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1">'
+        f"{svg_content}</svg>"
+    ).encode("utf-8")
+    source_url = "https://example.test/external-css.svg"
+    source_path = tmp_path / "external-css.svg"
+    source_path.write_bytes(payload)
+    asset = AssetRef(
+        source_url,
+        source_path,
+        "assets/external-css.svg",
+        "image/svg+xml",
+    )
+    renderer_calls = []
+    monkeypatch.setattr(
+        resvg_py,
+        "svg_to_bytes",
+        lambda **kwargs: renderer_calls.append(kwargs) or _image_bytes("PNG"),
+    )
+
+    _pages, prepared_assets, missing = kindle_module.prepare_kindle_assets(
+        [_page('<img src="../assets/external-css.svg"/>')],
+        [asset],
+        tmp_path / "kindle-assets",
+        [],
+    )
+
+    assert renderer_calls == []
+    assert prepared_assets == []
+    assert missing == [source_url]
+
+
+def test_prepare_kindle_assets_allows_internal_and_data_raster_svg_references(
+    tmp_path: Path,
+):
+    embedded_png = base64.b64encode(_image_bytes("PNG")).decode("ascii")
+    data_uri = f"data:image/png;base64,{embedded_png}"
+    payload = (
+        '<svg xmlns="http://www.w3.org/2000/svg" '
+        'xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2 1">'
+        '<defs><linearGradient id="paint"><stop stop-color="red"/></linearGradient></defs>'
+        f'<style>.fragment {{ fill: url(#paint) }} .data {{ background: url("{data_uri}") }}</style>'
+        f'<image href="{data_uri}" width="1" height="1"/>'
+        '<use xlink:href="#fragment"/><rect class="fragment" width="2" height="1"/>'
+        '</svg>'
+    ).encode("utf-8")
+    source_path = tmp_path / "allowed-references.svg"
+    source_path.write_bytes(payload)
+    asset = AssetRef(
+        "https://example.test/allowed-references.svg",
+        source_path,
+        "assets/allowed-references.svg",
+        "image/svg+xml",
+    )
+
+    [page], [prepared], missing = kindle_module.prepare_kindle_assets(
+        [_page('<img src="../assets/allowed-references.svg"/>')],
+        [asset],
+        tmp_path / "kindle-assets",
+        [],
+    )
+
+    assert missing == []
+    assert prepared.content_type == "image/png"
+    assert f'../{prepared.href}' in page.xhtml
+
+
+@pytest.mark.parametrize(
     ("size_attributes", "expected_size"),
     [
         ('viewBox="0 0 4000 2000"', (1400, 700)),
