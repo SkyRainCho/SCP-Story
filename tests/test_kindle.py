@@ -56,6 +56,15 @@ def _image_bytes(format_name: str, *, animated: bool = False) -> bytes:
     return output.getvalue()
 
 
+def _palette_png_bytes() -> bytes:
+    output = io.BytesIO()
+    image = Image.new("P", (2, 2))
+    image.putpalette([255, 0, 0, 0, 0, 255] + [0, 0, 0] * 254)
+    image.putdata([0, 1, 0, 1])
+    image.save(output, format="PNG", transparency=0)
+    return output.getvalue()
+
+
 def _png_chunks(data: bytes) -> list[tuple[bytes, bytes]]:
     chunks = []
     offset = 8
@@ -105,6 +114,94 @@ def test_prepare_kindle_assets_drops_html_image_and_preserves_alt_text(tmp_path:
     )
 
 
+def test_prepare_kindle_assets_preserves_inline_svg_bytes_while_editing_images(
+    tmp_path: Path,
+):
+    svg = (
+        '<svg viewBox="0 0 10 10" preserveAspectRatio="xMidYMid meet">'
+        '<path d="M0 0 L10 10" /></svg>'
+    )
+    webp_path = tmp_path / "photo.webp"
+    webp_path.write_bytes(_image_bytes("WEBP"))
+    invalid_path = tmp_path / "missing.png"
+    invalid_path.write_bytes(b"<!doctype html><title>404</title>")
+    source = _page(
+        svg
+        + '<img data-src="lazy-preview" src="../assets/photo.webp" alt="有效图" />'
+        + '<img src="../assets/missing.png" alt="缺失图" />'
+    )
+
+    [prepared_page], prepared_assets, missing = kindle_module.prepare_kindle_assets(
+        [source],
+        [
+            AssetRef(
+                "https://example.test/photo.webp",
+                webp_path,
+                "assets/photo.webp",
+                "image/webp",
+            ),
+            AssetRef(
+                "https://example.test/missing.png",
+                invalid_path,
+                "assets/missing.png",
+                "image/png",
+            ),
+        ],
+        tmp_path / "kindle-assets",
+        [],
+    )
+
+    assert svg in prepared_page.xhtml
+    assert 'data-src="lazy-preview"' in prepared_page.xhtml
+    assert f'../{prepared_assets[0].href}' in prepared_page.xhtml
+    assert "../assets/photo.webp" not in prepared_page.xhtml
+    assert "../assets/missing.png" not in prepared_page.xhtml
+    assert "缺失图" in prepared_page.xhtml
+    assert missing == ["https://example.test/missing.png"]
+
+
+@pytest.mark.parametrize(
+    "xhtml",
+    [
+        '<img src="../assets/broken.bin" alt="坏图"/>',
+        '<picture><source src="../assets/broken.bin"/></picture>',
+        '<div style="color: red; background-image: url(\'../assets/broken.bin\')">x</div>',
+    ],
+)
+def test_prepare_kindle_assets_rejects_unsigned_octet_stream_used_as_image(
+    tmp_path: Path, xhtml: str
+):
+    source_url = "https://example.test/broken.bin"
+    source_path = tmp_path / "broken.bin"
+    source_path.write_bytes(b"not an image")
+    asset = AssetRef(
+        source_url,
+        source_path,
+        "assets/broken.bin",
+        "application/octet-stream",
+    )
+
+    [page], prepared_assets, missing = kindle_module.prepare_kindle_assets(
+        [_page(xhtml)], [asset], tmp_path / "kindle-assets", []
+    )
+
+    assert prepared_assets == []
+    assert missing == [source_url]
+    assert "../assets/broken.bin" not in page.xhtml
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b"\xef\xbb\xbf  <!doctype html><title>404</title>",
+        b'<?xml version="1.0"?><html><title>404</title></html>',
+        b"<!-- proxy error --><html><title>404</title></html>",
+    ],
+)
+def test_html_sniffer_handles_wrappers_before_error_page(payload: bytes):
+    assert kindle_module._looks_like_html(payload)
+
+
 @pytest.mark.parametrize(("format_name", "suffix"), [("WEBP", ".webp"), ("BMP", ".bin")])
 def test_prepare_kindle_assets_transcodes_unsafe_rasters_and_rewrites_page(
     tmp_path: Path, format_name: str, suffix: str
@@ -137,7 +234,7 @@ def test_prepare_kindle_assets_transcodes_unsafe_rasters_and_rewrites_page(
 def test_prepare_kindle_assets_strips_problem_png_metadata_without_reencoding_pixels(
     tmp_path: Path,
 ):
-    original = _image_bytes("PNG")
+    original = _palette_png_bytes()
     problem = _insert_png_chunks(
         original,
         [
@@ -171,6 +268,10 @@ def test_prepare_kindle_assets_strips_problem_png_metadata_without_reencoding_pi
     assert [payload for kind, payload in chunks if kind == b"IDAT"] == [
         payload for kind, payload in _png_chunks(original) if kind == b"IDAT"
     ]
+    for preserved in (b"PLTE", b"tRNS"):
+        assert [payload for kind, payload in chunks if kind == preserved] == [
+            payload for kind, payload in _png_chunks(original) if kind == preserved
+        ]
     with Image.open(prepared.path) as image:
         image.verify()
 
@@ -422,6 +523,39 @@ def test_convert_epub_to_azw3_rejects_bad_image_log_even_with_zero_exit(tmp_path
         )
 
     with pytest.raises(KindleConversionError, match="Bad image file"):
+        convert_epub_to_azw3(
+            epub_path,
+            azw3_path,
+            executable="ebook-convert-test",
+            runner=fake_runner,
+        )
+
+    assert azw3_path.read_bytes() == b"previous valid azw3"
+    assert not (tmp_path / "book.tmp.azw3").exists()
+
+
+@pytest.mark.parametrize(
+    ("stdout", "stderr"),
+    [
+        ("Bad image file problem.png" + "x" * 5000, ""),
+        ("", "Bad image file problem.png" + "x" * 5000),
+        ("Bad image", "file problem.png"),
+    ],
+    ids=("long-stdout", "long-stderr", "cross-stream"),
+)
+def test_convert_epub_to_azw3_searches_full_calibre_log_for_bad_image(
+    tmp_path: Path, stdout: str, stderr: str
+):
+    epub_path = tmp_path / "book.epub"
+    epub_path.write_bytes(b"epub")
+    azw3_path = tmp_path / "book.azw3"
+    azw3_path.write_bytes(b"previous valid azw3")
+
+    def fake_runner(command, **_kwargs):
+        Path(command[2]).write_bytes(b"otherwise nonempty azw3")
+        return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr=stderr)
+
+    with pytest.raises(KindleConversionError, match="invalid image"):
         convert_epub_to_azw3(
             epub_path,
             azw3_path,

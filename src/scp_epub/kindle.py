@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import re
 import shutil
 import struct
 import subprocess
@@ -12,7 +13,6 @@ from html.parser import HTMLParser
 from importlib import resources
 from pathlib import Path
 
-from bs4 import BeautifulSoup, Tag
 from PIL import Image, UnidentifiedImageError
 
 from .assets import AssetRef
@@ -82,12 +82,20 @@ def convert_epub_to_azw3(
             f"Failed to start Calibre command {command!r}: {exc}"
         ) from exc
 
+    stdout = result.stdout or ""
+    stderr = result.stderr or ""
+    log_search_values = (
+        stdout,
+        stderr,
+        stdout + stderr,
+        f"{stdout.rstrip()} {stderr.lstrip()}",
+    )
     details = "\n".join(
         value.strip()
-        for value in (result.stdout, result.stderr)
+        for value in (stdout, stderr)
         if value and value.strip()
     )[-2000:]
-    if "bad image file" in details.lower():
+    if any("bad image file" in value.lower() for value in log_search_values):
         temporary_path.unlink(missing_ok=True)
         raise KindleConversionError(
             f"Calibre command {command!r} reported an invalid image: {details}"
@@ -134,9 +142,14 @@ def prepare_kindle_assets(
     invalid_hrefs: set[str] = set()
     merged_missing = list(missing_assets)
     seen_missing = set(merged_missing)
+    expected_image_hrefs = _expected_image_hrefs(pages)
 
     for asset in assets:
-        prepared = _prepare_kindle_asset(asset, output_dir)
+        prepared = _prepare_kindle_asset(
+            asset,
+            output_dir,
+            expects_image=asset.href in expected_image_hrefs,
+        )
         if prepared is None:
             invalid_hrefs.add(asset.href)
             if asset.source_url not in seen_missing:
@@ -154,7 +167,12 @@ def prepare_kindle_assets(
     return prepared_pages, prepared_assets, merged_missing
 
 
-def _prepare_kindle_asset(asset: AssetRef, output_dir: Path) -> AssetRef | None:
+def _prepare_kindle_asset(
+    asset: AssetRef,
+    output_dir: Path,
+    *,
+    expects_image: bool = False,
+) -> AssetRef | None:
     try:
         data = asset.path.read_bytes()
     except OSError:
@@ -165,7 +183,7 @@ def _prepare_kindle_asset(asset: AssetRef, output_dir: Path) -> AssetRef | None:
         return None
 
     raster_format = _raster_format(data)
-    expects_raster = (
+    expects_raster = expects_image or (
         content_type.startswith("image/") and content_type != "image/svg+xml"
     ) or asset.path.suffix.lower() in _RASTER_SUFFIXES
     if raster_format is None:
@@ -237,7 +255,24 @@ def _raster_format(data: bytes) -> str | None:
 
 
 def _looks_like_html(data: bytes) -> bool:
-    prefix = data[:1024].lstrip().lower()
+    prefix = data[:4096]
+    if prefix.startswith(b"\xef\xbb\xbf"):
+        prefix = prefix[3:]
+    prefix = prefix.lstrip().lower()
+    while True:
+        if prefix.startswith(b"<?xml"):
+            end = prefix.find(b"?>")
+            if end < 0:
+                return False
+            prefix = prefix[end + 2 :].lstrip()
+            continue
+        if prefix.startswith(b"<!--"):
+            end = prefix.find(b"-->")
+            if end < 0:
+                return False
+            prefix = prefix[end + 3 :].lstrip()
+            continue
+        break
     return prefix.startswith(
         (b"<!doctype html", b"<html", b"<head", b"<body", b"<title")
     )
@@ -285,6 +320,126 @@ def _strip_png_metadata(data: bytes) -> bytes:
     return bytes(output)
 
 
+@dataclass
+class _AssetHtmlElement:
+    tag: str
+    attrs: tuple[tuple[str, str | None], ...]
+    start: int
+    start_end: int
+    parent: _AssetHtmlElement | None
+    end_start: int | None = None
+    end_end: int | None = None
+
+
+class _AssetReferenceParser(HTMLParser):
+    def __init__(self, source: str) -> None:
+        super().__init__(convert_charrefs=False)
+        self.elements: list[_AssetHtmlElement] = []
+        self._stack: list[_AssetHtmlElement] = []
+        self._line_starts = [0]
+        self._line_starts.extend(
+            index + 1 for index, value in enumerate(source) if value == "\n"
+        )
+
+    def handle_starttag(
+        self, tag: str, attrs: list[tuple[str, str | None]]
+    ) -> None:
+        element = self._new_element(tag, attrs)
+        if tag not in _VOID_ELEMENTS:
+            self._stack.append(element)
+
+    def handle_startendtag(
+        self, tag: str, attrs: list[tuple[str, str | None]]
+    ) -> None:
+        self._new_element(tag, attrs)
+
+    def handle_endtag(self, tag: str) -> None:
+        start = self._offset()
+        end = start + len(f"</{tag}>")
+        for index in range(len(self._stack) - 1, -1, -1):
+            if self._stack[index].tag != tag:
+                continue
+            self._stack[index].end_start = start
+            self._stack[index].end_end = end
+            del self._stack[index:]
+            return
+
+    def _new_element(
+        self, tag: str, attrs: list[tuple[str, str | None]]
+    ) -> _AssetHtmlElement:
+        start = self._offset()
+        element = _AssetHtmlElement(
+            tag=tag,
+            attrs=tuple(attrs),
+            start=start,
+            start_end=start + len(self.get_starttag_text()),
+            parent=self._stack[-1] if self._stack else None,
+        )
+        self.elements.append(element)
+        return element
+
+    def _offset(self) -> int:
+        line, column = self.getpos()
+        return self._line_starts[line - 1] + column
+
+
+_ATTRIBUTE_VALUE_RE_TEMPLATE = (
+    r"(?P<prefix>(?<![\w:-]){attribute}\s*=\s*)"
+    r"(?:(?P<quote>[\"'])(?P<quoted>.*?)(?P=quote)|(?P<bare>[^\s>]+))"
+)
+_CSS_URL_RE = re.compile(
+    r"url\(\s*(?P<quote>[\"']?)(?P<url>.*?)(?P=quote)\s*\)",
+    re.IGNORECASE,
+)
+
+
+def _expected_image_hrefs(pages: Sequence[ProcessedPage]) -> set[str]:
+    hrefs: set[str] = set()
+    for page in pages:
+        parser = _parse_asset_references(page.xhtml)
+        if parser is None:
+            continue
+        for element in parser.elements:
+            attrs = dict(element.attrs)
+            if element.tag in {"img", "source"}:
+                href = _local_asset_href(attrs.get("src"))
+                if href is not None:
+                    hrefs.add(href)
+            style = attrs.get("style")
+            if style:
+                hrefs.update(_background_asset_hrefs(style))
+    return hrefs
+
+
+def _parse_asset_references(xhtml: str) -> _AssetReferenceParser | None:
+    parser = _AssetReferenceParser(xhtml)
+    try:
+        parser.feed(xhtml)
+        parser.close()
+    except (AssertionError, ValueError):
+        return None
+    return parser
+
+
+def _local_asset_href(value: str | None) -> str | None:
+    if not value or not value.startswith("../"):
+        return None
+    return value[3:].replace("\\", "/")
+
+
+def _background_asset_hrefs(style: str) -> set[str]:
+    hrefs: set[str] = set()
+    for declaration in style.split(";"):
+        property_name, separator, value = declaration.partition(":")
+        if not separator or not property_name.strip().lower().startswith("background"):
+            continue
+        for match in _CSS_URL_RE.finditer(value):
+            href = _local_asset_href(match.group("url"))
+            if href is not None:
+                hrefs.add(href)
+    return hrefs
+
+
 def _rewrite_kindle_asset_references(
     page: ProcessedPage,
     href_replacements: dict[str, str],
@@ -293,67 +448,101 @@ def _rewrite_kindle_asset_references(
     if not href_replacements and not invalid_hrefs:
         return page
 
-    soup = BeautifulSoup(f"<root>{page.xhtml}</root>", "html.parser")
-    root = soup.find("root")
-    if root is None:
+    parser = _parse_asset_references(page.xhtml)
+    if parser is None:
         return page
-    changed = False
+    edits: list[tuple[int, int, str]] = []
+    for element in parser.elements:
+        raw_tag = page.xhtml[element.start : element.start_end]
+        attrs = dict(element.attrs)
+        attribute = ASSET_ATTRIBUTES.get(element.tag)
+        asset_href = _local_asset_href(attrs.get(attribute)) if attribute else None
+        if asset_href in invalid_hrefs:
+            edits.extend(_invalid_asset_edits(element, attrs, page.xhtml))
+            continue
+        if asset_href in href_replacements and attribute is not None:
+            raw_tag = _replace_attribute_value(
+                raw_tag,
+                attribute,
+                f"../{href_replacements[asset_href]}",
+            )
 
-    for tag in root.find_all(ASSET_ATTRIBUTES.keys()):
-        if not isinstance(tag, Tag):
-            continue
-        attribute = ASSET_ATTRIBUTES[str(tag.name)]
-        raw_href = tag.get(attribute)
-        if not isinstance(raw_href, str) or not raw_href.startswith("../"):
-            continue
-        asset_href = raw_href[3:].replace("\\", "/")
-        if asset_href in href_replacements:
-            tag[attribute] = f"../{href_replacements[asset_href]}"
-            changed = True
-        elif asset_href in invalid_hrefs:
-            _degrade_invalid_asset(tag, soup)
-            changed = True
+        style = attrs.get("style")
+        if style:
+            rewritten_style = _rewrite_background_style(
+                style, href_replacements, invalid_hrefs
+            )
+            if rewritten_style != style:
+                raw_tag = _replace_attribute_value(raw_tag, "style", rewritten_style)
 
-    for tag in root.find_all(style=True):
-        if not isinstance(tag, Tag):
-            continue
-        style = tag.get("style")
-        if not isinstance(style, str):
-            continue
-        declarations = [part.strip() for part in style.split(";") if part.strip()]
-        filtered = [
-            declaration
-            for declaration in declarations
-            if not any(f"../{href}" in declaration for href in invalid_hrefs)
-        ]
-        replaced = "; ".join(filtered)
-        for old_href, new_href in href_replacements.items():
-            replaced = replaced.replace(f"../{old_href}", f"../{new_href}")
-        if replaced != style:
-            if replaced:
-                tag["style"] = replaced
-            else:
-                tag.attrs.pop("style", None)
-            changed = True
+        if raw_tag != page.xhtml[element.start : element.start_end]:
+            edits.append((element.start, element.start_end, raw_tag))
 
-    if not changed:
+    if not edits:
         return page
-    xhtml = "".join(str(child) for child in root.contents).strip()
-    return replace(page, xhtml=xhtml)
+    return replace(page, xhtml=_apply_text_edits(page.xhtml, edits))
 
 
-def _degrade_invalid_asset(tag: Tag, soup: BeautifulSoup) -> None:
-    if tag.name == "object" and tag.contents:
-        tag.unwrap()
-        return
-    label = str(tag.get("alt") or tag.get("title") or "").strip()
+def _replace_attribute_value(raw_tag: str, attribute: str, value: str) -> str:
+    pattern = re.compile(
+        _ATTRIBUTE_VALUE_RE_TEMPLATE.format(attribute=re.escape(attribute)),
+        re.IGNORECASE | re.DOTALL,
+    )
+
+    def replacement(match: re.Match[str]) -> str:
+        quote = match.group("quote") or '"'
+        return f"{match.group('prefix')}{quote}{value}{quote}"
+
+    return pattern.sub(replacement, raw_tag, count=1)
+
+
+def _rewrite_background_style(
+    style: str,
+    href_replacements: dict[str, str],
+    invalid_hrefs: set[str],
+) -> str:
+    parts = style.split(";")
+    rewritten: list[str] = []
+    for part in parts:
+        property_name, separator, _value = part.partition(":")
+        if separator and property_name.strip().lower().startswith("background"):
+            if any(f"../{href}" in part for href in invalid_hrefs):
+                continue
+            for old_href, new_href in href_replacements.items():
+                part = part.replace(f"../{old_href}", f"../{new_href}")
+        rewritten.append(part)
+    return ";".join(rewritten)
+
+
+def _invalid_asset_edits(
+    element: _AssetHtmlElement,
+    attrs: dict[str, str | None],
+    xhtml: str,
+) -> list[tuple[int, int, str]]:
+    if element.tag == "object" and element.end_start is not None and element.end_end is not None:
+        if xhtml[element.start_end : element.end_start].strip():
+            return [
+                (element.end_start, element.end_end, ""),
+                (element.start, element.start_end, ""),
+            ]
+    label = str(attrs.get("alt") or attrs.get("title") or "").strip()
     if label:
-        placeholder = soup.new_tag("span")
-        placeholder["class"] = "kindle-missing-image"
-        placeholder.string = label
-        tag.replace_with(placeholder)
+        replacement = (
+            '<span class="kindle-missing-image">'
+            f"{escape(label)}"
+            "</span>"
+        )
     else:
-        tag.decompose()
+        replacement = ""
+    end = element.end_end if element.tag == "object" and element.end_end else element.start_end
+    return [(element.start, end, replacement)]
+
+
+def _apply_text_edits(source: str, edits: list[tuple[int, int, str]]) -> str:
+    result = source
+    for start, end, replacement in sorted(edits, reverse=True):
+        result = result[:start] + replacement + result[end:]
+    return result
 
 _VOID_ELEMENTS = frozenset(
     {
