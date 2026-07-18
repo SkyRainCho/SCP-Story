@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import math
 import re
 import shutil
 import struct
@@ -16,6 +17,7 @@ from pathlib import Path
 
 from lxml import etree
 from PIL import Image, UnidentifiedImageError
+import resvg_py
 
 from .assets import AssetRef
 from .models import ProcessedPage
@@ -130,6 +132,8 @@ _REMOVED_PNG_CHUNKS = frozenset({b"zTXt", b"iCCP"})
 _RASTER_SUFFIXES = frozenset(
     {".bmp", ".gif", ".jpeg", ".jpg", ".png", ".webp"}
 )
+_SVG_LANDSCAPE_WIDTH = 1400
+_SVG_PORTRAIT_HEIGHT = 1600
 
 
 def prepare_kindle_assets(
@@ -189,10 +193,12 @@ def _prepare_kindle_asset(
         content_type.startswith("image/") and content_type != "image/svg+xml"
     ) or asset.path.suffix.lower() in _RASTER_SUFFIXES
     if raster_format is None:
-        if expects_image and _is_safe_svg(data):
-            if content_type == "image/svg+xml":
-                return asset
-            return replace(asset, content_type="image/svg+xml")
+        svg_root = _parse_safe_svg(data) if expects_image else None
+        if svg_root is not None:
+            rendered = _render_svg_png(data, svg_root)
+            if rendered is None:
+                return None
+            return _write_prepared_png(asset, output_dir, rendered)
         return None if expects_raster else asset
 
     if raster_format in {"jpeg", "gif"}:
@@ -268,7 +274,7 @@ def _raster_format(data: bytes) -> str | None:
     return None
 
 
-def _is_safe_svg(data: bytes) -> bool:
+def _parse_safe_svg(data: bytes) -> etree._Element | None:
     parser = etree.XMLParser(
         resolve_entities=False,
         no_network=True,
@@ -279,10 +285,99 @@ def _is_safe_svg(data: bytes) -> bool:
     try:
         root = etree.fromstring(data, parser=parser)
         if root.getroottree().docinfo.doctype:
-            return False
-        return etree.QName(root).localname == "svg"
+            return None
+        if etree.QName(root).localname != "svg":
+            return None
+        return root
     except (etree.XMLSyntaxError, ValueError):
-        return False
+        return None
+
+
+def _render_svg_png(data: bytes, root: etree._Element) -> bytes | None:
+    try:
+        svg_string = data.decode("utf-8-sig")
+        render_options, max_size = _svg_render_options(root)
+        rendered = resvg_py.svg_to_bytes(
+            svg_string=svg_string,
+            dpi=96,
+            **render_options,
+        )
+    except Exception:
+        return None
+    if not rendered.startswith(_PNG_SIGNATURE):
+        return None
+    if not _pillow_verifies(rendered, max_size=max_size):
+        return None
+    return rendered
+
+
+def _svg_render_options(
+    root: etree._Element,
+) -> tuple[dict[str, int], tuple[int, int]]:
+    aspect_ratio = _svg_aspect_ratio(root)
+    if aspect_ratio >= 1:
+        return (
+            {"width": _SVG_LANDSCAPE_WIDTH},
+            (_SVG_LANDSCAPE_WIDTH, _SVG_LANDSCAPE_WIDTH),
+        )
+    return (
+        {"height": _SVG_PORTRAIT_HEIGHT},
+        (_SVG_PORTRAIT_HEIGHT, _SVG_PORTRAIT_HEIGHT),
+    )
+
+
+def _svg_aspect_ratio(root: etree._Element) -> float:
+    view_box = root.get("viewBox")
+    if view_box:
+        try:
+            values = [float(value) for value in re.split(r"[\s,]+", view_box.strip())]
+        except ValueError:
+            values = []
+        if (
+            len(values) == 4
+            and math.isfinite(values[2])
+            and math.isfinite(values[3])
+            and values[2] > 0
+            and values[3] > 0
+        ):
+            return values[2] / values[3]
+
+    width = _svg_length(root.get("width"))
+    height = _svg_length(root.get("height"))
+    if width is not None and height is not None:
+        return width / height
+    return 1.0
+
+
+_SVG_LENGTH_RE = re.compile(
+    r"\s*(?P<value>(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)"
+    r"\s*(?P<unit>px|pt|pc|in|cm|mm|q)?\s*",
+    re.IGNORECASE,
+)
+_SVG_LENGTH_TO_PX = {
+    "": 1.0,
+    "px": 1.0,
+    "pt": 96 / 72,
+    "pc": 16.0,
+    "in": 96.0,
+    "cm": 96 / 2.54,
+    "mm": 96 / 25.4,
+    "q": 96 / 101.6,
+}
+
+
+def _svg_length(value: str | None) -> float | None:
+    if value is None:
+        return None
+    match = _SVG_LENGTH_RE.fullmatch(value)
+    if match is None:
+        return None
+    length = float(match.group("value")) * _SVG_LENGTH_TO_PX[
+        (match.group("unit") or "").lower()
+    ]
+    if not math.isfinite(length) or length <= 0:
+        return None
+    return length
 
 
 def _looks_like_html(data: bytes) -> bool:
@@ -309,11 +404,17 @@ def _looks_like_html(data: bytes) -> bool:
     )
 
 
-def _pillow_verifies(data: bytes) -> bool:
+def _pillow_verifies(
+    data: bytes, *, max_size: tuple[int, int] | None = None
+) -> bool:
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
             with Image.open(io.BytesIO(data)) as image:
+                if max_size is not None and (
+                    image.width > max_size[0] or image.height > max_size[1]
+                ):
+                    return False
                 image.verify()
     except (
         OSError,

@@ -1,3 +1,4 @@
+import base64
 import io
 import re
 import struct
@@ -6,6 +7,7 @@ import zlib
 from pathlib import Path
 
 import pytest
+import resvg_py
 from PIL import Image
 
 import scp_epub.kindle as kindle_module
@@ -252,7 +254,7 @@ def test_html_sniffer_handles_wrappers_before_error_page(payload: bytes):
     ],
     ids=("img", "picture-source-with-xml-wrappers"),
 )
-def test_prepare_kindle_assets_preserves_valid_svg_images(
+def test_prepare_kindle_assets_renders_valid_svg_images_as_png(
     tmp_path: Path, xhtml: str, payload: bytes
 ):
     source_path = tmp_path / "mark.svg"
@@ -269,11 +271,159 @@ def test_prepare_kindle_assets_preserves_valid_svg_images(
     )
 
     assert missing == []
-    assert prepared.path == asset.path
-    assert prepared.href == asset.href
-    assert prepared.path.read_bytes() == payload
-    assert prepared.content_type == "image/svg+xml"
-    assert page.xhtml == xhtml
+    assert prepared.path != asset.path
+    assert prepared.href != asset.href
+    assert prepared.href.endswith(".png")
+    assert prepared.content_type == "image/png"
+    assert prepared.path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    assert source_path.read_bytes() == payload
+    assert f'../{prepared.href}' in page.xhtml
+    assert "../assets/mark.svg" not in page.xhtml
+    with Image.open(prepared.path) as image:
+        assert image.size == (1400, 1400)
+
+
+def test_prepare_kindle_assets_renders_svg_with_embedded_png(tmp_path: Path):
+    embedded_png = base64.b64encode(_image_bytes("PNG")).decode("ascii")
+    payload = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 1">'
+        f'<image width="2" height="1" href="data:image/png;base64,{embedded_png}"/>'
+        "</svg>"
+    ).encode("utf-8")
+    source_path = tmp_path / "embedded.svg"
+    source_path.write_bytes(payload)
+    asset = AssetRef(
+        "https://example.test/embedded.svg",
+        source_path,
+        "assets/embedded.svg",
+        "image/svg+xml",
+    )
+
+    [page], [prepared], missing = kindle_module.prepare_kindle_assets(
+        [_page('<img src="../assets/embedded.svg" alt="内嵌图片"/>')],
+        [asset],
+        tmp_path / "kindle-assets",
+        [],
+    )
+
+    assert missing == []
+    assert prepared.content_type == "image/png"
+    assert prepared.href.endswith(".png")
+    assert f'../{prepared.href}' in page.xhtml
+    with Image.open(prepared.path) as image:
+        assert image.size == (1400, 700)
+        image.verify()
+
+
+@pytest.mark.parametrize(
+    ("size_attributes", "expected_size"),
+    [
+        ('viewBox="0 0 4000 2000"', (1400, 700)),
+        ('viewBox="0 0 3 2"', (1400, 934)),
+        ('width="2000" height="4000"', (800, 1600)),
+    ],
+    ids=("landscape-viewbox", "landscape-rounded", "portrait-dimensions"),
+)
+def test_prepare_kindle_assets_bounds_svg_output_while_preserving_aspect_ratio(
+    tmp_path: Path, size_attributes: str, expected_size: tuple[int, int]
+):
+    payload = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" {size_attributes}>'
+        '<rect width="100%" height="100%" fill="black"/></svg>'
+    ).encode("utf-8")
+    source_path = tmp_path / "large.svg"
+    source_path.write_bytes(payload)
+    asset = AssetRef(
+        "https://example.test/large.svg",
+        source_path,
+        "assets/large.svg",
+        "image/svg+xml",
+    )
+
+    _pages, [prepared], missing = kindle_module.prepare_kindle_assets(
+        [_page('<img src="../assets/large.svg"/>')],
+        [asset],
+        tmp_path / "kindle-assets",
+        [],
+    )
+
+    assert missing == []
+    assert prepared.content_type == "image/png"
+    with Image.open(prepared.path) as image:
+        assert image.size == expected_size
+
+
+def test_prepare_kindle_assets_drops_svg_when_renderer_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    payload = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 1"/>'
+    source_url = "https://example.test/render-failure.svg"
+    source_path = tmp_path / "render-failure.svg"
+    source_path.write_bytes(payload)
+    asset = AssetRef(
+        source_url,
+        source_path,
+        "assets/render-failure.svg",
+        "image/svg+xml",
+    )
+    calls = []
+
+    def fail_render(**kwargs):
+        calls.append(kwargs)
+        raise ValueError("renderer rejected SVG")
+
+    monkeypatch.setattr(resvg_py, "svg_to_bytes", fail_render)
+
+    [page], prepared_assets, missing = kindle_module.prepare_kindle_assets(
+        [_page('<img src="../assets/render-failure.svg" alt="无法渲染"/>')],
+        [asset],
+        tmp_path / "kindle-assets",
+        [],
+    )
+
+    assert prepared_assets == []
+    assert missing == [source_url]
+    assert "../assets/render-failure.svg" not in page.xhtml
+    assert "无法渲染" in page.xhtml
+    assert len(calls) == 1
+    assert calls[0]["svg_string"].startswith("<svg")
+    assert calls[0]["dpi"] == 96
+    assert calls[0]["width"] == 1400
+    assert "height" not in calls[0]
+    assert "svg_path" not in calls[0]
+    assert "resources_dir" not in calls[0]
+
+
+def test_prepare_kindle_assets_rejects_decompression_bomb_from_svg_renderer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    payload = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>'
+    source_url = "https://example.test/rendered-bomb.svg"
+    source_path = tmp_path / "rendered-bomb.svg"
+    source_path.write_bytes(payload)
+    asset = AssetRef(
+        source_url,
+        source_path,
+        "assets/rendered-bomb.svg",
+        "image/svg+xml",
+    )
+    rendered_png = _image_bytes("PNG")
+    monkeypatch.setattr(
+        resvg_py, "svg_to_bytes", lambda **_kwargs: rendered_png
+    )
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 1)
+
+    [page], prepared_assets, missing = kindle_module.prepare_kindle_assets(
+        [_page('<img src="../assets/rendered-bomb.svg" alt="超限渲染"/>')],
+        [asset],
+        tmp_path / "kindle-assets",
+        [],
+    )
+
+    assert prepared_assets == []
+    assert missing == [source_url]
+    assert "../assets/rendered-bomb.svg" not in page.xhtml
+    assert "超限渲染" in page.xhtml
 
 
 @pytest.mark.parametrize(
