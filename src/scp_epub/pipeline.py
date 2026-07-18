@@ -24,7 +24,12 @@ from .indexer import (
     parse_tales_index,
 )
 from .inline_documents import fetch_inline_document_results, inline_document_urls
-from .kindle import convert_epub_to_azw3, load_kindle_css, prepare_kindle_pages
+from .kindle import (
+    convert_epub_to_azw3,
+    load_kindle_css,
+    prepare_kindle_assets,
+    prepare_kindle_pages,
+)
 from .linked_appendices import (
     LINKED_APPENDIX_ROLE,
     LINKED_APPENDIX_GROUP_ROLE,
@@ -263,7 +268,17 @@ def build_volume(
     remote_slugs = remote_resource_page_slugs(localized_pages, missing_assets)
 
     output_slug = f"{volume.output_slug}-Kindle" if kindle else volume.output_slug
-    output_pages = prepare_kindle_pages(localized_pages) if kindle else localized_pages
+    if kindle:
+        kindle_pages = prepare_kindle_pages(localized_pages)
+        output_pages, output_assets, missing_assets = prepare_kindle_assets(
+            kindle_pages,
+            localized_assets,
+            config.processed_dir / volume.output_slug / "kindle-assets",
+            missing_assets,
+        )
+    else:
+        output_pages = localized_pages
+        output_assets = localized_assets
     output_path = config.output_dir / "epub" / f"{output_slug}.epub"
     book_css = load_kindle_css() if kindle else BOOK_CSS
     write_epub(
@@ -273,7 +288,7 @@ def build_volume(
         language=config.language,
         creator=config.creator,
         identifier=f"urn:{config.series_id}:{output_slug}",
-        assets=localized_assets,
+        assets=output_assets,
         remote_resource_page_slugs=remote_slugs,
         cover_image_path=cover_image_path_for_volume(config, volume),
         book_css=book_css,

@@ -99,6 +99,11 @@ Kindle EPUB 使用适合 AZW3/KF8 的专用样式，并由 Calibre 的
 `kindle_scribe` 输出配置转换；已有目录会被复用，不会插入重复的正文目录。
 该 AZW3 适用于通过 Calibre 和 USB 传入 Kindle Scribe。
 
+Kindle 构建会按文件真实内容校验图片，将 WebP、BMP 等 AZW3 不安全的栅格格式
+规范化为 PNG，并清理可能破坏 Calibre 转换的 PNG 元数据。实际为 HTML 错误页或
+无法解码的图片不会写入 Kindle EPUB；页面会保留可用的 `alt` 文本占位，其原始 URL
+会记录在 Kindle report 的 `missing_assets` 中。
+
 `--kindle` 是可选参数。不带该参数时，原有 EPUB 文件名、样式和构建行为不变。
 如果未安装 Calibre 或转换失败，命令会保留已生成的 Kindle EPUB 和报告、删除临时
 AZW3，并以错误退出；不会用不完整文件覆盖已有 AZW3。

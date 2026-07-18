@@ -48,7 +48,10 @@ python -m scp_epub --config config/featured-scp.yaml build --volume featured --k
 
 该命令生成 `output/epub/SCP基金会档案精选-Kindle.epub`、
 `output/azw3/SCP基金会档案精选-Kindle.azw3` 和独立构建报告。它依赖系统中可用的
-Calibre `ebook-convert`。不带 `--kindle` 时，原有 EPUB 输出、CSS 和命名必须保持不变。
+Calibre `ebook-convert`。Kindle 构建会按真实内容校验图片，把 WebP、BMP 等不兼容
+栅格图规范化为 PNG；无效图片不会进入 Kindle EPUB，并会记录在 Kindle report 的
+`missing_assets` 中。不带 `--kindle` 时，原有资源处理、report、EPUB 输出、CSS 和
+命名必须保持不变。
 
 该配置从英文站 Featured SCP Archive 起始页递归读取归档分页，但 EPUB 正文使用中文站同 slug 的 SCP 主文档。精选书的主清单由 Featured 页面决定，并按页面条目编号排序；构建时仍可按高置信规则纳入主文档中的原文附属文档。
 

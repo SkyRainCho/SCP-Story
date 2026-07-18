@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import io
 import json
 import zipfile
 from argparse import Namespace
 from pathlib import Path
 
 import pytest
+from PIL import Image
 
 from scp_epub.cache import CacheStore
 from scp_epub.fetcher import Fetcher
@@ -167,6 +169,12 @@ def simple_page(title: str, body: str = "Body") -> str:
   </body>
 </html>
 """
+
+
+def image_bytes(format_name: str) -> bytes:
+    output = io.BytesIO()
+    Image.new("RGB", (2, 2), "red").save(output, format=format_name)
+    return output.getvalue()
 
 
 def simple_index(*slugs: str) -> str:
@@ -1875,3 +1883,112 @@ def test_build_volume_kindles_pages_css_report_and_azw3_without_mutating_process
     report_path = config.output_dir / "reports" / "test-volume-Kindle-report.json"
     report = json.loads(report_path.read_text(encoding="utf-8"))
     assert report["output_path"] == str(output_path)
+
+
+def test_build_volume_prepares_only_kindle_assets_and_reports_invalid_images(
+    tmp_path: Path,
+):
+    config = app_config(tmp_path)
+    manifest = [
+        PageRef("SCP-001", f"{BASE_URL}/scp-001", "scp-001", 1, "scp", order=1),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    webp_url = f"{BASE_URL}/images/photo.webp"
+    invalid_url = f"{BASE_URL}/images/missing.png"
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-001": simple_page(
+                "SCP-001",
+                '<img src="/images/photo.webp" alt="有效图"/>'
+                '<img src="/images/missing.png" alt="缺失图"/>',
+            ),
+        },
+        assets={
+            webp_url: ("photo.webp", image_bytes("WEBP"), "application/octet-stream"),
+            invalid_url: (
+                "missing.png",
+                b"<!doctype html><title>404 Not Found</title>",
+                "text/html",
+            ),
+        },
+    )
+    conversion_calls = []
+
+    def fake_converter(epub_path: Path, azw3_path: Path) -> Path:
+        conversion_calls.append((epub_path, azw3_path))
+        with zipfile.ZipFile(epub_path) as archive:
+            names = archive.namelist()
+            chapter = archive.read("OEBPS/text/0001-scp-001.xhtml").decode("utf-8")
+            opf = archive.read("OEBPS/content.opf").decode("utf-8")
+            normalized_name = next(
+                name
+                for name in names
+                if name.startswith("OEBPS/assets/") and name.endswith(".png")
+            )
+            assert archive.read(normalized_name).startswith(b"\x89PNG\r\n\x1a\n")
+        assert "photo.webp" not in "\n".join(names)
+        assert "missing.png" not in "\n".join(names)
+        assert "../assets/photo.webp" not in chapter
+        assert "../assets/missing.png" not in chapter
+        assert "缺失图" in chapter
+        assert 'media-type="image/png"' in opf
+        azw3_path.parent.mkdir(parents=True, exist_ok=True)
+        azw3_path.write_bytes(b"azw3")
+        return azw3_path
+
+    output_path = build_volume(
+        config,
+        "001-099",
+        fetcher=fetcher,
+        kindle=True,
+        kindle_converter=fake_converter,
+    )
+
+    assert conversion_calls == [
+        (output_path, config.output_dir / "azw3" / "test-volume-Kindle.azw3")
+    ]
+    report = json.loads(
+        (config.output_dir / "reports" / "test-volume-Kindle-report.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert report["missing_assets"] == [invalid_url]
+    assert report["asset_urls"] == [webp_url, invalid_url]
+    assert list((config.processed_dir / "test-volume" / "kindle-assets").glob("*.png"))
+
+
+def test_build_volume_default_keeps_unvalidated_asset_and_missing_report_unchanged(
+    tmp_path: Path,
+):
+    config = app_config(tmp_path)
+    manifest = [
+        PageRef("SCP-001", f"{BASE_URL}/scp-001", "scp-001", 1, "scp", order=1),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    fake_url = f"{BASE_URL}/images/fake.png"
+    fake_bytes = b"<!doctype html><title>404 Not Found</title>"
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {"scp-001": simple_page("SCP-001", '<img src="/images/fake.png"/>')},
+        assets={fake_url: ("fake.png", fake_bytes, "text/html")},
+    )
+
+    output_path = build_volume(config, "001-099", fetcher=fetcher)
+
+    with zipfile.ZipFile(output_path) as archive:
+        assert archive.read("OEBPS/assets/fake.png") == fake_bytes
+        assert "../assets/fake.png" in archive.read(
+            "OEBPS/text/0001-scp-001.xhtml"
+        ).decode("utf-8")
+    report = json.loads(
+        (config.output_dir / "reports" / "test-volume-report.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert report["missing_assets"] == []
+    assert report["asset_urls"] == [fake_url]

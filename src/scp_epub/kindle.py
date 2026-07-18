@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+import io
 import shutil
+import struct
 import subprocess
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
@@ -9,7 +12,12 @@ from html.parser import HTMLParser
 from importlib import resources
 from pathlib import Path
 
+from bs4 import BeautifulSoup, Tag
+from PIL import Image, UnidentifiedImageError
+
+from .assets import AssetRef
 from .models import ProcessedPage
+from .transform import ASSET_ATTRIBUTES
 
 
 CLEARANCE_LABELS = {
@@ -74,13 +82,19 @@ def convert_epub_to_azw3(
             f"Failed to start Calibre command {command!r}: {exc}"
         ) from exc
 
+    details = "\n".join(
+        value.strip()
+        for value in (result.stdout, result.stderr)
+        if value and value.strip()
+    )[-2000:]
+    if "bad image file" in details.lower():
+        temporary_path.unlink(missing_ok=True)
+        raise KindleConversionError(
+            f"Calibre command {command!r} reported an invalid image: {details}"
+        )
+
     if result.returncode != 0:
         temporary_path.unlink(missing_ok=True)
-        details = "\n".join(
-            value.strip()
-            for value in (result.stdout, result.stderr)
-            if value and value.strip()
-        )[-2000:]
         raise KindleConversionError(
             f"Calibre command {command!r} exited with {result.returncode}: {details}"
         )
@@ -91,8 +105,255 @@ def convert_epub_to_azw3(
             f"Calibre command {command!r} did not produce a nonempty AZW3"
         )
 
-    temporary_path.replace(azw3_path)
+    try:
+        temporary_path.replace(azw3_path)
+    except OSError as exc:
+        temporary_path.unlink(missing_ok=True)
+        raise KindleConversionError(
+            f"Could not atomically replace Kindle AZW3 {azw3_path}: {exc}"
+        ) from exc
     return azw3_path
+
+
+_PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+_REMOVED_PNG_CHUNKS = frozenset({b"zTXt", b"iCCP"})
+_RASTER_SUFFIXES = frozenset(
+    {".bmp", ".gif", ".jpeg", ".jpg", ".png", ".webp"}
+)
+
+
+def prepare_kindle_assets(
+    pages: Sequence[ProcessedPage],
+    assets: Sequence[AssetRef],
+    output_dir: Path,
+    missing_assets: Sequence[str] = (),
+) -> tuple[list[ProcessedPage], list[AssetRef], list[str]]:
+    """Validate and normalize raster assets for Calibre's AZW3 writer."""
+    prepared_assets: list[AssetRef] = []
+    href_replacements: dict[str, str] = {}
+    invalid_hrefs: set[str] = set()
+    merged_missing = list(missing_assets)
+    seen_missing = set(merged_missing)
+
+    for asset in assets:
+        prepared = _prepare_kindle_asset(asset, output_dir)
+        if prepared is None:
+            invalid_hrefs.add(asset.href)
+            if asset.source_url not in seen_missing:
+                seen_missing.add(asset.source_url)
+                merged_missing.append(asset.source_url)
+            continue
+        prepared_assets.append(prepared)
+        if prepared.href != asset.href:
+            href_replacements[asset.href] = prepared.href
+
+    prepared_pages = [
+        _rewrite_kindle_asset_references(page, href_replacements, invalid_hrefs)
+        for page in pages
+    ]
+    return prepared_pages, prepared_assets, merged_missing
+
+
+def _prepare_kindle_asset(asset: AssetRef, output_dir: Path) -> AssetRef | None:
+    try:
+        data = asset.path.read_bytes()
+    except OSError:
+        return None
+
+    content_type = asset.content_type.split(";", 1)[0].strip().lower()
+    if _looks_like_html(data) or content_type in {"text/html", "application/xhtml+xml"}:
+        return None
+
+    raster_format = _raster_format(data)
+    expects_raster = (
+        content_type.startswith("image/") and content_type != "image/svg+xml"
+    ) or asset.path.suffix.lower() in _RASTER_SUFFIXES
+    if raster_format is None:
+        return None if expects_raster else asset
+
+    if raster_format in {"jpeg", "gif"}:
+        if not _pillow_verifies(data):
+            return None
+        expected_content_type = {
+            "jpeg": "image/jpeg",
+            "gif": "image/gif",
+        }[raster_format]
+        if content_type == expected_content_type:
+            return asset
+        return replace(asset, content_type=expected_content_type)
+
+    if raster_format == "png":
+        try:
+            cleaned = _strip_png_metadata(data)
+        except ValueError:
+            return None
+        if not _pillow_verifies(cleaned):
+            return None
+        if cleaned == data and content_type == "image/png":
+            return asset
+        return _write_prepared_png(asset, output_dir, cleaned)
+
+    if raster_format in {"webp", "bmp"}:
+        try:
+            with Image.open(io.BytesIO(data)) as image:
+                image.seek(0)
+                image.load()
+                output = io.BytesIO()
+                image.save(output, format="PNG")
+        except (OSError, UnidentifiedImageError, ValueError):
+            return None
+        return _write_prepared_png(asset, output_dir, output.getvalue())
+
+    return None
+
+
+def _write_prepared_png(asset: AssetRef, output_dir: Path, data: bytes) -> AssetRef:
+    digest = hashlib.sha256(asset.source_url.encode("utf-8")).hexdigest()[:12]
+    stem = Path(asset.href).stem or "image"
+    filename = f"{stem}-{digest}.png"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / filename
+    output_path.write_bytes(data)
+    return replace(
+        asset,
+        path=output_path,
+        href=f"assets/{filename}",
+        content_type="image/png",
+    )
+
+
+def _raster_format(data: bytes) -> str | None:
+    if data.startswith(_PNG_SIGNATURE):
+        return "png"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "jpeg"
+    if data.startswith((b"GIF87a", b"GIF89a")):
+        return "gif"
+    if data.startswith(b"BM"):
+        return "bmp"
+    if len(data) >= 12 and data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+        return "webp"
+    return None
+
+
+def _looks_like_html(data: bytes) -> bool:
+    prefix = data[:1024].lstrip().lower()
+    return prefix.startswith(
+        (b"<!doctype html", b"<html", b"<head", b"<body", b"<title")
+    )
+
+
+def _pillow_verifies(data: bytes) -> bool:
+    try:
+        with Image.open(io.BytesIO(data)) as image:
+            image.verify()
+    except (OSError, UnidentifiedImageError, ValueError):
+        return False
+    return True
+
+
+def _strip_png_metadata(data: bytes) -> bytes:
+    if not data.startswith(_PNG_SIGNATURE):
+        raise ValueError("not a PNG")
+
+    output = bytearray(_PNG_SIGNATURE)
+    offset = len(_PNG_SIGNATURE)
+    chunk_types: list[bytes] = []
+    while offset < len(data):
+        if offset + 12 > len(data):
+            raise ValueError("truncated PNG chunk")
+        length = struct.unpack(">I", data[offset : offset + 4])[0]
+        end = offset + 12 + length
+        if end > len(data):
+            raise ValueError("truncated PNG payload")
+        chunk_type = data[offset + 4 : offset + 8]
+        if len(chunk_type) != 4:
+            raise ValueError("invalid PNG chunk type")
+        chunk_types.append(chunk_type)
+        if chunk_type not in _REMOVED_PNG_CHUNKS:
+            output.extend(data[offset:end])
+        offset = end
+        if chunk_type == b"IEND":
+            if offset != len(data):
+                raise ValueError("data follows PNG IEND")
+            break
+
+    if not chunk_types or chunk_types[0] != b"IHDR":
+        raise ValueError("PNG is missing IHDR")
+    if b"IDAT" not in chunk_types or not chunk_types or chunk_types[-1] != b"IEND":
+        raise ValueError("PNG is missing image data or IEND")
+    return bytes(output)
+
+
+def _rewrite_kindle_asset_references(
+    page: ProcessedPage,
+    href_replacements: dict[str, str],
+    invalid_hrefs: set[str],
+) -> ProcessedPage:
+    if not href_replacements and not invalid_hrefs:
+        return page
+
+    soup = BeautifulSoup(f"<root>{page.xhtml}</root>", "html.parser")
+    root = soup.find("root")
+    if root is None:
+        return page
+    changed = False
+
+    for tag in root.find_all(ASSET_ATTRIBUTES.keys()):
+        if not isinstance(tag, Tag):
+            continue
+        attribute = ASSET_ATTRIBUTES[str(tag.name)]
+        raw_href = tag.get(attribute)
+        if not isinstance(raw_href, str) or not raw_href.startswith("../"):
+            continue
+        asset_href = raw_href[3:].replace("\\", "/")
+        if asset_href in href_replacements:
+            tag[attribute] = f"../{href_replacements[asset_href]}"
+            changed = True
+        elif asset_href in invalid_hrefs:
+            _degrade_invalid_asset(tag, soup)
+            changed = True
+
+    for tag in root.find_all(style=True):
+        if not isinstance(tag, Tag):
+            continue
+        style = tag.get("style")
+        if not isinstance(style, str):
+            continue
+        declarations = [part.strip() for part in style.split(";") if part.strip()]
+        filtered = [
+            declaration
+            for declaration in declarations
+            if not any(f"../{href}" in declaration for href in invalid_hrefs)
+        ]
+        replaced = "; ".join(filtered)
+        for old_href, new_href in href_replacements.items():
+            replaced = replaced.replace(f"../{old_href}", f"../{new_href}")
+        if replaced != style:
+            if replaced:
+                tag["style"] = replaced
+            else:
+                tag.attrs.pop("style", None)
+            changed = True
+
+    if not changed:
+        return page
+    xhtml = "".join(str(child) for child in root.contents).strip()
+    return replace(page, xhtml=xhtml)
+
+
+def _degrade_invalid_asset(tag: Tag, soup: BeautifulSoup) -> None:
+    if tag.name == "object" and tag.contents:
+        tag.unwrap()
+        return
+    label = str(tag.get("alt") or tag.get("title") or "").strip()
+    if label:
+        placeholder = soup.new_tag("span")
+        placeholder["class"] = "kindle-missing-image"
+        placeholder.string = label
+        tag.replace_with(placeholder)
+    else:
+        tag.decompose()
 
 _VOID_ELEMENTS = frozenset(
     {

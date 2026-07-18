@@ -1,9 +1,15 @@
+import io
 import re
+import struct
 import subprocess
+import zlib
 from pathlib import Path
 
 import pytest
+from PIL import Image
 
+import scp_epub.kindle as kindle_module
+from scp_epub.assets import AssetRef
 from scp_epub.kindle import (
     KindleConversionError,
     convert_epub_to_azw3,
@@ -28,6 +34,179 @@ def _page(xhtml: str) -> ProcessedPage:
         internal_links=(),
         external_links=(),
     )
+
+
+def _image_bytes(format_name: str, *, animated: bool = False) -> bytes:
+    output = io.BytesIO()
+    first = Image.new("RGBA", (2, 2), (255, 0, 0, 128))
+    if animated:
+        second = Image.new("RGBA", (2, 2), (0, 0, 255, 255))
+        first.save(
+            output,
+            format=format_name,
+            save_all=True,
+            append_images=[second],
+            duration=100,
+            loop=0,
+        )
+    else:
+        if format_name == "JPEG":
+            first = first.convert("RGB")
+        first.save(output, format=format_name)
+    return output.getvalue()
+
+
+def _png_chunks(data: bytes) -> list[tuple[bytes, bytes]]:
+    chunks = []
+    offset = 8
+    while offset < len(data):
+        length = struct.unpack(">I", data[offset : offset + 4])[0]
+        chunk_type = data[offset + 4 : offset + 8]
+        payload = data[offset + 8 : offset + 8 + length]
+        chunks.append((chunk_type, payload))
+        offset += length + 12
+    return chunks
+
+
+def _insert_png_chunks(data: bytes, chunks: list[tuple[bytes, bytes]]) -> bytes:
+    ihdr_end = 8 + 12 + len(_png_chunks(data)[0][1])
+    encoded = []
+    for chunk_type, payload in chunks:
+        checksum = zlib.crc32(chunk_type + payload) & 0xFFFFFFFF
+        encoded.append(
+            struct.pack(">I", len(payload))
+            + chunk_type
+            + payload
+            + struct.pack(">I", checksum)
+        )
+    return data[:ihdr_end] + b"".join(encoded) + data[ihdr_end:]
+
+
+def test_prepare_kindle_assets_drops_html_image_and_preserves_alt_text(tmp_path: Path):
+    source_url = "https://example.test/missing.png"
+    source_path = tmp_path / "missing.png"
+    source_path.write_bytes(b"<!doctype html><html><body>404 Not Found</body></html>")
+    source = _page(
+        '<figure><img src="../assets/missing.png" alt="缺失的设施照片"/></figure>'
+    )
+    asset = AssetRef(source_url, source_path, "assets/missing.png", "image/png")
+
+    pages, assets, missing = kindle_module.prepare_kindle_assets(
+        [source], [asset], tmp_path / "kindle-assets", ["already-missing"]
+    )
+
+    assert assets == []
+    assert missing == ["already-missing", source_url]
+    assert "../assets/missing.png" not in pages[0].xhtml
+    assert "缺失的设施照片" in pages[0].xhtml
+    assert "kindle-missing-image" in pages[0].xhtml
+    assert source.xhtml == (
+        '<figure><img src="../assets/missing.png" alt="缺失的设施照片"/></figure>'
+    )
+
+
+@pytest.mark.parametrize(("format_name", "suffix"), [("WEBP", ".webp"), ("BMP", ".bin")])
+def test_prepare_kindle_assets_transcodes_unsafe_rasters_and_rewrites_page(
+    tmp_path: Path, format_name: str, suffix: str
+):
+    source_path = tmp_path / f"source{suffix}"
+    source_path.write_bytes(_image_bytes(format_name))
+    asset = AssetRef(
+        f"https://example.test/source{suffix}",
+        source_path,
+        f"assets/source{suffix}",
+        "application/octet-stream",
+    )
+    source = _page(f'<img src="../assets/source{suffix}" alt="图"/>')
+
+    pages, assets, missing = kindle_module.prepare_kindle_assets(
+        [source], [asset], tmp_path / "kindle-assets", []
+    )
+
+    assert missing == []
+    assert len(assets) == 1
+    prepared = assets[0]
+    assert prepared.href.endswith(".png")
+    assert prepared.content_type == "image/png"
+    assert prepared.path.parent == tmp_path / "kindle-assets"
+    assert prepared.path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    assert f'../{prepared.href}' in pages[0].xhtml
+    assert f'../assets/source{suffix}' not in pages[0].xhtml
+
+
+def test_prepare_kindle_assets_strips_problem_png_metadata_without_reencoding_pixels(
+    tmp_path: Path,
+):
+    original = _image_bytes("PNG")
+    problem = _insert_png_chunks(
+        original,
+        [
+            (b"zTXt", b"Comment\x00\x00not-zlib-data"),
+            (b"iCCP", b"Broken profile\x00\x00not-zlib-data"),
+        ],
+    )
+    source_path = tmp_path / "problem.png"
+    source_path.write_bytes(problem)
+    asset = AssetRef(
+        "https://example.test/problem.png",
+        source_path,
+        "assets/problem.png",
+        "image/png",
+    )
+
+    _pages, [prepared], missing = kindle_module.prepare_kindle_assets(
+        [_page('<img src="../assets/problem.png"/>')],
+        [asset],
+        tmp_path / "kindle-assets",
+        [],
+    )
+
+    assert missing == []
+    chunks = _png_chunks(prepared.path.read_bytes())
+    chunk_types = [chunk_type for chunk_type, _payload in chunks]
+    assert b"zTXt" not in chunk_types
+    assert b"iCCP" not in chunk_types
+    for required in (b"IHDR", b"IDAT", b"IEND"):
+        assert required in chunk_types
+    assert [payload for kind, payload in chunks if kind == b"IDAT"] == [
+        payload for kind, payload in _png_chunks(original) if kind == b"IDAT"
+    ]
+    with Image.open(prepared.path) as image:
+        image.verify()
+
+
+def test_prepare_kindle_assets_preserves_jpeg_and_animated_gif_bytes(tmp_path: Path):
+    assets = []
+    original_bytes = {}
+    for format_name, filename in (
+        ("JPEG", "photo.jpg"),
+        ("GIF", "animation.gif"),
+    ):
+        data = _image_bytes(format_name, animated=format_name == "GIF")
+        path = tmp_path / filename
+        path.write_bytes(data)
+        original_bytes[filename] = data
+        assets.append(
+            AssetRef(
+                f"https://example.test/{filename}",
+                path,
+                f"assets/{filename}",
+                "application/octet-stream",
+            )
+        )
+
+    _pages, prepared, missing = kindle_module.prepare_kindle_assets(
+        [_page("<p>text only</p>")], assets, tmp_path / "kindle-assets", []
+    )
+
+    assert missing == []
+    assert [asset.content_type for asset in prepared] == ["image/jpeg", "image/gif"]
+    for source, asset in zip(assets, prepared, strict=True):
+        assert asset.path == source.path
+        assert asset.href == source.href
+        assert asset.path.read_bytes() == original_bytes[asset.path.name]
+    with Image.open(prepared[1].path) as animation:
+        assert animation.n_frames == 2
 
 
 def test_prepare_kindle_pages_materializes_anomaly_labels_without_mutating_source():
@@ -223,5 +402,111 @@ def test_convert_epub_to_azw3_cleans_temp_and_preserves_previous_output_on_failu
         )
 
     assert epub_path.read_bytes() == b"epub remains"
+    assert azw3_path.read_bytes() == b"previous valid azw3"
+    assert not (tmp_path / "book.tmp.azw3").exists()
+
+
+def test_convert_epub_to_azw3_rejects_bad_image_log_even_with_zero_exit(tmp_path: Path):
+    epub_path = tmp_path / "book.epub"
+    epub_path.write_bytes(b"epub")
+    azw3_path = tmp_path / "book.azw3"
+    azw3_path.write_bytes(b"previous valid azw3")
+
+    def fake_runner(command, **_kwargs):
+        Path(command[2]).write_bytes(b"otherwise nonempty azw3")
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout="Bad image file 'OEBPS/assets/problem.png'",
+            stderr="",
+        )
+
+    with pytest.raises(KindleConversionError, match="Bad image file"):
+        convert_epub_to_azw3(
+            epub_path,
+            azw3_path,
+            executable="ebook-convert-test",
+            runner=fake_runner,
+        )
+
+    assert azw3_path.read_bytes() == b"previous valid azw3"
+    assert not (tmp_path / "book.tmp.azw3").exists()
+
+
+@pytest.mark.parametrize("write_temp", [False, True])
+def test_convert_epub_to_azw3_rejects_missing_or_empty_temp_output(
+    tmp_path: Path, write_temp: bool
+):
+    epub_path = tmp_path / "book.epub"
+    epub_path.write_bytes(b"epub")
+    azw3_path = tmp_path / "book.azw3"
+    azw3_path.write_bytes(b"previous valid azw3")
+
+    def fake_runner(command, **_kwargs):
+        if write_temp:
+            Path(command[2]).write_bytes(b"")
+        return subprocess.CompletedProcess(command, 0, stdout="done", stderr="")
+
+    with pytest.raises(KindleConversionError, match="nonempty AZW3"):
+        convert_epub_to_azw3(
+            epub_path,
+            azw3_path,
+            executable="ebook-convert-test",
+            runner=fake_runner,
+        )
+
+    assert azw3_path.read_bytes() == b"previous valid azw3"
+    assert not (tmp_path / "book.tmp.azw3").exists()
+
+
+def test_convert_epub_to_azw3_wraps_runner_oserror_and_preserves_output(tmp_path: Path):
+    epub_path = tmp_path / "book.epub"
+    epub_path.write_bytes(b"epub")
+    azw3_path = tmp_path / "book.azw3"
+    azw3_path.write_bytes(b"previous valid azw3")
+
+    def fake_runner(_command, **_kwargs):
+        raise OSError("cannot execute")
+
+    with pytest.raises(KindleConversionError, match="cannot execute"):
+        convert_epub_to_azw3(
+            epub_path,
+            azw3_path,
+            executable="ebook-convert-test",
+            runner=fake_runner,
+        )
+
+    assert azw3_path.read_bytes() == b"previous valid azw3"
+    assert not (tmp_path / "book.tmp.azw3").exists()
+
+
+def test_convert_epub_to_azw3_wraps_replace_oserror_and_cleans_temp(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    epub_path = tmp_path / "book.epub"
+    epub_path.write_bytes(b"epub")
+    azw3_path = tmp_path / "book.azw3"
+    azw3_path.write_bytes(b"previous valid azw3")
+    original_replace = Path.replace
+
+    def fake_replace(path: Path, target: Path):
+        if path.name == "book.tmp.azw3":
+            raise OSError("replace denied")
+        return original_replace(path, target)
+
+    monkeypatch.setattr(Path, "replace", fake_replace)
+
+    def fake_runner(command, **_kwargs):
+        Path(command[2]).write_bytes(b"new valid azw3")
+        return subprocess.CompletedProcess(command, 0, stdout="done", stderr="")
+
+    with pytest.raises(KindleConversionError, match="replace denied"):
+        convert_epub_to_azw3(
+            epub_path,
+            azw3_path,
+            executable="ebook-convert-test",
+            runner=fake_runner,
+        )
+
     assert azw3_path.read_bytes() == b"previous valid azw3"
     assert not (tmp_path / "book.tmp.azw3").exists()
