@@ -703,6 +703,260 @@ def test_skips_unsupported_anomaly_bar_document_styles():
     assert ".risk-class" not in style_text
 
 
+def test_materializes_anomaly_bar_icons_colors_and_clearance_as_real_content():
+    html = """
+    <html><body><div id="page-content">
+      <div class="anom-bar-container item-7838 clear-4 keter none ekhi critical {$american} lang-cn">
+        <div class="anom-bar">
+          <div class="top-box">
+            <div class="top-left-box"><span class="number">7838</span></div>
+            <div class="top-center-box"><div class="bar-one"></div></div>
+            <div class="top-right-box"><div class="level">等级4</div><div class="clearance"></div></div>
+          </div>
+          <div class="bottom-box">
+            <div class="text-part">
+              <div class="main-class">
+                <div class="contain-class"><div class="class-category">收容等级：</div><div class="class-text">keter</div></div>
+                <div class="second-class"><div class="class-category">次要等级：</div><div class="class-text">none</div></div>
+              </div>
+              <div class="disrupt-class"><div class="class-category">扰动等级：</div><div class="class-text">ekhi</div></div>
+              <div class="risk-class"><div class="class-category">风险等级：</div><div class="class-text">critical</div></div>
+            </div>
+            <div class="diamond-part"><div class="danger-diamond">
+              <div class="top-icon"></div><div class="right-icon"></div>
+              <div class="left-icon"></div><div class="bottom-icon"></div>
+            </div></div>
+          </div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-7838"), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+    container = soup.select_one(".anom-bar-container")
+
+    assert container is not None
+    assert "{$american}" not in container.get("class", [])
+    assert container.select_one(".clearance .anomaly-clearance-label").get_text(
+        strip=True
+    ) == "机密"
+    assert container.select_one(".second-class") is None
+    assert "anomaly-single-containment" in container.select_one(".main-class")["class"]
+    assert container.select_one(".contain-class img.anomaly-field-icon")["src"].endswith(
+        "/keter-icon.svg"
+    )
+    assert container.select_one(".disrupt-class img.anomaly-field-icon")["src"].endswith(
+        "/ekhi-icon.svg"
+    )
+    assert container.select_one(".risk-class img.anomaly-field-icon")["src"].endswith(
+        "/critical-icon.svg"
+    )
+    assert container.select_one(".top-icon img.anomaly-diamond-icon")["src"].endswith(
+        "/keter-icon.svg"
+    )
+    assert container.select_one(".left-icon img.anomaly-diamond-icon")["src"].endswith(
+        "/ekhi-icon.svg"
+    )
+    assert container.select_one(".right-icon img.anomaly-diamond-icon")["src"].endswith(
+        "/critical-icon.svg"
+    )
+    assert result.asset_urls == (
+        "https://scp-wiki.wdfiles.com/local--files/component%3Aanomaly-class-bar/keter-icon.svg",
+        "https://scp-wiki.wdfiles.com/local--files/component%3Aanomaly-class-bar/ekhi-icon.svg",
+        "https://scp-wiki.wdfiles.com/local--files/component%3Aanomaly-class-bar/critical-icon.svg",
+    )
+
+
+def test_removes_unexpanded_optional_anomaly_classes_instead_of_displaying_placeholders():
+    html = """
+    <html><body><div id="page-content">
+      <div class="anom-bar-container item-8593 clear-3 euclid {$secondary-class} {$disruption-class} {$risk-class} {$american} lang-cn">
+        <div class="top-right-box"><div class="clearance"></div></div>
+        <div class="main-class">
+          <div class="contain-class"><div class="class-text">euclid</div></div>
+          <div class="second-class"><div class="class-text">{$secondary-class}</div></div>
+        </div>
+        <div class="disrupt-class"><div class="class-text">{$disruption-class}</div></div>
+        <div class="risk-class"><div class="class-text">{$risk-class}</div></div>
+        <div class="danger-diamond">
+          <div class="top-icon"></div><div class="right-icon"></div>
+          <div class="left-icon"></div><div class="bottom-icon"></div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-8593"), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+    container = soup.select_one(".anom-bar-container")
+
+    assert "{$" not in result.xhtml
+    assert container.select_one(".second-class") is None
+    assert container.select_one(".disrupt-class") is None
+    assert container.select_one(".risk-class") is None
+    assert container.select_one(".top-icon img.anomaly-diamond-icon")["src"].endswith(
+        "/euclid-icon.svg"
+    )
+    assert container.select_one(".left-icon img") is None
+    assert container.select_one(".right-icon img") is None
+    assert result.asset_urls == (
+        "https://scp-wiki.wdfiles.com/local--files/component%3Aanomaly-class-bar/euclid-icon.svg",
+    )
+
+
+def test_removes_hidden_unexpanded_anomaly_template_on_every_page():
+    html = """
+    <html><body><div id="page-content">
+      <div style="display: none">
+        <div id="template" class="anom-bar-container item-{$item-number} {$container-class}">
+          <span class="number">{$item-number}</span>
+          <div class="contain-class"><div class="class-text">{$container-class}</div></div>
+        </div>
+      </div>
+      <div id="real" class="anom-bar-container item-9000 clear-5 keter">
+        <span class="number">9000</span>
+        <div class="contain-class"><div class="class-text">keter</div></div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-9000"), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="template") is None
+    assert soup.find(id="real") is not None
+    assert "{$item-number}" not in result.xhtml
+    assert "{$container-class}" not in result.xhtml
+
+
+def test_uses_page_defined_anomaly_icons_and_marks_only_filled_diamond_slots():
+    html = """
+    <html><head><style>
+      .anom-bar-container.{$secondary-class} .main-class::after {
+        background-image: url("/local--files/scp-6183/RADIX.svg");
+      }
+    </style></head><body><div id="page-content">
+      <div class="anom-bar-container item-6183 clear-5 esoteric radix">
+        <div class="main-class">
+          <div class="contain-class"><div class="class-text">esoteric</div></div>
+          <div class="second-class"><div class="class-text">radix</div></div>
+        </div>
+        <div class="danger-diamond">
+          <div class="top-icon"></div><div class="right-icon"></div>
+          <div class="left-icon"></div><div class="bottom-icon"></div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-6183"), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+    container = soup.select_one(".anom-bar-container")
+
+    assert container.select_one(".contain-class img.anomaly-field-icon")[
+        "src"
+    ].endswith("/esoteric-icon.svg")
+    assert container.select_one(".second-class img.anomaly-field-icon")["src"] == (
+        "https://scp-wiki-cn.wikidot.com/local--files/scp-6183/RADIX.svg"
+    )
+    assert "anomaly-icon-slot" in container.select_one(".top-icon")["class"]
+    assert "anomaly-icon-slot" in container.select_one(".bottom-icon")["class"]
+    assert "anomaly-icon-slot" not in container.select_one(".left-icon").get(
+        "class", []
+    )
+    assert "anomaly-icon-slot" not in container.select_one(".right-icon").get(
+        "class", []
+    )
+    assert result.asset_urls == (
+        "https://scp-wiki.wdfiles.com/local--files/component%3Aanomaly-class-bar/esoteric-icon.svg",
+        "https://scp-wiki-cn.wikidot.com/local--files/scp-6183/RADIX.svg",
+    )
+
+
+def test_materializes_pending_anomaly_icon_for_chinese_alias():
+    html = """
+    <html><body><div id="page-content">
+      <div class="anom-bar-container item-7472 clear-2 等待分级 none none none">
+        <div class="main-class">
+          <div class="contain-class"><div class="class-text">等待分级</div></div>
+          <div class="second-class"><div class="class-text">none</div></div>
+        </div>
+        <div class="disrupt-class"><div class="class-text">none</div></div>
+        <div class="risk-class"><div class="class-text">none</div></div>
+        <div class="danger-diamond">
+          <div class="top-icon"></div><div class="right-icon"></div>
+          <div class="left-icon"></div><div class="bottom-icon"></div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-7472"), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+    container = soup.select_one(".anom-bar-container")
+
+    assert container.select_one(".contain-class img.anomaly-field-icon")[
+        "src"
+    ].endswith("/pending-icon.svg")
+    assert container.select_one(".top-icon img.anomaly-diamond-icon") is not None
+    assert container.select_one(".second-class") is None
+    assert container.select_one(".disrupt-class") is None
+    assert container.select_one(".risk-class") is None
+
+
+def test_ignores_anomaly_field_background_texture_when_extracting_custom_icons():
+    html = """
+    <html><head><style>
+      .anom-bar-container.mystery .contain-class {
+        background-image: url("/local--files/scp-999/panel-texture.png");
+      }
+    </style></head><body><div id="page-content">
+      <div class="anom-bar-container item-999 clear-2 mystery">
+        <div class="contain-class"><div class="class-text">mystery</div></div>
+        <div class="danger-diamond"><div class="top-icon"></div></div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-999"), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.select_one(".contain-class img.anomaly-field-icon") is None
+    assert soup.select_one(".top-icon img.anomaly-diamond-icon") is None
+    assert not any("panel-texture.png" in url for url in result.asset_urls)
+
+
+def test_page_defined_anomaly_icon_rules_use_cascade_and_original_class_order():
+    html = """
+    <html><head><style>
+      .anom-bar-container.primary .contain-class::after {
+        background-image: url("/local--files/scp-999/primary-old.svg");
+      }
+      .anom-bar-container.primary .contain-class::after {
+        background-image: url("/local--files/scp-999/primary-new.svg");
+      }
+      .anom-bar-container.alternate .contain-class::after {
+        background-image: url("/local--files/scp-999/alternate.svg");
+      }
+    </style></head><body><div id="page-content">
+      <div class="anom-bar-container item-999 clear-2 primary alternate">
+        <div class="contain-class"><div class="class-text">mystery</div></div>
+        <div class="danger-diamond"><div class="top-icon"></div></div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-999"), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+    icon = soup.select_one(".contain-class img.anomaly-field-icon")
+
+    assert icon["src"].endswith("/primary-new.svg")
+    assert result.asset_urls == (
+        "https://scp-wiki-cn.wikidot.com/local--files/scp-999/primary-new.svg",
+    )
+
+
 def test_skips_page_style_rules_with_unexpanded_wikidot_template_placeholders():
     html = r"""
     <html>

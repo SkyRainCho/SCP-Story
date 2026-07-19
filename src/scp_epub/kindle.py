@@ -35,6 +35,7 @@ CLEARANCE_LABELS = {
     "clear-5": "TOP SECRET",
     "clear-6": "COSMIC TOP SECRET",
 }
+_WIKIDOT_TEMPLATE_PLACEHOLDER_RE = re.compile(r"\{\$[A-Za-z0-9_-]+\}")
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 
@@ -226,11 +227,12 @@ def _prepare_kindle_asset(
         content_type.startswith("image/") and content_type != "image/svg+xml"
     ) or asset.path.suffix.lower() in _RASTER_SUFFIXES
     if raster_format is None:
-        svg_root = _parse_safe_svg(data) if expects_image else None
+        svg_data = _sanitize_svg_data(data) if expects_image else None
+        svg_root = _parse_safe_svg(svg_data) if svg_data is not None else None
         if svg_root is not None:
             if not _svg_references_are_safe(svg_root):
                 return None
-            rendered = _render_svg_png(data, svg_root)
+            rendered = _render_svg_png(svg_data, svg_root)
             if rendered is None:
                 return None
             if opaque_black_rotation:
@@ -354,6 +356,34 @@ def _parse_safe_svg(data: bytes) -> etree._Element | None:
         return root
     except (etree.XMLSyntaxError, ValueError):
         return None
+
+
+_SVG_EXTERNAL_DOCTYPE_RE = re.compile(
+    r"""<!DOCTYPE\s+svg\s+(?:PUBLIC\s+(?:"[^"]*"|'[^']*')\s+(?:"[^"]*"|'[^']*')|SYSTEM\s+(?:"[^"]*"|'[^']*'))\s*>""",
+    re.IGNORECASE,
+)
+_XML_DECLARATION_PREFIX_RE = re.compile(
+    r"""\A\s*(?:<\?xml\b[^?]*\?>\s*)?\Z""",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _sanitize_svg_data(data: bytes) -> bytes | None:
+    try:
+        text = data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return None
+    if "<!doctype" not in text.casefold():
+        return data
+
+    match = _SVG_EXTERNAL_DOCTYPE_RE.search(text)
+    if (
+        match is None
+        or _XML_DECLARATION_PREFIX_RE.fullmatch(text[: match.start()]) is None
+        or "<!doctype" in text[match.end() :].casefold()
+    ):
+        return None
+    return (text[: match.start()] + text[match.end() :]).encode("utf-8")
 
 
 _XML_BASE_ATTRIBUTE = "{http://www.w3.org/XML/1998/namespace}base"
@@ -1075,20 +1105,44 @@ def _prepare_kindle_xhtml(xhtml: str, *, page_slug: str) -> str:
             target_class="clearance",
             ancestor_class="top-right-box",
         )
+        standard_clearance_label = _find_descendant(
+            parser.elements,
+            container,
+            target_class="anomaly-clearance-label",
+            ancestor_class="clearance",
+        )
         if (
             clearance_text
             and clearance is not None
             and clearance.end_start is not None
-            and not _element_text(clearance)
         ):
-            edits.append(
-                (
-                    clearance.end_start,
-                    clearance.end_start,
-                    '<span class="kindle-clearance-label">'
-                    f"{clearance_text}</span>",
+            if (
+                standard_clearance_label is not None
+                and standard_clearance_label.end_start is not None
+            ):
+                edits.extend(
+                    (
+                        (
+                            standard_clearance_label.start_tag_start,
+                            standard_clearance_label.start_tag_end,
+                            '<span class="kindle-clearance-label">',
+                        ),
+                        (
+                            standard_clearance_label.start_tag_end,
+                            standard_clearance_label.end_start,
+                            clearance_text,
+                        ),
+                    )
                 )
-            )
+            elif not _element_text(clearance):
+                edits.append(
+                    (
+                        clearance.end_start,
+                        clearance.end_start,
+                        '<span class="kindle-clearance-label">'
+                        f"{clearance_text}</span>",
+                    )
+                )
 
         risk = _find_descendant(
             parser.elements,
@@ -1107,9 +1161,15 @@ def _prepare_kindle_xhtml(xhtml: str, *, page_slug: str) -> str:
             and not _has_descendant_class(
                 parser.elements, diamond, "kindle-danger-label"
             )
+            and not _has_descendant_class(
+                parser.elements, diamond, "anomaly-diamond-icon"
+            )
         ):
             risk_text = _element_text(risk)
-            if risk_text:
+            if (
+                risk_text
+                and _WIKIDOT_TEMPLATE_PLACEHOLDER_RE.fullmatch(risk_text) is None
+            ):
                 edits.append(
                     (
                         diamond.start_tag_end,

@@ -292,6 +292,13 @@ def test_write_epub_includes_book_styles_for_anomaly_classification_bar(tmp_path
     assert ".anom-bar-container .lang-tr" in css
     assert ".top-center-box > div" in css
     assert ".danger-diamond" in css
+    assert ".anomaly-clearance-label" in css
+    assert ".anomaly-field-icon" in css
+    assert ".anomaly-diamond-icon" in css
+    assert ".danger-diamond .anomaly-icon-slot" in css
+    assert ".anom-bar-container.clear-4 .top-center-box > div" in css
+    assert ".anom-bar-container.keter .contain-class" in css
+    assert ".anom-bar-container.keter .contain-class .anomaly-field-icon" in css
 
 
 def test_write_epub_includes_book_styles_for_wikidot_tabbed_series_lists(tmp_path: Path):

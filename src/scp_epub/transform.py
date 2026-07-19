@@ -95,6 +95,10 @@ CSS_CONTENT_PROPERTY_RE = re.compile(
     r"""(?:^|;)\s*content\s*:\s*(?P<value>"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')\s*(?=;|$)""",
     re.IGNORECASE | re.DOTALL,
 )
+CSS_BACKGROUND_IMAGE_URL_RE = re.compile(
+    r"""background-image\s*:\s*url\(\s*(?:"(?P<double>[^"]+)"|'(?P<single>[^']+)'|(?P<bare>[^)\s]+))\s*\)""",
+    re.IGNORECASE,
+)
 CSS_ESCAPED_CHAR_RE = re.compile(r"\\(?P<escape>[0-9a-fA-F]{1,6}\s?|.)", re.DOTALL)
 CSS_PSEUDO_RE = re.compile(r"::?[a-zA-Z-]+(?:\([^)]*\))?")
 CSS_CLASS_SELECTOR_RE = re.compile(r"\.([_a-zA-Z][-_a-zA-Z0-9]*)")
@@ -122,6 +126,58 @@ INTERACTIVE_ARTICLE_EPUB_STYLE_RULES = (
     "transform: rotate(-1deg); margin: 0.75em 0;}"
     "\n.glitch-stack span {font-weight: bold; text-shadow: -2px 3px 0 red, 2px -3px 0 #4d52ff;}"
 )
+ANOMALY_CLEARANCE_LABELS = {
+    "clear-1": "公开",
+    "clear-2": "受限",
+    "clear-3": "保密",
+    "clear-4": "机密",
+    "clear-5": "最高机密",
+    "clear-6": "宇宙绝密",
+}
+ANOMALY_ICON_BASE_URL = (
+    "https://scp-wiki.wdfiles.com/local--files/component%3Aanomaly-class-bar"
+)
+ANOMALY_ICON_NAMES = {
+    "safe": "safe",
+    "euclid": "euclid",
+    "keter": "keter",
+    "esoteric": "esoteric",
+    "机密": "esoteric",
+    "機密": "esoteric",
+    "pending": "pending",
+    "等待分级": "pending",
+    "等待分級": "pending",
+    "explained": "explained",
+    "已解明": "explained",
+    "thaumiel": "thaumiel",
+    "archon": "archon",
+    "cernunnos": "cernunnos",
+    "ticonderoga": "ticonderoga",
+    "tiamat": "tiamat",
+    "cantas": "cantas",
+    "neutralized": "neutralized",
+    "neutralised": "neutralized",
+    "无效化": "neutralized",
+    "無效化": "neutralized",
+    "dark": "dark",
+    "vlam": "vlam",
+    "keneq": "keneq",
+    "ekhi": "ekhi",
+    "amida": "amida",
+    "notice": "notice",
+    "待观察": "notice",
+    "待觀察": "notice",
+    "caution": "caution",
+    "需谨慎": "caution",
+    "需謹慎": "caution",
+    "warning": "warning",
+    "警告": "warning",
+    "danger": "danger",
+    "危险": "danger",
+    "危險": "danger",
+    "critical": "critical",
+    "危急": "critical",
+}
 UNSUPPORTED_PAGE_STYLE_SELECTOR_FRAGMENTS = (
     ".anom-bar",
     ".anom-bar-container",
@@ -272,12 +328,23 @@ def transform_page(
     if page_content is None:
         raise ValueError("missing #page-content")
 
+    anomaly_icon_urls = (
+        _anomaly_icon_urls_from_styles(soup, base_url)
+        if page_content.select_one(".anom-bar-container") is not None
+        else {}
+    )
     page_styles = _applicable_page_styles(soup, page_content)
 
     _remove_creator_information_blocks(page_content)
 
     for tag in list(page_content.find_all(_is_unwanted_element)):
         tag.decompose()
+
+    _normalize_anomaly_classification_bars(
+        soup,
+        page_content,
+        anomaly_icon_urls,
+    )
 
     profile_style_rules = _apply_page_cleanup_options(
         entry,
@@ -773,6 +840,15 @@ def _class_tokens(tag: Tag) -> set[str]:
     return set()
 
 
+def _ordered_class_tokens(tag: Tag) -> tuple[str, ...]:
+    raw_classes = tag.get("class", [])
+    if isinstance(raw_classes, str):
+        return tuple(token.casefold() for token in raw_classes.split())
+    if isinstance(raw_classes, Iterable):
+        return tuple(str(token).casefold() for token in raw_classes)
+    return ()
+
+
 def _is_hidden_css_code_container(tag: Tag) -> bool:
     if not _is_hidden_by_style(tag):
         return False
@@ -1019,6 +1095,284 @@ def _is_creator_information_boundary(tag: Tag) -> bool:
 
 def _normalized_text(tag: Tag) -> str:
     return re.sub(r"\s+", "", tag.get_text(" ", strip=True))
+
+
+def _normalize_anomaly_classification_bars(
+    soup: BeautifulSoup,
+    page_content: Tag,
+    page_icon_urls: dict[tuple[str, str], str],
+) -> None:
+    _remove_hidden_unexpanded_anomaly_templates(page_content)
+    for container in list(page_content.select(".anom-bar-container")):
+        if container.parent is None:
+            continue
+        _remove_placeholder_class_tokens(container)
+        ordered_classes = _ordered_class_tokens(container)
+        classes = set(ordered_classes)
+        clearance = container.select_one(".top-right-box .clearance")
+        clearance_label = next(
+            (
+                label
+                for class_name, label in ANOMALY_CLEARANCE_LABELS.items()
+                if class_name in classes
+            ),
+            None,
+        )
+        if (
+            clearance is not None
+            and clearance_label is not None
+            and not clearance.get_text(" ", strip=True)
+        ):
+            label = soup.new_tag(
+                "span",
+                attrs={"class": "anomaly-clearance-label"},
+            )
+            label.string = clearance_label
+            clearance.append(label)
+
+        field_specs = (
+            ("contain-class", "top-icon"),
+            ("second-class", "bottom-icon"),
+            ("disrupt-class", "left-icon"),
+            ("risk-class", "right-icon"),
+        )
+        for field_class, diamond_class in field_specs:
+            field = container.select_one(f".{field_class}")
+            if field is None:
+                continue
+            class_text = field.select_one(".class-text")
+            value = class_text.get_text(" ", strip=True) if class_text else ""
+            if field_class != "contain-class" and _is_missing_anomaly_value(value):
+                field.decompose()
+                continue
+            icon_url = _anomaly_icon_url(
+                value,
+                field_class,
+                ordered_classes,
+                page_icon_urls,
+            )
+            if icon_url is None:
+                continue
+            _insert_anomaly_icon(
+                soup,
+                field,
+                icon_url,
+                value,
+                "anomaly-field-icon",
+            )
+            diamond_slot = container.select_one(f".danger-diamond .{diamond_class}")
+            if diamond_slot is not None:
+                _insert_anomaly_icon(
+                    soup,
+                    diamond_slot,
+                    icon_url,
+                    value,
+                    "anomaly-diamond-icon",
+                )
+
+        main_class = container.select_one(".main-class")
+        if main_class is not None and main_class.select_one(".second-class") is None:
+            _add_class_token(main_class, "anomaly-single-containment")
+
+
+def _anomaly_icon_urls_from_styles(
+    soup: BeautifulSoup,
+    base_url: str,
+) -> dict[tuple[str, str], str]:
+    icon_urls: dict[tuple[str, str], str] = {}
+    for style in soup.find_all("style"):
+        for rule in CSS_RULE_RE.finditer(style.get_text("\n", strip=True)):
+            url_match = CSS_BACKGROUND_IMAGE_URL_RE.search(rule.group("body"))
+            if url_match is None:
+                continue
+            raw_url = next(
+                (
+                    value
+                    for value in (
+                        url_match.group("double"),
+                        url_match.group("single"),
+                        url_match.group("bare"),
+                    )
+                    if value
+                ),
+                None,
+            )
+            if (
+                raw_url is None
+                or WIKIDOT_TEMPLATE_PLACEHOLDER_RE.search(raw_url) is not None
+            ):
+                continue
+            normalized_url = normalize_url(base_url, raw_url)
+            for selector in rule.group("selectors").split(","):
+                field_class = _anomaly_field_class_for_selector(selector)
+                if field_class is None:
+                    continue
+                normalized_selector = selector.replace("\\", "").casefold()
+                placeholder_names = {
+                    "contain-class": ("container-class", "containment-class"),
+                    "second-class": ("secondary-class",),
+                    "disrupt-class": ("disruption-class",),
+                    "risk-class": ("risk-class",),
+                }[field_class]
+                if any(
+                    "{$" + placeholder_name + "}" in normalized_selector
+                    for placeholder_name in placeholder_names
+                ):
+                    icon_urls[("*", field_class)] = normalized_url
+                    continue
+                if WIKIDOT_TEMPLATE_PLACEHOLDER_RE.search(selector) is not None:
+                    continue
+                for class_name in re.findall(
+                    r"\.anom-bar-container\.([^\s.:#>+~,\[\](){}]+)",
+                    selector,
+                ):
+                    icon_urls[(class_name.casefold(), field_class)] = normalized_url
+    return icon_urls
+
+
+def _anomaly_field_class_for_selector(selector: str) -> str | None:
+    normalized = re.sub(r"\s+", "", selector).casefold()
+    field_patterns = (
+        (
+            "contain-class",
+            (
+                r"\.contain-class::?(?:before|after)",
+                r"\.main-class::?before",
+                r"\.top-icon::?(?:before|after)",
+            ),
+        ),
+        (
+            "second-class",
+            (
+                r"\.second-class::?(?:before|after)",
+                r"\.main-class::?after",
+                r"\.bottom-icon::?(?:before|after)",
+            ),
+        ),
+        (
+            "disrupt-class",
+            (
+                r"\.disrupt-class::?(?:before|after)",
+                r"\.left-icon::?(?:before|after)",
+            ),
+        ),
+        (
+            "risk-class",
+            (
+                r"\.risk-class::?(?:before|after)",
+                r"\.right-icon::?(?:before|after)",
+            ),
+        ),
+    )
+    for field_class, patterns in field_patterns:
+        if any(re.search(pattern, normalized) is not None for pattern in patterns):
+            return field_class
+    return None
+
+
+def _anomaly_icon_url(
+    value: str,
+    field_class: str,
+    container_classes: tuple[str, ...],
+    page_icon_urls: dict[tuple[str, str], str],
+) -> str | None:
+    normalized_value = value.casefold()
+    for class_name in (normalized_value, *container_classes):
+        page_url = page_icon_urls.get((class_name.casefold(), field_class))
+        if page_url is not None:
+            return page_url
+    wildcard_url = page_icon_urls.get(("*", field_class))
+    if wildcard_url is not None:
+        return wildcard_url
+    icon_name = ANOMALY_ICON_NAMES.get(normalized_value)
+    if icon_name is None:
+        return None
+    return f"{ANOMALY_ICON_BASE_URL}/{icon_name}-icon.svg"
+
+
+def _remove_hidden_unexpanded_anomaly_templates(page_content: Tag) -> None:
+    for component in list(page_content.select(".anom-bar-container")):
+        if component.parent is None or component.name is None:
+            continue
+        number = component.select_one(".number")
+        containment = component.select_one(".contain-class .class-text")
+        identifying_markup = " ".join(
+            value
+            for value in (
+                " ".join(str(token) for token in component.get("class", [])),
+                number.get_text(" ", strip=True) if number else "",
+                containment.get_text(" ", strip=True) if containment else "",
+            )
+            if value
+        )
+        if WIKIDOT_TEMPLATE_PLACEHOLDER_RE.search(identifying_markup) is None:
+            continue
+        hidden = (
+            component
+            if _is_hidden_by_style(component)
+            else component.find_parent(_is_hidden_by_style)
+        )
+        if (
+            not isinstance(hidden, Tag)
+            or hidden is page_content
+            or page_content not in hidden.parents
+        ):
+            continue
+        hidden_parent = hidden.parent
+        protects_dynamic_content = (
+            "collapsible-block-unfolded" in _class_tokens(hidden)
+            or "yui-content" in _class_tokens(hidden)
+            or (
+                isinstance(hidden_parent, Tag)
+                and "yui-content" in _class_tokens(hidden_parent)
+            )
+        )
+        (component if protects_dynamic_content else hidden).decompose()
+
+
+def _remove_placeholder_class_tokens(tag: Tag) -> None:
+    raw_classes = tag.get("class", [])
+    classes = raw_classes.split() if isinstance(raw_classes, str) else list(raw_classes)
+    kept = [
+        str(class_name)
+        for class_name in classes
+        if WIKIDOT_TEMPLATE_PLACEHOLDER_RE.search(str(class_name)) is None
+    ]
+    if kept:
+        tag["class"] = kept
+    elif tag.has_attr("class"):
+        del tag["class"]
+
+
+def _is_missing_anomaly_value(value: str) -> bool:
+    stripped = value.strip()
+    return (
+        not stripped
+        or stripped.casefold() == "none"
+        or WIKIDOT_TEMPLATE_PLACEHOLDER_RE.fullmatch(stripped) is not None
+    )
+
+
+def _insert_anomaly_icon(
+    soup: BeautifulSoup,
+    target: Tag,
+    icon_url: str,
+    label: str,
+    class_name: str,
+) -> None:
+    if target.select_one(f"img.{class_name}") is not None:
+        return
+    icon = soup.new_tag(
+        "img",
+        attrs={
+            "class": class_name,
+            "src": icon_url,
+            "alt": f"{label} 等级图标",
+        },
+    )
+    target.insert(0, icon)
+    if class_name == "anomaly-diamond-icon":
+        _add_class_token(target, "anomaly-icon-slot")
 
 
 def _materialize_generated_before_content(
@@ -1368,8 +1722,6 @@ def _last_child_clears_floats(tag: Tag) -> bool:
 
 
 def _apply_scp_6183_layout_profile(page_content: Tag) -> None:
-    _remove_scp_6183_hidden_templates(page_content)
-
     intermission = page_content.select_one(".admo-intermission_splash")
     if intermission is not None:
         _remove_class_token(intermission, "admo-intermission_splash")
@@ -1465,35 +1817,6 @@ def _apply_scp_6183_layout_profile(page_content: Tag) -> None:
             image_block,
             "layout-profile-scp-6183-table-image",
         )
-
-
-def _remove_scp_6183_hidden_templates(page_content: Tag) -> None:
-    for component in list(page_content.select(".anom-bar-container")):
-        if component.parent is None or component.name is None:
-            continue
-        if WIKIDOT_TEMPLATE_PLACEHOLDER_RE.search(str(component)) is None:
-            continue
-        hidden = (
-            component
-            if _is_hidden_by_style(component)
-            else component.find_parent(_is_hidden_by_style)
-        )
-        if (
-            not isinstance(hidden, Tag)
-            or hidden is page_content
-            or page_content not in hidden.parents
-        ):
-            continue
-        hidden_parent = hidden.parent
-        protects_dynamic_content = (
-            "collapsible-block-unfolded" in _class_tokens(hidden)
-            or "yui-content" in _class_tokens(hidden)
-            or (
-                isinstance(hidden_parent, Tag)
-                and "yui-content" in _class_tokens(hidden_parent)
-            )
-        )
-        (component if protects_dynamic_content else hidden).decompose()
 
 
 def _apply_scp_4612_layout_profile(page_content: Tag) -> None:

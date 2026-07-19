@@ -220,7 +220,8 @@ table.wiki-content-table th {
   font-weight: bold;
 }
 
-.kindle-clearance-label {
+.kindle-clearance-label,
+.anomaly-clearance-label {
   display: block;
   margin-top: 0.2em;
   font-size: 0.78em;
@@ -243,6 +244,122 @@ table.wiki-content-table th {
   padding: 0.35em 0.5em;
   border-left: 0.45em solid #7a1726;
   background: #f2f2f2;
+  overflow: hidden;
+}
+
+.anomaly-field-icon {
+  float: right;
+  width: 3em;
+  height: 3em;
+  margin: 0 0 0.2em 0.4em;
+  padding: 0.2em;
+  border: 0.12em solid #424248;
+  border-radius: 50%;
+  background: #f8f8f8;
+}
+
+.contain-class .anomaly-field-icon,
+.second-class .anomaly-field-icon {
+  width: 4em;
+  height: 4em;
+}
+
+.anom-bar-container.keter .contain-class .anomaly-field-icon,
+.anom-bar-container.amida .disrupt-class .anomaly-field-icon,
+.anom-bar-container.critical .risk-class .anomaly-field-icon,
+.anom-bar-container.危急 .risk-class .anomaly-field-icon,
+.anom-bar-container.keter .top-icon .anomaly-diamond-icon,
+.anom-bar-container.amida .left-icon .anomaly-diamond-icon,
+.anom-bar-container.critical .right-icon .anomaly-diamond-icon,
+.anom-bar-container.危急 .right-icon .anomaly-diamond-icon {
+  background: #7a1726;
+}
+
+.anom-bar-container.euclid .contain-class .anomaly-field-icon,
+.anom-bar-container.keneq .disrupt-class .anomaly-field-icon,
+.anom-bar-container.warning .risk-class .anomaly-field-icon,
+.anom-bar-container.警告 .risk-class .anomaly-field-icon,
+.anom-bar-container.euclid .top-icon .anomaly-diamond-icon,
+.anom-bar-container.keneq .left-icon .anomaly-diamond-icon,
+.anom-bar-container.warning .right-icon .anomaly-diamond-icon,
+.anom-bar-container.警告 .right-icon .anomaly-diamond-icon {
+  background: #806e00;
+}
+
+.anom-bar-container.safe .contain-class .anomaly-field-icon,
+.anom-bar-container.dark .disrupt-class .anomaly-field-icon,
+.anom-bar-container.notice .risk-class .anomaly-field-icon,
+.anom-bar-container.待观察 .risk-class .anomaly-field-icon,
+.anom-bar-container.待觀察 .risk-class .anomaly-field-icon,
+.anom-bar-container.safe .top-icon .anomaly-diamond-icon,
+.anom-bar-container.dark .left-icon .anomaly-diamond-icon,
+.anom-bar-container.notice .right-icon .anomaly-diamond-icon,
+.anom-bar-container.待观察 .right-icon .anomaly-diamond-icon,
+.anom-bar-container.待觀察 .right-icon .anomaly-diamond-icon {
+  background: #006b49;
+}
+
+.anom-bar-container.ekhi .disrupt-class .anomaly-field-icon,
+.anom-bar-container.danger .risk-class .anomaly-field-icon,
+.anom-bar-container.危险 .risk-class .anomaly-field-icon,
+.anom-bar-container.危險 .risk-class .anomaly-field-icon,
+.anom-bar-container.ekhi .left-icon .anomaly-diamond-icon,
+.anom-bar-container.danger .right-icon .anomaly-diamond-icon,
+.anom-bar-container.危险 .right-icon .anomaly-diamond-icon,
+.anom-bar-container.危險 .right-icon .anomaly-diamond-icon {
+  background: #904000;
+}
+
+.anom-bar-container.vlam .disrupt-class .anomaly-field-icon,
+.anom-bar-container.caution .risk-class .anomaly-field-icon,
+.anom-bar-container.需谨慎 .risk-class .anomaly-field-icon,
+.anom-bar-container.需謹慎 .risk-class .anomaly-field-icon,
+.anom-bar-container.vlam .left-icon .anomaly-diamond-icon,
+.anom-bar-container.caution .right-icon .anomaly-diamond-icon,
+.anom-bar-container.需谨慎 .right-icon .anomaly-diamond-icon,
+.anom-bar-container.需謹慎 .right-icon .anomaly-diamond-icon {
+  background: #006487;
+}
+
+.anom-bar-container.keter .contain-class,
+.anom-bar-container.amida .disrupt-class,
+.anom-bar-container.critical .risk-class,
+.anom-bar-container.危急 .risk-class {
+  border-left-color: #7a1726;
+  background: #ead6dc;
+}
+
+.anom-bar-container.euclid .contain-class,
+.anom-bar-container.keneq .disrupt-class,
+.anom-bar-container.warning .risk-class,
+.anom-bar-container.警告 .risk-class {
+  border-left-color: #a68a00;
+  background: #f4edc4;
+}
+
+.anom-bar-container.safe .contain-class,
+.anom-bar-container.dark .disrupt-class,
+.anom-bar-container.notice .risk-class,
+.anom-bar-container.待观察 .risk-class,
+.anom-bar-container.待觀察 .risk-class {
+  border-left-color: #006b49;
+  background: #d9e9e4;
+}
+
+.anom-bar-container.ekhi .disrupt-class,
+.anom-bar-container.danger .risk-class,
+.anom-bar-container.危险 .risk-class,
+.anom-bar-container.危險 .risk-class {
+  border-left-color: #a94a00;
+  background: #eadfd5;
+}
+
+.anom-bar-container.vlam .disrupt-class,
+.anom-bar-container.caution .risk-class,
+.anom-bar-container.需谨慎 .risk-class,
+.anom-bar-container.需謹慎 .risk-class {
+  border-left-color: #006487;
+  background: #d9e7ec;
 }
 
 .anom-bar-container .class-category {
@@ -258,23 +375,60 @@ table.wiki-content-table th {
 
 .anom-bar-container .danger-diamond {
   display: inline-block;
-  width: 5.5em;
-  min-height: 5.5em;
-  padding: 0.5em;
+  width: 7em;
+  min-height: 7em;
+  padding: 0.3em;
   border: 0.25em double #111;
   background: #fff;
   text-align: center;
 }
 
 .anom-bar-container .danger-diamond a,
+.anom-bar-container .danger-diamond br,
 .anom-bar-container .danger-diamond .arrows,
 .anom-bar-container .danger-diamond .octagon,
-.anom-bar-container .danger-diamond .quadrants,
+.anom-bar-container .danger-diamond .quadrants {
+  display: none;
+}
+
 .anom-bar-container .danger-diamond .top-icon,
 .anom-bar-container .danger-diamond .right-icon,
 .anom-bar-container .danger-diamond .left-icon,
 .anom-bar-container .danger-diamond .bottom-icon {
   display: none;
+}
+
+.anom-bar-container .danger-diamond .anomaly-icon-slot {
+  display: block;
+  min-height: 2.2em;
+  text-align: center;
+}
+
+.anom-bar-container .danger-diamond .top-icon.anomaly-icon-slot,
+.anom-bar-container .danger-diamond .bottom-icon.anomaly-icon-slot {
+  clear: both;
+}
+
+.anom-bar-container .danger-diamond .left-icon.anomaly-icon-slot,
+.anom-bar-container .danger-diamond .right-icon.anomaly-icon-slot {
+  width: 48%;
+}
+
+.anom-bar-container .danger-diamond .left-icon.anomaly-icon-slot {
+  float: left;
+}
+
+.anom-bar-container .danger-diamond .right-icon.anomaly-icon-slot {
+  float: right;
+}
+
+.anomaly-diamond-icon {
+  width: 2.2em;
+  height: 2.2em;
+  padding: 0.12em;
+  border: 0.08em solid #424248;
+  border-radius: 50%;
+  background: #f8f8f8;
 }
 
 .kindle-danger-label {

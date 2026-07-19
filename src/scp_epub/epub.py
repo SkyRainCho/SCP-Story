@@ -240,8 +240,8 @@ table.wiki-content-table th {
   max-width: 100%;
   margin: 1.2em 0;
   padding: 0.65em 0.8em;
-  border: 2px solid #a21b2d;
-  background: #d9e1e4;
+  border: 1px solid #777;
+  background: #f4f4f4;
   color: #111;
   box-sizing: border-box;
   font-family: Arial, Helvetica, sans-serif;
@@ -308,6 +308,30 @@ table.wiki-content-table th {
   display: block;
 }
 
+.anom-bar-container.clear-1 .top-center-box > div {
+  background: #009f6b;
+}
+
+.anom-bar-container.clear-2 .top-center-box > div {
+  background: #0087bd;
+}
+
+.anom-bar-container.clear-3 .top-center-box > div {
+  background: #ffd300;
+}
+
+.anom-bar-container.clear-4 .top-center-box > div {
+  background: #ff6d00;
+}
+
+.anom-bar-container.clear-5 .top-center-box > div {
+  background: #c40233;
+}
+
+.anom-bar-container.clear-6 .top-center-box > div {
+  background: #111;
+}
+
 .anom-bar-container .top-right-box {
   text-align: center;
 }
@@ -318,32 +342,11 @@ table.wiki-content-table th {
   line-height: 1;
 }
 
-.anom-bar-container .top-right-box .clearance::before {
-  content: "TOP SECRET";
+.anom-bar-container .anomaly-clearance-label {
   display: block;
   margin-top: 0.2em;
   font-size: 0.78em;
   font-weight: 700;
-}
-
-.anom-bar-container.clear-1 .top-right-box .clearance::before {
-  content: "PUBLIC";
-}
-
-.anom-bar-container.clear-2 .top-right-box .clearance::before {
-  content: "RESTRICTED";
-}
-
-.anom-bar-container.clear-3 .top-right-box .clearance::before {
-  content: "CONFIDENTIAL";
-}
-
-.anom-bar-container.clear-4 .top-right-box .clearance::before {
-  content: "SECRET";
-}
-
-.anom-bar-container.clear-6 .top-right-box .clearance::before {
-  content: "COSMIC TOP SECRET";
 }
 
 .anom-bar-container .bottom-box {
@@ -365,6 +368,10 @@ table.wiki-content-table th {
   gap: 0.3em;
 }
 
+.anom-bar-container .main-class.anomaly-single-containment {
+  grid-template-columns: 1fr;
+}
+
 .anom-bar-container .contain-class,
 .anom-bar-container .second-class,
 .anom-bar-container .disrupt-class,
@@ -374,6 +381,124 @@ table.wiki-content-table th {
   border-left: 0.55em solid #c40233;
   background: rgba(196, 2, 51, 0.14);
   box-sizing: border-box;
+  overflow: hidden;
+}
+
+.anom-bar-container .anomaly-field-icon {
+  float: right;
+  width: 3.2em;
+  height: 3.2em;
+  margin: 0 0 0.2em 0.45em;
+  padding: 0.2em;
+  border: 0.12em solid #424248;
+  border-radius: 50%;
+  background: #f8f8f8;
+  object-fit: contain;
+  box-sizing: border-box;
+}
+
+.anom-bar-container .contain-class .anomaly-field-icon,
+.anom-bar-container .second-class .anomaly-field-icon {
+  width: 4.2em;
+  height: 4.2em;
+}
+
+.anom-bar-container.keter .contain-class .anomaly-field-icon,
+.anom-bar-container.amida .disrupt-class .anomaly-field-icon,
+.anom-bar-container.critical .risk-class .anomaly-field-icon,
+.anom-bar-container.危急 .risk-class .anomaly-field-icon,
+.anom-bar-container.keter .top-icon .anomaly-diamond-icon,
+.anom-bar-container.amida .left-icon .anomaly-diamond-icon,
+.anom-bar-container.critical .right-icon .anomaly-diamond-icon,
+.anom-bar-container.危急 .right-icon .anomaly-diamond-icon {
+  background: #a8002d;
+}
+
+.anom-bar-container.euclid .contain-class .anomaly-field-icon,
+.anom-bar-container.keneq .disrupt-class .anomaly-field-icon,
+.anom-bar-container.warning .risk-class .anomaly-field-icon,
+.anom-bar-container.警告 .risk-class .anomaly-field-icon,
+.anom-bar-container.euclid .top-icon .anomaly-diamond-icon,
+.anom-bar-container.keneq .left-icon .anomaly-diamond-icon,
+.anom-bar-container.warning .right-icon .anomaly-diamond-icon,
+.anom-bar-container.警告 .right-icon .anomaly-diamond-icon {
+  background: #9b8100;
+}
+
+.anom-bar-container.safe .contain-class .anomaly-field-icon,
+.anom-bar-container.dark .disrupt-class .anomaly-field-icon,
+.anom-bar-container.notice .risk-class .anomaly-field-icon,
+.anom-bar-container.待观察 .risk-class .anomaly-field-icon,
+.anom-bar-container.待觀察 .risk-class .anomaly-field-icon,
+.anom-bar-container.safe .top-icon .anomaly-diamond-icon,
+.anom-bar-container.dark .left-icon .anomaly-diamond-icon,
+.anom-bar-container.notice .right-icon .anomaly-diamond-icon,
+.anom-bar-container.待观察 .right-icon .anomaly-diamond-icon,
+.anom-bar-container.待觀察 .right-icon .anomaly-diamond-icon {
+  background: #007a52;
+}
+
+.anom-bar-container.ekhi .disrupt-class .anomaly-field-icon,
+.anom-bar-container.danger .risk-class .anomaly-field-icon,
+.anom-bar-container.危险 .risk-class .anomaly-field-icon,
+.anom-bar-container.危險 .risk-class .anomaly-field-icon,
+.anom-bar-container.ekhi .left-icon .anomaly-diamond-icon,
+.anom-bar-container.danger .right-icon .anomaly-diamond-icon,
+.anom-bar-container.危险 .right-icon .anomaly-diamond-icon,
+.anom-bar-container.危險 .right-icon .anomaly-diamond-icon {
+  background: #b64e00;
+}
+
+.anom-bar-container.vlam .disrupt-class .anomaly-field-icon,
+.anom-bar-container.caution .risk-class .anomaly-field-icon,
+.anom-bar-container.需谨慎 .risk-class .anomaly-field-icon,
+.anom-bar-container.需謹慎 .risk-class .anomaly-field-icon,
+.anom-bar-container.vlam .left-icon .anomaly-diamond-icon,
+.anom-bar-container.caution .right-icon .anomaly-diamond-icon,
+.anom-bar-container.需谨慎 .right-icon .anomaly-diamond-icon,
+.anom-bar-container.需謹慎 .right-icon .anomaly-diamond-icon {
+  background: #006b91;
+}
+
+.anom-bar-container.keter .contain-class,
+.anom-bar-container.amida .disrupt-class,
+.anom-bar-container.critical .risk-class,
+.anom-bar-container.危急 .risk-class {
+  border-left-color: #c40233;
+  background: #f3d6de;
+}
+
+.anom-bar-container.euclid .contain-class,
+.anom-bar-container.keneq .disrupt-class,
+.anom-bar-container.warning .risk-class,
+.anom-bar-container.警告 .risk-class {
+  border-left-color: #ffd300;
+  background: #fff5bd;
+}
+
+.anom-bar-container.safe .contain-class,
+.anom-bar-container.dark .disrupt-class,
+.anom-bar-container.notice .risk-class,
+.anom-bar-container.待观察 .risk-class,
+.anom-bar-container.待觀察 .risk-class {
+  border-left-color: #009f6b;
+  background: #d5eee7;
+}
+
+.anom-bar-container.ekhi .disrupt-class,
+.anom-bar-container.danger .risk-class,
+.anom-bar-container.危险 .risk-class,
+.anom-bar-container.危險 .risk-class {
+  border-left-color: #ff6d00;
+  background: #ffe1c7;
+}
+
+.anom-bar-container.vlam .disrupt-class,
+.anom-bar-container.caution .risk-class,
+.anom-bar-container.需谨慎 .risk-class,
+.anom-bar-container.需謹慎 .risk-class {
+  border-left-color: #0087bd;
+  background: #d8edf5;
 }
 
 .anom-bar-container .class-category {
@@ -401,13 +526,11 @@ table.wiki-content-table th {
 
 .anom-bar-container .danger-diamond {
   position: relative;
-  width: 6.5em;
-  height: 6.5em;
-  border: 0.25em solid #111;
-  background:
-    linear-gradient(135deg, transparent 48%, #111 49%, #111 51%, transparent 52%),
-    linear-gradient(45deg, transparent 48%, #111 49%, #111 51%, transparent 52%);
-  transform: rotate(45deg);
+  width: 7.5em;
+  min-height: 7.5em;
+  padding: 0.25em;
+  border: 0.25em double #111;
+  background: #fff;
   overflow: hidden;
   box-sizing: border-box;
 }
@@ -416,12 +539,50 @@ table.wiki-content-table th {
 .anom-bar-container .danger-diamond br,
 .anom-bar-container .danger-diamond .arrows,
 .anom-bar-container .danger-diamond .octagon,
-.anom-bar-container .danger-diamond .quadrants,
+.anom-bar-container .danger-diamond .quadrants {
+  display: none;
+}
+
 .anom-bar-container .danger-diamond .top-icon,
 .anom-bar-container .danger-diamond .right-icon,
 .anom-bar-container .danger-diamond .left-icon,
 .anom-bar-container .danger-diamond .bottom-icon {
   display: none;
+}
+
+.anom-bar-container .danger-diamond .anomaly-icon-slot {
+  display: block;
+  min-height: 2.3em;
+  text-align: center;
+}
+
+.anom-bar-container .danger-diamond .top-icon.anomaly-icon-slot,
+.anom-bar-container .danger-diamond .bottom-icon.anomaly-icon-slot {
+  clear: both;
+}
+
+.anom-bar-container .danger-diamond .left-icon.anomaly-icon-slot,
+.anom-bar-container .danger-diamond .right-icon.anomaly-icon-slot {
+  width: 48%;
+}
+
+.anom-bar-container .danger-diamond .left-icon.anomaly-icon-slot {
+  float: left;
+}
+
+.anom-bar-container .danger-diamond .right-icon.anomaly-icon-slot {
+  float: right;
+}
+
+.anom-bar-container .anomaly-diamond-icon {
+  width: 2.3em;
+  height: 2.3em;
+  padding: 0.12em;
+  border: 0.08em solid #424248;
+  border-radius: 50%;
+  background: #f8f8f8;
+  object-fit: contain;
+  box-sizing: border-box;
 }
 
 @media (max-width: 480px) {
@@ -444,8 +605,8 @@ table.wiki-content-table th {
   }
 
   .anom-bar-container .danger-diamond {
-    width: 5em;
-    height: 5em;
+    width: 6.5em;
+    min-height: 6.5em;
   }
 }
 """

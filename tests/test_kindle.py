@@ -594,6 +594,39 @@ def test_prepare_kindle_assets_drops_svg_when_renderer_fails(
     assert "resources_dir" not in calls[0]
 
 
+def test_prepare_kindle_assets_accepts_svg_with_external_public_doctype(
+    tmp_path: Path,
+):
+    payload = (
+        b'<?xml version="1.0" encoding="utf-8"?>\n'
+        b'<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN" '
+        b'"http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">\n'
+        b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2">'
+        b'<rect width="2" height="2" fill="#000000"/></svg>'
+    )
+    source_path = tmp_path / "legacy.svg"
+    source_path.write_bytes(payload)
+    asset = AssetRef(
+        "https://example.test/legacy.svg",
+        source_path,
+        "assets/legacy.svg",
+        "image/svg+xml",
+    )
+
+    [page], [prepared], missing = kindle_module.prepare_kindle_assets(
+        [_page('<img src="../assets/legacy.svg" alt="旧版 SVG"/>')],
+        [asset],
+        tmp_path / "kindle-assets",
+        [],
+    )
+
+    assert missing == []
+    assert prepared.content_type == "image/png"
+    assert prepared.path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    assert f'../{prepared.href}' in page.xhtml
+    assert source_path.read_bytes() == payload
+
+
 def test_prepare_kindle_assets_rejects_decompression_bomb_from_svg_renderer(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -1043,6 +1076,51 @@ def test_prepare_kindle_pages_materializes_anomaly_labels_without_mutating_sourc
     assert "kindle-danger-label" not in source.xhtml
 
 
+def test_prepare_kindle_pages_replaces_standard_clearance_label_with_kindle_label():
+    source = _page(
+        '<div class="anom-bar-container clear-4">'
+        '<div class="top-right-box"><div class="clearance">'
+        '<span class="anomaly-clearance-label">机密</span>'
+        "</div></div></div>"
+    )
+
+    [prepared] = prepare_kindle_pages([source])
+
+    assert '<span class="kindle-clearance-label">SECRET</span>' in prepared.xhtml
+    assert "anomaly-clearance-label" not in prepared.xhtml
+    assert ">机密<" not in prepared.xhtml
+    assert "anomaly-clearance-label" in source.xhtml
+
+
+def test_prepare_kindle_pages_does_not_materialize_unexpanded_anomaly_risk():
+    source = _page(
+        '<div class="anom-bar-container clear-3">'
+        '<div class="risk-class"><div class="class-text">{$risk-class}</div></div>'
+        '<div class="danger-diamond"></div>'
+        "</div>"
+    )
+
+    [prepared] = prepare_kindle_pages([source])
+
+    assert "kindle-danger-label" not in prepared.xhtml
+
+
+def test_prepare_kindle_pages_prefers_real_anomaly_icon_over_fallback_risk_label():
+    source = _page(
+        '<div class="anom-bar-container clear-4">'
+        '<div class="risk-class"><div class="class-text">critical</div></div>'
+        '<div class="danger-diamond">'
+        '<div class="right-icon"><img class="anomaly-diamond-icon" '
+        'src="../assets/critical.svg" alt="critical 等级图标"/></div>'
+        "</div></div>"
+    )
+
+    [prepared] = prepare_kindle_pages([source])
+
+    assert "kindle-danger-label" not in prepared.xhtml
+    assert "anomaly-diamond-icon" in prepared.xhtml
+
+
 def test_prepare_kindle_pages_preserves_ordinary_xhtml_exactly():
     xhtml = (
         '<section><svg viewBox="0 0 10 10" preserveAspectRatio="xMidYMid meet">'
@@ -1228,6 +1306,10 @@ def test_kindle_css_uses_kf8_fallbacks_and_preserves_scp_components():
     assert ".anom-bar-container" in css
     assert ".kindle-clearance-label" in css
     assert ".kindle-danger-label" in css
+    assert ".anomaly-field-icon" in css
+    assert ".anomaly-diamond-icon" in css
+    assert ".danger-diamond .anomaly-icon-slot" in css
+    assert ".anom-bar-container.keter .contain-class .anomaly-field-icon" in css
 
 
 def test_convert_epub_to_azw3_uses_scribe_profile_and_atomically_replaces_output(
