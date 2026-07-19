@@ -1738,7 +1738,96 @@ def test_inserts_inline_document_after_normalized_exact_visible_text():
         "After 内联正文。",
         "后文。",
     ]
-    assert soup.find("section", class_="inline-document-epub") is not None
+    section = soup.find("section", class_="inline-document-epub")
+    assert section is not None
+    assert section.find("div", style="clear: both") is None
+
+
+def test_inline_document_contains_its_floated_images_before_following_owner_content():
+    owner = inline_page(
+        "Owner",
+        "<p>附录-1898-1：相关SCP-1898图片</p>"
+        "<p>附录-1898-2：后续正文。</p>",
+    )
+    fragment = inline_page(
+        "SCP-1898 相关图片",
+        '<h2>SCP-1898 相关图片</h2>'
+        '<div class="scp-image-block block-left"><img src="one.jpg"/></div>'
+        '<div class="scp-image-block block-left"><img src="two.jpg"/></div>',
+    )
+
+    result = insert_inline_fragments(
+        owner,
+        fragments=(
+            (
+                inline_spec(
+                    "SCP-1898 相关图片",
+                    "after_text",
+                    anchor_text="附录-1898-1：相关SCP-1898图片",
+                ),
+                fragment,
+            ),
+        ),
+    )
+
+    soup = soup_fragment(result.xhtml)
+    section = soup.find("section", class_="inline-document-epub")
+    appendix_2 = soup.find("p", string="附录-1898-2：后续正文。")
+    assert section is not None
+    assert appendix_2 is not None
+    assert section.find_next_sibling() is appendix_2
+    assert appendix_2.get("style") is None
+    clearer = section.find_all(recursive=False)[-1]
+    assert clearer.name == "div"
+    assert clearer.get("style") == "clear: both"
+
+
+def test_inline_document_does_not_treat_floated_image_clear_as_container_clear():
+    owner = inline_page("Owner", "<p>Owner content.</p>")
+    fragment = inline_page(
+        "Floating fragment",
+        '<div class="scp-image-block block-left" style="clear: both">'
+        '<img src="image.jpg"/>'
+        "</div>",
+    )
+
+    result = insert_inline_fragments(
+        owner,
+        fragments=((inline_spec("Floating fragment", "append"), fragment),),
+    )
+
+    soup = soup_fragment(result.xhtml)
+    section = soup.find("section", class_="inline-document-epub")
+    assert section is not None
+    clearer = section.find_all(recursive=False)[-1]
+    assert clearer.name == "div"
+    assert clearer.get("class") is None
+    assert clearer.get("style") == "clear: both"
+
+
+def test_inline_document_preserves_single_existing_terminal_clearer():
+    owner = inline_page("Owner", "<p>Owner content.</p>")
+    fragment = inline_page(
+        "Floating fragment",
+        '<div class="scp-image-block block-left"><img src="image.jpg"/></div>'
+        '<div style="clear: both"></div>',
+    )
+
+    result = insert_inline_fragments(
+        owner,
+        fragments=((inline_spec("Floating fragment", "append"), fragment),),
+    )
+
+    soup = soup_fragment(result.xhtml)
+    section = soup.find("section", class_="inline-document-epub")
+    assert section is not None
+    clearers = [
+        child
+        for child in section.find_all("div", recursive=False)
+        if child.get("class") is None and child.get("style") == "clear: both"
+    ]
+    assert len(clearers) == 1
+    assert section.find_all(recursive=False)[-1] is clearers[0]
 
 
 def test_inserts_inline_document_before_exact_visible_text():

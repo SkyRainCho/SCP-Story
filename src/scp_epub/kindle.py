@@ -809,12 +809,17 @@ _VOID_ELEMENTS = frozenset(
         "wbr",
     }
 )
+# Preserve the standard EPUB's intended scale: its 300px image default maps to
+# the Kindle stylesheet's 42% reflowable default.
+_STANDARD_IMAGE_WIDTH_PX = 300.0
+_KINDLE_IMAGE_WIDTH_PERCENT = 42.0
 
 
 @dataclass
 class _HtmlElement:
     tag: str
     classes: frozenset[str]
+    start_tag_start: int
     start_tag_end: int
     parent: _HtmlElement | None
     end_start: int | None = None
@@ -865,6 +870,7 @@ class _XhtmlStructureParser(HTMLParser):
         self, tag: str, attrs: list[tuple[str, str | None]]
     ) -> _HtmlElement:
         raw_start_tag = self.get_starttag_text()
+        start_tag_start = self._offset()
         classes = frozenset(
             class_name
             for name, value in attrs
@@ -874,7 +880,8 @@ class _XhtmlStructureParser(HTMLParser):
         element = _HtmlElement(
             tag=tag,
             classes=classes,
-            start_tag_end=self._offset() + len(raw_start_tag),
+            start_tag_start=start_tag_start,
+            start_tag_end=start_tag_start + len(raw_start_tag),
             parent=self._stack[-1] if self._stack else None,
         )
         self.elements.append(element)
@@ -909,7 +916,25 @@ def _prepare_kindle_xhtml(xhtml: str) -> str:
     except (AssertionError, ValueError):
         return xhtml
 
-    insertions: list[tuple[int, str]] = []
+    edits: list[tuple[int, int, str]] = []
+    for element in parser.elements:
+        width_mode = _kindle_component_width_mode(element)
+        if width_mode is None:
+            continue
+        raw_start_tag = xhtml[element.start_tag_start : element.start_tag_end]
+        prepared_start_tag = _normalize_fixed_pixel_width(
+            raw_start_tag,
+            convert_to_percentage=width_mode == "percentage",
+        )
+        if prepared_start_tag != raw_start_tag:
+            edits.append(
+                (
+                    element.start_tag_start,
+                    element.start_tag_end,
+                    prepared_start_tag,
+                )
+            )
+
     for container in (
         element
         for element in parser.elements
@@ -935,8 +960,9 @@ def _prepare_kindle_xhtml(xhtml: str) -> str:
             and clearance.end_start is not None
             and not _element_text(clearance)
         ):
-            insertions.append(
+            edits.append(
                 (
+                    clearance.end_start,
                     clearance.end_start,
                     '<span class="kindle-clearance-label">'
                     f"{clearance_text}</span>",
@@ -963,8 +989,9 @@ def _prepare_kindle_xhtml(xhtml: str) -> str:
         ):
             risk_text = _element_text(risk)
             if risk_text:
-                insertions.append(
+                edits.append(
                     (
+                        diamond.start_tag_end,
                         diamond.start_tag_end,
                         '<span class="kindle-danger-label">'
                         f"{escape(risk_text, quote=False)}</span>",
@@ -972,9 +999,152 @@ def _prepare_kindle_xhtml(xhtml: str) -> str:
                 )
 
     result = xhtml
-    for offset, label in sorted(insertions, reverse=True):
-        result = result[:offset] + label + result[offset:]
+    for start, end, replacement in sorted(edits, reverse=True):
+        result = result[:start] + replacement + result[end:]
     return result
+
+
+def _kindle_component_width_mode(element: _HtmlElement) -> str | None:
+    if any(name.startswith("layout-profile-") for name in element.classes):
+        return None
+    if "scp-image-block" in element.classes:
+        return "percentage"
+    if {"content-panel", "standalone"}.issubset(element.classes):
+        return "remove"
+    return None
+
+
+def _normalize_fixed_pixel_width(
+    raw_start_tag: str,
+    *,
+    convert_to_percentage: bool,
+) -> str:
+    style_spans = _find_attribute_value_spans(raw_start_tag, "style")
+    if style_spans is None:
+        return raw_start_tag
+    attribute_start, attribute_end, css_start, css_end = style_spans
+
+    declarations = tinycss2.parse_declaration_list(
+        raw_start_tag[css_start:css_end],
+        skip_comments=False,
+        skip_whitespace=False,
+    )
+    kept = []
+    changed = False
+    for declaration in declarations:
+        if declaration.type == "declaration" and declaration.lower_name == "width":
+            fixed_width = _fixed_pixel_width(declaration.value)
+            if fixed_width is not None:
+                changed = True
+                if not convert_to_percentage:
+                    continue
+                width_px, width_token = fixed_width
+                width_percent = min(
+                    width_px / _STANDARD_IMAGE_WIDTH_PX
+                    * _KINDLE_IMAGE_WIDTH_PERCENT,
+                    100.0,
+                )
+                serialized_percent = f"{width_percent:.1f}".rstrip("0").rstrip(".")
+                [percentage_token] = tinycss2.parse_component_value_list(
+                    f"{serialized_percent}%"
+                )
+                declaration.value = [
+                    percentage_token if token is width_token else token
+                    for token in declaration.value
+                ]
+        kept.append(declaration)
+
+    if not changed:
+        return raw_start_tag
+
+    prepared_css = tinycss2.serialize(kept).strip()
+    if not prepared_css:
+        return raw_start_tag[:attribute_start] + raw_start_tag[attribute_end:]
+
+    return raw_start_tag[:css_start] + prepared_css + raw_start_tag[css_end:]
+
+
+def _find_attribute_value_spans(
+    raw_start_tag: str,
+    attribute_name: str,
+) -> tuple[int, int, int, int] | None:
+    length = len(raw_start_tag)
+    index = 1
+    while index < length and raw_start_tag[index].isspace():
+        index += 1
+    if index < length and raw_start_tag[index] == "/":
+        index += 1
+    while index < length and not raw_start_tag[index].isspace():
+        if raw_start_tag[index] in "/>":
+            return None
+        index += 1
+
+    target = attribute_name.casefold()
+    while index < length:
+        whitespace_start = index
+        while index < length and raw_start_tag[index].isspace():
+            index += 1
+        if index >= length or raw_start_tag[index] in "/>":
+            return None
+
+        attribute_start = whitespace_start
+        name_start = index
+        while index < length and not raw_start_tag[index].isspace():
+            if raw_start_tag[index] in "=/>":
+                break
+            index += 1
+        name = raw_start_tag[name_start:index].casefold()
+
+        while index < length and raw_start_tag[index].isspace():
+            index += 1
+        if index >= length or raw_start_tag[index] != "=":
+            continue
+        index += 1
+        while index < length and raw_start_tag[index].isspace():
+            index += 1
+        if index >= length:
+            return None
+
+        quote = raw_start_tag[index]
+        if quote in "'\"":
+            index += 1
+            value_start = index
+            value_end = raw_start_tag.find(quote, index)
+            if value_end < 0:
+                return None
+            index = value_end + 1
+        else:
+            value_start = index
+            while index < length and not raw_start_tag[index].isspace():
+                if raw_start_tag[index] == ">":
+                    break
+                index += 1
+            value_end = index
+
+        if name == target:
+            return attribute_start, index, value_start, value_end
+
+    return None
+
+
+def _fixed_pixel_width(tokens: Sequence[object]) -> tuple[float, object] | None:
+    meaningful = [
+        token
+        for token in tokens
+        if getattr(token, "type", None) not in {"comment", "whitespace"}
+    ]
+    if len(meaningful) != 1:
+        return None
+    token = meaningful[0]
+    if (
+        getattr(token, "type", None) != "dimension"
+        or getattr(token, "lower_unit", None) != "px"
+    ):
+        return None
+    width = float(getattr(token, "value"))
+    if width < 0 or not math.isfinite(width):
+        return None
+    return width, token
 
 
 def _find_descendant(

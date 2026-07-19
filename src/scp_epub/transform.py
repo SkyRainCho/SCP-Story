@@ -412,6 +412,12 @@ def _inline_document_section(
             section.append(heading)
         for child in list(fragment_root.contents):
             section.append(child.extract())
+    if section.find(_is_floated_image_block) is not None and not _last_child_clears_floats(
+        section
+    ):
+        clearer = soup.new_tag("div")
+        clearer["style"] = "clear: both"
+        section.append(clearer)
     return section
 
 
@@ -1336,6 +1342,8 @@ def _last_child_clears_floats(tag: Tag) -> bool:
             if str(child).strip():
                 return False
             continue
+        if _is_floated_image_block(child):
+            return False
         style = child.get("style")
         return isinstance(style, str) and "clear" in style.lower() and "both" in style.lower()
     return False

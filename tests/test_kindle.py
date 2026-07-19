@@ -890,6 +890,86 @@ def test_prepare_kindle_pages_preserves_ordinary_xhtml_exactly():
     assert prepared.xhtml == xhtml
 
 
+def test_prepare_kindle_pages_normalizes_fixed_front_matter_panel_width():
+    source = _page(
+        '<div class="content-panel standalone" '
+        'style="width: 575px; padding: 10px 30px; margin: 20px auto; '
+        'background-image: url(../assets/marble.png)">'
+        "<p>人类到如今已经繁衍了250000年。</p>"
+        "</div>"
+    )
+
+    [prepared] = prepare_kindle_pages([source])
+
+    assert "width:" not in prepared.xhtml
+    assert "575px" not in prepared.xhtml
+    assert "padding: 10px 30px" in prepared.xhtml
+    assert "margin: 20px auto" in prepared.xhtml
+    assert "background-image: url(../assets/marble.png)" in prepared.xhtml
+    assert "width: 575px" in source.xhtml
+
+
+@pytest.mark.parametrize(
+    ("classes", "source_width", "expected_width"),
+    [
+        ("scp-image-block block-right", "200px", "28%"),
+        ("scp-image-block block-left", "300px", "42%"),
+        ("scp-image-block block-center", "500px", "70%"),
+    ],
+)
+def test_prepare_kindle_pages_normalizes_fixed_image_block_width(
+    classes: str, source_width: str, expected_width: str
+):
+    xhtml = (
+        f'<div class="{classes}" style="width: {source_width}">'
+        '<img src="../assets/gears.jpg" alt="gears.jpg"/>'
+        '<div class="scp-image-caption"><p>图片说明</p></div>'
+        "</div>"
+    )
+
+    [prepared] = prepare_kindle_pages([_page(xhtml)])
+
+    assert f"width:{expected_width}" in prepared.xhtml.replace(" ", "")
+    assert source_width not in prepared.xhtml
+
+
+def test_prepare_kindle_pages_preserves_special_layout_profile_widths():
+    xhtml = (
+        '<div class="scp-image-block block-right layout-profile-scp-6183-table-image" '
+        'style="float: none; width: 200px">图片</div>'
+    )
+
+    [prepared] = prepare_kindle_pages([_page(xhtml)])
+
+    assert prepared.xhtml == xhtml
+
+
+def test_prepare_kindle_pages_preserves_responsive_component_widths():
+    xhtml = (
+        '<div class="content-panel standalone" style="width: 85%">前言</div>'
+        '<div class="scp-image-block block-right" style="width: 45%">图片</div>'
+    )
+
+    [prepared] = prepare_kindle_pages([_page(xhtml)])
+
+    assert prepared.xhtml == xhtml
+
+
+def test_prepare_kindle_pages_only_edits_the_real_style_attribute():
+    xhtml = (
+        '<div class="scp-image-block block-right" '
+        'data-note=" style=\'width: 999px\'" '
+        'style="width: 200px /* source width */; border: 1px solid">图片</div>'
+    )
+
+    [prepared] = prepare_kindle_pages([_page(xhtml)])
+
+    assert 'data-note=" style=\'width: 999px\'"' in prepared.xhtml
+    assert "width:28%" in prepared.xhtml.replace(" ", "")
+    assert "width: 200px" not in prepared.xhtml
+    assert "border: 1px solid" in prepared.xhtml
+
+
 def test_prepare_kindle_pages_preserves_inline_svg_when_materializing_labels():
     svg = (
         '<svg viewBox="0 0 10 10" preserveAspectRatio="xMidYMid meet">'

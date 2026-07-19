@@ -1845,6 +1845,11 @@ def test_build_volume_kindles_pages_css_report_and_azw3_without_mutating_process
                 '<div class="top-right-box"><div class="clearance"></div></div>'
                 '<div class="risk-class"><div class="class-text">危急</div></div>'
                 '<div class="danger-diamond"></div>'
+                "</div>"
+                '<div class="content-panel standalone" '
+                'style="width: 575px; padding: 10px 30px">前言</div>'
+                '<div class="scp-image-block block-right" style="width: 200px">'
+                '<div class="scp-image-caption"><p>图片说明</p></div>'
                 "</div>",
             ),
         },
@@ -1877,9 +1882,14 @@ def test_build_volume_kindles_pages_css_report_and_azw3_without_mutating_process
     assert ".kindle-clearance-label" in css
     assert '<span class="kindle-clearance-label">SECRET</span>' in chapter
     assert '<span class="kindle-danger-label">危急</span>' in chapter
+    assert "575px" not in chapter
+    assert "width:28%;" in chapter.replace(" ", "")
 
     processed_path = config.processed_dir / "test-volume" / "0001-scp-001.xhtml"
-    assert "kindle-clearance-label" not in processed_path.read_text(encoding="utf-8")
+    processed_xhtml = processed_path.read_text(encoding="utf-8")
+    assert "kindle-clearance-label" not in processed_xhtml
+    assert "width: 575px" in processed_xhtml
+    assert "width: 200px" in processed_xhtml
     report_path = config.output_dir / "reports" / "test-volume-Kindle-report.json"
     report = json.loads(report_path.read_text(encoding="utf-8"))
     assert report["output_path"] == str(output_path)
