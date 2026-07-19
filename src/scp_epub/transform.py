@@ -747,7 +747,11 @@ def _is_unwanted_element(tag: Tag) -> bool:
     if classes & UNWANTED_CLASSES:
         return True
 
-    if _is_hidden_css_code_container(tag) or _is_hidden_scp_image_container(tag) or _is_css_code_collapsible(tag):
+    if (
+        _is_hidden_css_code_container(tag)
+        or _is_hidden_scp_image_container(tag)
+        or _is_css_code_collapsible(tag)
+    ):
         return True
 
     if any(
@@ -898,7 +902,21 @@ def _remove_class_token(tag: Tag, class_name: str) -> None:
 
 def _is_hidden_by_style(tag: Tag) -> bool:
     style = tag.get("style")
-    return isinstance(style, str) and "display" in style.lower() and "none" in style.lower()
+    if not isinstance(style, str):
+        return False
+    for declaration in style.split(";"):
+        property_name, separator, value = declaration.partition(":")
+        if not separator or property_name.strip().casefold() != "display":
+            continue
+        normalized_value = re.sub(
+            r"\s*!important\s*$",
+            "",
+            value,
+            flags=re.IGNORECASE,
+        ).strip()
+        if normalized_value.casefold() == "none":
+            return True
+    return False
 
 
 def _contains_code_block(tag: Tag) -> bool:
@@ -1350,11 +1368,132 @@ def _last_child_clears_floats(tag: Tag) -> bool:
 
 
 def _apply_scp_6183_layout_profile(page_content: Tag) -> None:
+    _remove_scp_6183_hidden_templates(page_content)
+
+    intermission = page_content.select_one(".admo-intermission_splash")
+    if intermission is not None:
+        _remove_class_token(intermission, "admo-intermission_splash")
+        _add_class_token(intermission, "layout-profile-scp-6183-intermission")
+        for property_name, value in (
+            ("margin", "1.5em 0 0"),
+            ("padding", "2em 1em"),
+            ("background", "#000"),
+            ("color", "#d8d8d8"),
+            ("text-align", "center"),
+        ):
+            _append_style_declaration(intermission, property_name, value)
+        ctrl = intermission.select_one(".ctrl")
+        if ctrl is not None:
+            _append_style_declaration(ctrl, "font-size", "2em")
+            _append_style_declaration(ctrl, "font-weight", "bold")
+
+    content = page_content.select_one(".fadeout-wrapper")
+    if content is not None:
+        _remove_class_token(content, "fadeout-wrapper")
+        _add_class_token(content, "layout-profile-scp-6183-content")
+
+        for animation_cover in list(content.select(".cover")):
+            if (
+                not animation_cover.get_text(" ", strip=True)
+                and animation_cover.find(True) is None
+            ):
+                animation_cover.decompose()
+
+        symbol = content.find("img", alt="rsm.png")
+        if symbol is not None:
+            _add_class_token(symbol, "layout-profile-scp-6183-symbol")
+            _append_style_declaration(symbol, "width", "20%")
+            _append_style_declaration(symbol, "max-width", "10rem")
+            _append_style_declaration(symbol, "height", "auto")
+            _append_style_declaration(symbol, "margin", "0 auto")
+            symbol_panel = symbol.find_parent(class_="image-container")
+            if isinstance(symbol_panel, Tag):
+                _add_class_token(
+                    symbol_panel,
+                    "layout-profile-scp-6183-symbol-panel",
+                )
+                for property_name, value in (
+                    ("margin", "0"),
+                    ("padding", "1.5em 1em 0"),
+                    ("background", "#000"),
+                    ("text-align", "center"),
+                ):
+                    _append_style_declaration(symbol_panel, property_name, value)
+
+        notice_heading = next(
+            (
+                heading
+                for heading in content.find_all("h2")
+                if _normalized_text(heading) == "本文档已被标记为待删除"
+            ),
+            None,
+        )
+        if notice_heading is not None:
+            parent = notice_heading.parent
+            notice = (
+                parent
+                if isinstance(parent, Tag) and parent is not content
+                else notice_heading
+            )
+            _add_class_token(notice, "layout-profile-scp-6183-deletion-notice")
+            for property_name, value in (
+                ("padding", "0.75em 1em 1.5em"),
+                ("background", "#000"),
+                ("color", "#d8d8d8"),
+                ("text-align", "center"),
+            ):
+                _append_style_declaration(notice, property_name, value)
+            _append_style_declaration(notice, "margin", "0 0 1.5em")
+            _append_style_declaration(notice_heading, "color", "#d8d8d8")
+            _append_style_declaration(notice_heading, "font-size", "1.15em")
+            if notice is not notice_heading:
+                _append_style_declaration(notice_heading, "margin", "0")
+            classification = content.select_one(".anom-bar-esoteric")
+            sibling = notice.next_sibling
+            while sibling is not None and sibling is not classification:
+                next_sibling = sibling.next_sibling
+                if (
+                    isinstance(sibling, Tag)
+                    and sibling.name == "p"
+                    and not sibling.get_text(" ", strip=True)
+                ):
+                    sibling.decompose()
+                sibling = next_sibling
+
     for image_block in page_content.select("table .scp-image-block"):
         _stabilize_profile_image_block(
             image_block,
             "layout-profile-scp-6183-table-image",
         )
+
+
+def _remove_scp_6183_hidden_templates(page_content: Tag) -> None:
+    for component in list(page_content.select(".anom-bar-container")):
+        if component.parent is None or component.name is None:
+            continue
+        if WIKIDOT_TEMPLATE_PLACEHOLDER_RE.search(str(component)) is None:
+            continue
+        hidden = (
+            component
+            if _is_hidden_by_style(component)
+            else component.find_parent(_is_hidden_by_style)
+        )
+        if (
+            not isinstance(hidden, Tag)
+            or hidden is page_content
+            or page_content not in hidden.parents
+        ):
+            continue
+        hidden_parent = hidden.parent
+        protects_dynamic_content = (
+            "collapsible-block-unfolded" in _class_tokens(hidden)
+            or "yui-content" in _class_tokens(hidden)
+            or (
+                isinstance(hidden_parent, Tag)
+                and "yui-content" in _class_tokens(hidden_parent)
+            )
+        )
+        (component if protects_dynamic_content else hidden).decompose()
 
 
 def _apply_scp_4612_layout_profile(page_content: Tag) -> None:
@@ -1432,7 +1571,23 @@ LAYOUT_PROFILE_RULES: dict[str, LayoutProfileRule] = {
     "scp-6183": LayoutProfileRule(
         apply=_apply_scp_6183_layout_profile,
         style_rules=(
-            ".layout-profile-scp-6183-table-image {float: none; clear: both; max-width: 100%;}"
+            ".layout-profile-scp-6183-intermission {margin: 1.5em 0 0; padding: 2em 1em; "
+            "background: #000; color: #d8d8d8; text-align: center;}"
+            "\n.layout-profile-scp-6183-intermission p {margin: 0.25em 0;}"
+            "\n.layout-profile-scp-6183-intermission .cond {font-size: 1em; line-height: 1.2;}"
+            "\n.layout-profile-scp-6183-intermission .ctrl {font-size: 2em; line-height: 1.2; "
+            "letter-spacing: 0; word-spacing: normal;}"
+            "\n.layout-profile-scp-6183-symbol-panel {margin: 0; padding: 1.5em 1em 0; "
+            "background: #000; text-align: center;}"
+            "\n.layout-profile-scp-6183-symbol {display: block; width: 20%; max-width: 10rem; "
+            "height: auto; margin: 0 auto; transform: rotate(180deg);}"
+            "\n.layout-profile-scp-6183-deletion-notice {margin: 0 0 1.5em; "
+            "padding: 0.75em 1em 1.5em; background: #000; color: #d8d8d8; text-align: center;}"
+            "\n.layout-profile-scp-6183-deletion-notice h2 {margin: 0; color: #d8d8d8; "
+            "font-size: 1.15em;}"
+            "\nh2.layout-profile-scp-6183-deletion-notice {margin: 0 0 1.5em; color: #d8d8d8; "
+            "font-size: 1.15em;}"
+            "\n.layout-profile-scp-6183-table-image {float: none; clear: both; max-width: 100%;}"
             "\n.layout-profile-scp-6183-table-image img {max-width: 100%; height: auto;}"
         ),
     ),

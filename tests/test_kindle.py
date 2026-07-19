@@ -21,12 +21,12 @@ from scp_epub.kindle import (
 from scp_epub.models import PageRef, ProcessedPage
 
 
-def _page(xhtml: str) -> ProcessedPage:
+def _page(xhtml: str, *, slug: str = "scp-001") -> ProcessedPage:
     return ProcessedPage(
         entry=PageRef(
             title="SCP-001",
-            url="https://scp-wiki-cn.wikidot.com/scp-001",
-            slug="scp-001",
+            url=f"https://scp-wiki-cn.wikidot.com/{slug}",
+            slug=slug,
             level=1,
             role="scp",
             order=1,
@@ -826,6 +826,170 @@ def test_prepare_kindle_assets_strips_problem_png_metadata_without_reencoding_pi
         image.verify()
 
 
+def test_prepare_kindle_assets_flattens_and_rotates_scp6183_symbol(tmp_path: Path):
+    source_image = Image.new("RGBA", (2, 2), (0, 0, 0, 0))
+    source_image.putpixel((0, 0), (255, 0, 0, 255))
+    source_image.putpixel((1, 1), (0, 255, 0, 128))
+    source_bytes = io.BytesIO()
+    source_image.save(source_bytes, format="PNG")
+    source_path = tmp_path / "rsm.png"
+    source_path.write_bytes(source_bytes.getvalue())
+    asset = AssetRef(
+        "https://example.test/scp-6183/rsm.png",
+        source_path,
+        "assets/rsm.png",
+        "image/png",
+    )
+    page = _page(
+        '<img id="symbol" class="layout-profile-scp-6183-symbol" '
+        'src="../assets/rsm.png" alt="rsm.png"/>'
+        '<img id="ordinary" src="../assets/rsm.png" alt="ordinary.png"/>',
+        slug="scp-6183",
+    )
+    other_page = _page(
+        '<img id="cross-page" src="../assets/rsm.png" alt="cross-page.png"/>',
+        slug="scp-9999",
+    )
+
+    [prepared_page, prepared_other_page], prepared_assets, missing = (
+        kindle_module.prepare_kindle_assets(
+            [page, other_page], [asset], tmp_path / "kindle-assets", []
+        )
+    )
+
+    assert missing == []
+    assert len(prepared_assets) == 2
+    prepared = next(item for item in prepared_assets if item.href != asset.href)
+    assert asset in prepared_assets
+    assert prepared.path != source_path
+    assert prepared.href != asset.href
+    assert (
+        f'id="symbol" class="layout-profile-scp-6183-symbol" '
+        f'src="../{prepared.href}"' in prepared_page.xhtml
+    )
+    assert 'id="ordinary" src="../assets/rsm.png"' in prepared_page.xhtml
+    assert prepared_other_page == other_page
+    with Image.open(prepared.path) as image:
+        assert image.mode == "RGB"
+        assert image.getpixel((0, 0)) == (0, 128, 0)
+        assert image.getpixel((1, 1)) == (255, 0, 0)
+        assert image.getpixel((1, 0)) == (0, 0, 0)
+    with Image.open(source_path) as image:
+        assert image.mode == "RGBA"
+        assert image.getpixel((0, 0)) == (255, 0, 0, 255)
+
+
+def test_prepare_kindle_assets_applies_scp6183_variant_to_disguised_svg(
+    tmp_path: Path,
+):
+    payload = (
+        b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2">'
+        b'<rect x="0" y="0" width="1" height="1" fill="#ff0000"/>'
+        b"</svg>"
+    )
+    source_path = tmp_path / "disguised.png"
+    source_path.write_bytes(payload)
+    asset = AssetRef(
+        "https://example.test/scp-6183/disguised.png",
+        source_path,
+        "assets/disguised.png",
+        "image/png",
+    )
+    page = _page(
+        '<img id="symbol" class="layout-profile-scp-6183-symbol" '
+        'src="../assets/disguised.png" alt="rsm.png"/>'
+        '<img id="ordinary" src="../assets/disguised.png" alt="ordinary.png"/>',
+        slug="scp-6183",
+    )
+    other_page = _page(
+        '<img id="cross-page" src="../assets/disguised.png" alt="cross-page.png"/>',
+        slug="scp-9999",
+    )
+
+    [prepared_page, prepared_other_page], prepared_assets, missing = (
+        kindle_module.prepare_kindle_assets(
+            [page, other_page], [asset], tmp_path / "kindle-assets", []
+        )
+    )
+
+    assert missing == []
+    assert len({item.href for item in prepared_assets}) == 2
+    variant = next(
+        item for item in prepared_assets if "scp6183-symbol" in item.href
+    )
+    ordinary = next(item for item in prepared_assets if item is not variant)
+    assert f'id="symbol" class="layout-profile-scp-6183-symbol" src="../{variant.href}"' in prepared_page.xhtml
+    assert f'id="ordinary" src="../{ordinary.href}"' in prepared_page.xhtml
+    assert f'src="../{ordinary.href}"' in prepared_other_page.xhtml
+    with Image.open(variant.path) as image:
+        assert image.mode == "RGB"
+        assert image.getpixel((0, 0)) == (0, 0, 0)
+        assert image.getpixel((image.width - 1, image.height - 1))[0] > 200
+    assert source_path.read_bytes() == payload
+
+
+def test_prepare_kindle_assets_does_not_transform_scp6183_class_on_other_page(
+    tmp_path: Path,
+):
+    source_path = tmp_path / "ordinary.png"
+    source_path.write_bytes(_image_bytes("PNG"))
+    asset = AssetRef(
+        "https://example.test/ordinary.png",
+        source_path,
+        "assets/ordinary.png",
+        "image/png",
+    )
+    page = _page(
+        '<img class="layout-profile-scp-6183-symbol" '
+        'src="../assets/ordinary.png" alt="ordinary.png"/>',
+        slug="scp-9999",
+    )
+
+    [prepared_page], [prepared], missing = kindle_module.prepare_kindle_assets(
+        [page], [asset], tmp_path / "kindle-assets", []
+    )
+
+    assert missing == []
+    assert prepared == asset
+    assert prepared_page == page
+    assert prepared.path.read_bytes() == source_path.read_bytes()
+
+
+def test_prepare_kindle_assets_rejects_oversized_scp6183_symbol_variant(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    source_url = "https://example.test/scp-6183/oversized-rsm.png"
+    source_path = tmp_path / "oversized-rsm.png"
+    source_path.write_bytes(_image_bytes("PNG"))
+    asset = AssetRef(
+        source_url,
+        source_path,
+        "assets/oversized-rsm.png",
+        "image/png",
+    )
+    page = _page(
+        '<img class="layout-profile-scp-6183-symbol" '
+        'src="../assets/oversized-rsm.png" alt="删除标记"/>',
+        slug="scp-6183",
+    )
+    monkeypatch.setattr(
+        kindle_module,
+        "_SCP_6183_SYMBOL_MAX_PIXELS",
+        3,
+        raising=False,
+    )
+
+    [prepared_page], prepared_assets, missing = kindle_module.prepare_kindle_assets(
+        [page], [asset], tmp_path / "kindle-assets", []
+    )
+
+    assert prepared_assets == [asset]
+    assert missing == [source_url]
+    assert "layout-profile-scp-6183-symbol" not in prepared_page.xhtml
+    assert "删除标记" in prepared_page.xhtml
+
+
 def test_prepare_kindle_assets_preserves_jpeg_and_animated_gif_bytes(tmp_path: Path):
     assets = []
     original_bytes = {}
@@ -940,6 +1104,30 @@ def test_prepare_kindle_pages_preserves_special_layout_profile_widths():
     )
 
     [prepared] = prepare_kindle_pages([_page(xhtml)])
+
+    assert prepared.xhtml == xhtml
+
+
+def test_prepare_kindle_pages_disables_runtime_rotation_for_scp6183_symbol():
+    xhtml = (
+        '<img class="image layout-profile-scp-6183-symbol" '
+        'src="../assets/rsm.png" style="width: 20%; opacity: 70%" alt="rsm.png"/>'
+    )
+
+    [prepared] = prepare_kindle_pages([_page(xhtml, slug="scp-6183")])
+
+    assert "transform:none" in prepared.xhtml.replace(" ", "")
+    assert "width: 20%" in prepared.xhtml
+    assert "opacity: 70%" in prepared.xhtml
+
+
+def test_prepare_kindle_pages_leaves_scp6183_class_on_other_page_unchanged():
+    xhtml = (
+        '<img class="image layout-profile-scp-6183-symbol" '
+        'src="../assets/rsm.png" style="width: 20%; opacity: 70%" alt="rsm.png"/>'
+    )
+
+    [prepared] = prepare_kindle_pages([_page(xhtml, slug="scp-9999")])
 
     assert prepared.xhtml == xhtml
 

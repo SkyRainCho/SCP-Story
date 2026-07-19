@@ -46,7 +46,7 @@ def test_featured_layout_profiles_leave_unselected_fixture_output_unchanged(prof
     assert "layout-profile-" not in default.xhtml
 
 
-def test_scp6183_layout_profile_stabilizes_image_block_inside_table():
+def test_scp6183_layout_profile_stabilizes_browser_only_intro_and_table_media():
     html = (FEATURED_LAYOUT_FIXTURES / "scp-6183.html").read_text(encoding="utf-8")
 
     result = transform_page(
@@ -56,8 +56,49 @@ def test_scp6183_layout_profile_stabilizes_image_block_inside_table():
         page_options=PageTransformOptions(layout_profile="scp-6183"),
     )
     soup = soup_fragment(result.xhtml)
+    intermission = soup.find(id="intermission")
+    content = soup.find(id="fadeout")
+    symbol_panel = soup.find(id="deletion-symbol")
+    symbol = soup.find(id="rsm")
+    notice = soup.find(id="deletion-notice")
+    classification = soup.find(id="real-classification")
     image_block = soup.find(id="table-image")
 
+    assert intermission is not None
+    assert "admo-intermission_splash" not in intermission.get("class", [])
+    assert "layout-profile-scp-6183-intermission" in intermission["class"]
+    assert "background: #000" in intermission["style"]
+    assert "padding: 2em 1em" in intermission["style"]
+    assert "font-size: 2em" in intermission.select_one(".ctrl")["style"]
+    assert content is not None
+    assert "fadeout-wrapper" not in content.get("class", [])
+    assert "layout-profile-scp-6183-content" in content["class"]
+    assert "layout-profile-scp-6183-symbol-panel" in symbol_panel["class"]
+    assert "background: #000" in symbol_panel["style"]
+    assert "text-align: center" in symbol_panel["style"]
+    assert "layout-profile-scp-6183-symbol" in symbol["class"]
+    assert "width: 20%" in symbol["style"]
+    assert "max-width: 10rem" in symbol["style"]
+    assert "height: auto" in symbol["style"]
+    assert "layout-profile-scp-6183-deletion-notice" not in soup.find(
+        id="unrelated-heading"
+    ).get("class", [])
+    assert "layout-profile-scp-6183-deletion-notice" in notice["class"]
+    assert "background: #000" in notice["style"]
+    assert "font-size: 1.15em" in notice.find("h2")["style"]
+    assert notice.find_next_sibling() is classification
+    assert soup.find(id="hidden-template") is None
+    assert soup.find(id="animation-cover") is None
+    assert "保留的封面说明。" in soup.find(id="legitimate-cover").get_text(
+        " ", strip=True
+    )
+    assert len(soup.select(".anom-bar-container")) == 1
+    assert "SCP-6183" in classification.get_text(" ", strip=True)
+    assert "{$item-number}" not in soup.get_text(" ", strip=True)
+    assert "{$container-class}" not in result.xhtml
+    assert "Item#:" not in soup.get_text(" ", strip=True)
+    assert ".layout-profile-scp-6183-intermission" in result.xhtml
+    assert "transform: rotate(180deg)" in result.xhtml
     assert image_block is not None
     assert "layout-profile-scp-6183-table-image" in image_block["class"]
     assert "float: none" in image_block["style"]
@@ -65,6 +106,37 @@ def test_scp6183_layout_profile_stabilizes_image_block_inside_table():
     assert soup.find(id="table-image").find("img")["style"] == "max-width: 100%; height: auto"
     assert soup.find("iframe") is None
     assert "图像后的表格内容。" in soup.get_text(" ", strip=True)
+
+
+def test_scp6183_layout_profile_does_not_style_all_content_for_direct_notice_heading():
+    html = """
+    <html><body><div id="page-content">
+      <div id="content" class="fadeout-wrapper">
+        <h2 id="notice"><span class="bt">本文档已被标记为待删除</span></h2>
+        <div class="anom-bar-esoteric">
+          <div class="anom-bar-container item-SCP-6183">
+            <span class="number">SCP-6183</span>
+          </div>
+        </div>
+        <p>正文仍使用普通页面样式。</p>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-6183"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(layout_profile="scp-6183"),
+    )
+    soup = soup_fragment(result.xhtml)
+    content = soup.find(id="content")
+    notice = soup.find(id="notice")
+
+    assert "layout-profile-scp-6183-content" in content.get("class", [])
+    assert "layout-profile-scp-6183-deletion-notice" not in content.get("class", [])
+    assert "layout-profile-scp-6183-deletion-notice" in notice.get("class", [])
+    assert "正文仍使用普通页面样式。" in soup.get_text(" ", strip=True)
 
 
 def test_scp4612_layout_profile_stabilizes_right_floated_image_blocks():
@@ -259,6 +331,178 @@ def test_removes_hidden_css_code_with_split_highlight_tokens():
     assert "正文内容" in result.xhtml
 
 
+def test_scp6183_profile_removes_hidden_template_before_style_sanitization():
+    html = """
+    <html><body><div id="page-content">
+      <div id="hidden-template" style="display: none;">
+        <div class="anom-bar-container item-{$item-number}">
+          <span>{$item-number}</span>
+        </div>
+      </div>
+      <p>正文内容</p>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-6183"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(layout_profile="scp-6183"),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="hidden-template") is None
+    assert "{$item-number}" not in result.xhtml
+    assert "正文内容" in result.xhtml
+
+
+def test_scp6183_profile_keeps_hidden_collapsible_around_hidden_template():
+    html = """
+    <html><body><div id="page-content">
+      <div class="fadeout-wrapper">
+        <div class="collapsible-block-unfolded" style="display: none;">
+          <div class="collapsible-block-content">
+            <p>必须保留的折叠正文</p>
+            <div id="hidden-template" style="display: none;">
+              <div class="anom-bar-container item-{$item-number}">
+                <span>{$item-number}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-6183"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(layout_profile="scp-6183"),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert "必须保留的折叠正文" in soup.get_text(" ", strip=True)
+    assert soup.find(id="hidden-template") is None
+    assert "{$item-number}" not in result.xhtml
+
+
+def test_scp6183_profile_keeps_tab_body_while_removing_nested_hidden_template():
+    html = """
+    <html><body><div id="page-content">
+      <div class="fadeout-wrapper">
+        <div class="yui-navset">
+          <ul class="yui-nav"><li class="selected"><a><em>正文标签</em></a></li></ul>
+          <div class="yui-content">
+            <div style="display: none;">
+              <p>必须保留的标签正文</p>
+              <div id="hidden-template" style="display: none;">
+                <div class="anom-bar-container item-{$item-number}">
+                  <span>{$item-number}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-6183"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(layout_profile="scp-6183"),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert "必须保留的标签正文" in soup.get_text(" ", strip=True)
+    assert soup.find(id="hidden-template") is None
+    assert "{$item-number}" not in result.xhtml
+
+
+def test_scp6183_profile_removes_direct_templates_without_dropping_dynamic_panels():
+    html = """
+    <html><body><div id="page-content">
+      <div class="fadeout-wrapper">
+        <div class="collapsible-block-unfolded" style="display: none;">
+          <p>直接折叠正文仍需保留</p>
+          <div class="anom-bar-container item-{$collapsible-item}">
+            <span>{$collapsible-item}</span>
+          </div>
+        </div>
+        <div class="yui-navset">
+          <ul class="yui-nav"><li class="selected"><a><em>直接标签</em></a></li></ul>
+          <div class="yui-content">
+            <div style="display: none;">
+              <p>直接标签正文仍需保留</p>
+              <div class="anom-bar-container item-{$tab-item}">
+                <span>{$tab-item}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-6183"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(layout_profile="scp-6183"),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    text = soup.get_text(" ", strip=True)
+    assert "直接折叠正文仍需保留" in text
+    assert "直接标签正文仍需保留" in text
+    assert "{$collapsible-item}" not in result.xhtml
+    assert "{$tab-item}" not in result.xhtml
+
+
+def test_scp6183_profile_removes_multiple_components_in_one_hidden_wrapper():
+    html = """
+    <html><body><div id="page-content">
+      <div style="display: none;">
+        <div class="anom-bar-container item-{$first-item}">{$first-item}</div>
+        <div class="anom-bar-container item-{$second-item}">{$second-item}</div>
+      </div>
+      <p>正文内容</p>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-6183"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(layout_profile="scp-6183"),
+    )
+
+    assert "正文内容" in result.xhtml
+    assert "{$first-item}" not in result.xhtml
+    assert "{$second-item}" not in result.xhtml
+
+
+def test_keeps_hidden_collapsible_content_with_non_component_placeholder():
+    html = """
+    <html><body><div id="page-content">
+      <div class="collapsible-block">
+        <div class="collapsible-block-unfolded" style="display: none;">
+          <div class="collapsible-block-content">
+            <p>正文运行时参数 {$story-token}</p>
+          </div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    assert "正文运行时参数 {$story-token}" in soup.get_text(" ", strip=True)
+
+
 def test_removes_unfolded_collapsible_links_but_keeps_single_folded_label_and_content():
     html = """
     <html><body><div id="page-content">
@@ -303,6 +547,24 @@ def test_removes_hidden_scp_image_blocks_that_would_become_visible_after_style_s
     assert "numerus_background_header_image.png" not in result.xhtml
     assert "正文内容" in soup.get_text(" ", strip=True)
     assert [img["src"] for img in soup.find_all("img")] == ["https://scp-wiki-cn.wikidot.com/images/visible.png"]
+    assert result.asset_urls == ("https://scp-wiki-cn.wikidot.com/images/visible.png",)
+
+
+def test_does_not_treat_display_block_with_border_none_as_hidden():
+    html = """
+    <html><body><div id="page-content">
+      <div style="display: block; border: none;">
+        <div class="scp-image-block block-right" style="width:300px;">
+          <img src="/images/visible.png" alt="可见图片"/>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find("img", alt="可见图片") is not None
     assert result.asset_urls == ("https://scp-wiki-cn.wikidot.com/images/visible.png",)
 
 

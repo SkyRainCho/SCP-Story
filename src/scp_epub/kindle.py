@@ -135,6 +135,9 @@ _REMOVED_PNG_CHUNKS = frozenset({b"zTXt", b"iCCP"})
 _RASTER_SUFFIXES = frozenset(
     {".bmp", ".gif", ".jpeg", ".jpg", ".png", ".webp"}
 )
+_SCP_6183_SYMBOL_CLASS = "layout-profile-scp-6183-symbol"
+_SCP_6183_SYMBOL_MAX_PIXELS = 2048 * 2048
+_SCP_6183_SYMBOL_VARIANT = "scp6183-symbol"
 _SVG_LANDSCAPE_WIDTH = 1400
 _SVG_PORTRAIT_HEIGHT = 1600
 
@@ -148,10 +151,13 @@ def prepare_kindle_assets(
     """Validate and normalize raster assets for Calibre's AZW3 writer."""
     prepared_assets: list[AssetRef] = []
     href_replacements: dict[str, str] = {}
+    scp6183_symbol_replacements: dict[str, str] = {}
     invalid_hrefs: set[str] = set()
+    invalid_scp6183_symbol_hrefs: set[str] = set()
     merged_missing = list(missing_assets)
     seen_missing = set(merged_missing)
     expected_image_hrefs = _expected_image_hrefs(pages)
+    opaque_rotated_hrefs = _scp6183_symbol_hrefs(pages)
 
     for asset in assets:
         prepared = _prepare_kindle_asset(
@@ -169,8 +175,31 @@ def prepare_kindle_assets(
         if prepared.href != asset.href:
             href_replacements[asset.href] = prepared.href
 
+        if asset.href not in opaque_rotated_hrefs:
+            continue
+        symbol_variant = _prepare_kindle_asset(
+            asset,
+            output_dir,
+            expects_image=True,
+            opaque_black_rotation=True,
+        )
+        if symbol_variant is None:
+            invalid_scp6183_symbol_hrefs.add(asset.href)
+            if asset.source_url not in seen_missing:
+                seen_missing.add(asset.source_url)
+                merged_missing.append(asset.source_url)
+            continue
+        prepared_assets.append(symbol_variant)
+        scp6183_symbol_replacements[asset.href] = symbol_variant.href
+
     prepared_pages = [
-        _rewrite_kindle_asset_references(page, href_replacements, invalid_hrefs)
+        _rewrite_kindle_asset_references(
+            page,
+            href_replacements,
+            invalid_hrefs,
+            scp6183_symbol_replacements=scp6183_symbol_replacements,
+            invalid_scp6183_symbol_hrefs=invalid_scp6183_symbol_hrefs,
+        )
         for page in pages
     ]
     return prepared_pages, prepared_assets, merged_missing
@@ -181,6 +210,7 @@ def _prepare_kindle_asset(
     output_dir: Path,
     *,
     expects_image: bool = False,
+    opaque_black_rotation: bool = False,
 ) -> AssetRef | None:
     try:
         data = asset.path.read_bytes()
@@ -203,8 +233,29 @@ def _prepare_kindle_asset(
             rendered = _render_svg_png(data, svg_root)
             if rendered is None:
                 return None
+            if opaque_black_rotation:
+                rendered = _render_opaque_black_rotated_png(rendered)
+                if rendered is None:
+                    return None
+                return _write_prepared_png(
+                    asset,
+                    output_dir,
+                    rendered,
+                    variant=_SCP_6183_SYMBOL_VARIANT,
+                )
             return _write_prepared_png(asset, output_dir, rendered)
         return None if expects_raster else asset
+
+    if opaque_black_rotation:
+        rendered = _render_opaque_black_rotated_png(data)
+        if rendered is None:
+            return None
+        return _write_prepared_png(
+            asset,
+            output_dir,
+            rendered,
+            variant=_SCP_6183_SYMBOL_VARIANT,
+        )
 
     if raster_format in {"jpeg", "gif"}:
         if not _pillow_verifies(data):
@@ -250,10 +301,17 @@ def _prepare_kindle_asset(
     return None
 
 
-def _write_prepared_png(asset: AssetRef, output_dir: Path, data: bytes) -> AssetRef:
+def _write_prepared_png(
+    asset: AssetRef,
+    output_dir: Path,
+    data: bytes,
+    *,
+    variant: str | None = None,
+) -> AssetRef:
     digest = hashlib.sha256(asset.source_url.encode("utf-8")).hexdigest()[:12]
     stem = Path(asset.href).stem or "image"
-    filename = f"{stem}-{digest}.png"
+    variant_suffix = f"-{variant}" if variant else ""
+    filename = f"{stem}-{digest}{variant_suffix}.png"
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / filename
     output_path.write_bytes(data)
@@ -658,6 +716,27 @@ def _expected_image_hrefs(pages: Sequence[ProcessedPage]) -> set[str]:
     return hrefs
 
 
+def _scp6183_symbol_hrefs(pages: Sequence[ProcessedPage]) -> set[str]:
+    hrefs: set[str] = set()
+    for page in pages:
+        if page.entry.slug != "scp-6183":
+            continue
+        parser = _parse_asset_references(page.xhtml)
+        if parser is None:
+            continue
+        for element in parser.elements:
+            if element.tag != "img":
+                continue
+            attrs = dict(element.attrs)
+            classes = set(str(attrs.get("class") or "").split())
+            if _SCP_6183_SYMBOL_CLASS not in classes:
+                continue
+            href = _local_asset_href(attrs.get("src"))
+            if href is not None:
+                hrefs.add(href)
+    return hrefs
+
+
 def _parse_asset_references(xhtml: str) -> _AssetReferenceParser | None:
     parser = _AssetReferenceParser(xhtml)
     try:
@@ -691,8 +770,18 @@ def _rewrite_kindle_asset_references(
     page: ProcessedPage,
     href_replacements: dict[str, str],
     invalid_hrefs: set[str],
+    *,
+    scp6183_symbol_replacements: dict[str, str] | None = None,
+    invalid_scp6183_symbol_hrefs: set[str] | None = None,
 ) -> ProcessedPage:
-    if not href_replacements and not invalid_hrefs:
+    symbol_replacements = scp6183_symbol_replacements or {}
+    invalid_symbol_hrefs = invalid_scp6183_symbol_hrefs or set()
+    if (
+        not href_replacements
+        and not invalid_hrefs
+        and not symbol_replacements
+        and not invalid_symbol_hrefs
+    ):
         return page
 
     parser = _parse_asset_references(page.xhtml)
@@ -704,14 +793,27 @@ def _rewrite_kindle_asset_references(
         attrs = dict(element.attrs)
         attribute = ASSET_ATTRIBUTES.get(element.tag)
         asset_href = _local_asset_href(attrs.get(attribute)) if attribute else None
-        if asset_href in invalid_hrefs:
+        classes = set(str(attrs.get("class") or "").split())
+        is_scp6183_symbol = (
+            page.entry.slug == "scp-6183"
+            and element.tag == "img"
+            and _SCP_6183_SYMBOL_CLASS in classes
+        )
+        if asset_href in invalid_hrefs or (
+            is_scp6183_symbol and asset_href in invalid_symbol_hrefs
+        ):
             edits.extend(_invalid_asset_edits(element, attrs, page.xhtml))
             continue
-        if asset_href in href_replacements and attribute is not None:
+        replacement = (
+            symbol_replacements.get(asset_href)
+            if is_scp6183_symbol
+            else href_replacements.get(asset_href)
+        )
+        if replacement is not None and attribute is not None:
             raw_tag = _replace_attribute_value(
                 raw_tag,
                 attribute,
-                f"../{href_replacements[asset_href]}",
+                f"../{replacement}",
             )
 
         style = attrs.get("style")
@@ -905,10 +1007,19 @@ def load_kindle_css() -> str:
 
 
 def prepare_kindle_pages(pages: Sequence[ProcessedPage]) -> list[ProcessedPage]:
-    return [replace(page, xhtml=_prepare_kindle_xhtml(page.xhtml)) for page in pages]
+    return [
+        replace(
+            page,
+            xhtml=_prepare_kindle_xhtml(
+                page.xhtml,
+                page_slug=page.entry.slug,
+            ),
+        )
+        for page in pages
+    ]
 
 
-def _prepare_kindle_xhtml(xhtml: str) -> str:
+def _prepare_kindle_xhtml(xhtml: str, *, page_slug: str) -> str:
     parser = _XhtmlStructureParser(xhtml)
     try:
         parser.feed(xhtml)
@@ -918,14 +1029,24 @@ def _prepare_kindle_xhtml(xhtml: str) -> str:
 
     edits: list[tuple[int, int, str]] = []
     for element in parser.elements:
-        width_mode = _kindle_component_width_mode(element)
-        if width_mode is None:
-            continue
         raw_start_tag = xhtml[element.start_tag_start : element.start_tag_end]
-        prepared_start_tag = _normalize_fixed_pixel_width(
-            raw_start_tag,
-            convert_to_percentage=width_mode == "percentage",
-        )
+        prepared_start_tag = raw_start_tag
+        if (
+            page_slug == "scp-6183"
+            and element.tag == "img"
+            and _SCP_6183_SYMBOL_CLASS in element.classes
+        ):
+            prepared_start_tag = _set_inline_style_declaration(
+                prepared_start_tag,
+                "transform",
+                "none",
+            )
+        width_mode = _kindle_component_width_mode(element)
+        if width_mode is not None:
+            prepared_start_tag = _normalize_fixed_pixel_width(
+                prepared_start_tag,
+                convert_to_percentage=width_mode == "percentage",
+            )
         if prepared_start_tag != raw_start_tag:
             edits.append(
                 (
@@ -1014,6 +1135,31 @@ def _kindle_component_width_mode(element: _HtmlElement) -> str | None:
     return None
 
 
+def _render_opaque_black_rotated_png(data: bytes) -> bytes | None:
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(io.BytesIO(data)) as image:
+                image.seek(0)
+                if image.width * image.height > _SCP_6183_SYMBOL_MAX_PIXELS:
+                    return None
+                image.load()
+                rotated = image.convert("RGBA").transpose(Image.Transpose.ROTATE_180)
+                opaque = Image.new("RGB", rotated.size, (0, 0, 0))
+                opaque.paste(rotated.convert("RGB"), mask=rotated.getchannel("A"))
+                output = io.BytesIO()
+                opaque.save(output, format="PNG")
+    except (
+        OSError,
+        UnidentifiedImageError,
+        ValueError,
+        Image.DecompressionBombError,
+        Image.DecompressionBombWarning,
+    ):
+        return None
+    return output.getvalue()
+
+
 def _normalize_fixed_pixel_width(
     raw_start_tag: str,
     *,
@@ -1062,6 +1208,45 @@ def _normalize_fixed_pixel_width(
         return raw_start_tag[:attribute_start] + raw_start_tag[attribute_end:]
 
     return raw_start_tag[:css_start] + prepared_css + raw_start_tag[css_end:]
+
+
+def _set_inline_style_declaration(
+    raw_start_tag: str,
+    property_name: str,
+    value: str,
+) -> str:
+    style_spans = _find_attribute_value_spans(raw_start_tag, "style")
+    if style_spans is None:
+        closing_start = raw_start_tag.rfind("/>")
+        if closing_start < 0:
+            closing_start = raw_start_tag.rfind(">")
+        if closing_start < 0:
+            return raw_start_tag
+        return (
+            raw_start_tag[:closing_start]
+            + f' style="{property_name}: {value}"'
+            + raw_start_tag[closing_start:]
+        )
+
+    _attribute_start, _attribute_end, css_start, css_end = style_spans
+    declarations = tinycss2.parse_declaration_list(
+        raw_start_tag[css_start:css_end],
+        skip_comments=False,
+        skip_whitespace=False,
+    )
+    kept = [
+        declaration
+        for declaration in declarations
+        if not (
+            declaration.type == "declaration"
+            and declaration.lower_name == property_name.casefold()
+        )
+    ]
+    prepared_css = tinycss2.serialize(kept).strip()
+    if prepared_css and not prepared_css.endswith(";"):
+        prepared_css += ";"
+    prepared_css += f" {property_name}: {value}"
+    return raw_start_tag[:css_start] + prepared_css.strip() + raw_start_tag[css_end:]
 
 
 def _find_attribute_value_spans(

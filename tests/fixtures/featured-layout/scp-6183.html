@@ -3,24 +3,61 @@
     <style>
       .wide-report { border: 1px solid #333; }
       .scp-image-block { border-bottom-color: rgb(30, 30, 30); }
+      .admo-intermission_splash {
+        display: flex;
+        justify-content: center;
+        height: calc(100vh - var(--header-final-height));
+      }
+      .admo-intermission_splash .ctrl { font-size: 8vw; }
+      .fadeout-wrapper { position: relative; overflow: hidden; }
     </style>
   </head>
   <body>
     <div id="page-content">
-      <p>站点调查记录。</p>
-      <table class="wide-report">
-        <tr>
-          <td>
-            <div id="table-image" class="scp-image-block block-left" style="width:200px;">
-              <img class="image" src="/local--files/scp-6183/hall1.png" alt="hall1.png" />
-              <div class="scp-image-caption"><p>[已删除]</p></div>
+      <div id="intermission" class="admo-intermission_splash">
+        <div>
+          <p><span class="cond">幕间：</span></p>
+          <p><span class="ctrl">黑色匣子</span></p>
+        </div>
+      </div>
+      <div id="fadeout" class="fadeout-wrapper">
+        <h2 id="unrelated-heading">普通章节标题</h2>
+        <div id="deletion-symbol" class="image-container aligncenter">
+          <img id="rsm" class="image" src="/local--files/scp-6183/rsm.png"
+               style="width: 10rem; transform: rotate(180deg); opacity: 70%;" alt="rsm.png" />
+        </div>
+        <div id="deletion-notice" style="text-align: center;">
+          <h2><span class="bt">本文档已被标记为待删除</span></h2>
+        </div>
+        <p><span> </span></p>
+        <p><span> </span></p>
+        <div id="real-classification" class="anom-bar-esoteric">
+          <div class="anom-bar-container item-SCP-6183 clear-5 keter radix infrared cryptic">
+            <div class="top-left-box"><span class="number">SCP-6183</span></div>
+          </div>
+          <div id="hidden-template" style="display: none;">
+            <div class="anom-bar-container item-{$item-number} clear-5 {$container-class}">
+              <div class="top-left-box"><span class="number">{$item-number}</span></div>
             </div>
-            <p>图像后的表格内容。</p>
-          </td>
-        </tr>
-      </table>
-      <p>调查记录继续。</p>
-      <iframe src="/scp-6183/html/component"></iframe>
+          </div>
+        </div>
+        <p>站点调查记录。</p>
+        <table class="wide-report">
+          <tr>
+            <td>
+              <div id="table-image" class="scp-image-block block-left" style="width:200px;">
+                <img class="image" src="/local--files/scp-6183/hall1.png" alt="hall1.png" />
+                <div class="scp-image-caption"><p>[已删除]</p></div>
+              </div>
+              <p>图像后的表格内容。</p>
+            </td>
+          </tr>
+        </table>
+        <p>调查记录继续。</p>
+        <div id="legitimate-cover" class="cover"><p>保留的封面说明。</p></div>
+        <iframe src="/scp-6183/html/component"></iframe>
+        <div id="animation-cover" class="cover"></div>
+      </div>
     </div>
   </body>
 </html>
