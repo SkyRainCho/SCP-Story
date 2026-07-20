@@ -67,7 +67,7 @@ scripts/setup-rocky.sh --help
 6. 项目依赖：`pip install -e ".[dev]"`（含 pytest）。
 7. 自检：
    - `python --version` 命中 3.11+；
-   - `python -c "import lxml, PIL, resvg, ebooklib, bs4, httpx, tinycss2, yaml"` 全部成功；
+   - `python -c "import lxml, PIL, resvg_py, ebooklib, bs4, httpx, tinycss2, yaml"` 全部成功；
    - `which ebook-convert`：找到则提示 Kindle 构建可用；找不到则提示参见 README 的 Calibre 安装段。
 8. 收尾：打印下一步指引（`source .venv/bin/activate`、`pytest -q`、`python -m scp_epub ...`）。
 9. WSL PATH 提示：检测到 PATH 含 `/mnt/c/` 时打印一行提醒，不清理。

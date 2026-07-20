@@ -141,8 +141,9 @@ pip install -e ".[dev]"
 info "Self-check"
 python -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' \
   || fail "Python in venv is not 3.11+."
-python -c "import lxml, PIL, resvg, ebooklib, bs4, httpx, tinycss2, yaml" \
-  && ok "All required modules importable."
+python -c "import lxml, PIL, resvg_py, ebooklib, bs4, httpx, tinycss2, yaml" \
+  || fail "Required Python modules not importable; run 'pip install -e .[dev]' first."
+ok "All required modules importable."
 
 if command -v ebook-convert >/dev/null 2>&1; then
   ok "Calibre ebook-convert found; Kindle builds (--kindle) are available."
