@@ -1034,6 +1034,43 @@ def test_uses_page_defined_anomaly_icons_and_marks_only_filled_diamond_slots():
     )
 
 
+def test_skips_acs_placeholder_icon_url_when_extracting_page_defined_icons():
+    html = """
+    <html><head><style>
+      .anom-bar-container.{$secondary-class} .main-class::after {
+        background-image: url("https://example.com/acs-image.svg");
+      }
+    </style></head><body><div id="page-content">
+      <div class="anom-bar-container item-999 clear-2 euclid beta">
+        <div class="main-class">
+          <div class="contain-class"><div class="class-text">euclid</div></div>
+          <div class="second-class"><div class="class-text">beta</div></div>
+        </div>
+        <div class="danger-diamond"><div class="top-icon"></div></div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-999"), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.select_one(".second-class img.anomaly-field-icon") is None
+    assert "https://example.com/acs-image.svg" not in result.asset_urls
+
+
+def test_normalizes_malformed_wikidot_image_width_markup_before_recording_asset():
+    image_url = "https://upload.wikimedia.org/example.jpg?20090322065751"
+    html = f'''<html><body><div id="page-content">
+      <img src="{image_url}="width:100%"" alt="example"/>
+    </div></body></html>'''
+
+    result = transform_page(page_ref("scp-999"), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find("img", alt="example")["src"] == image_url
+    assert result.asset_urls == (image_url,)
+
+
 def test_materializes_pending_anomaly_icon_for_chinese_alias():
     html = """
     <html><body><div id="page-content">

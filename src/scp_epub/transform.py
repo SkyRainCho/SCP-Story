@@ -99,6 +99,10 @@ CSS_BACKGROUND_IMAGE_URL_RE = re.compile(
     r"""background-image\s*:\s*url\(\s*(?:"(?P<double>[^"]+)"|'(?P<single>[^']+)'|(?P<bare>[^)\s]+))\s*\)""",
     re.IGNORECASE,
 )
+MALFORMED_WIKIDOT_IMG_WIDTH_ATTRIBUTE_RE = re.compile(
+    r'''width:(?:\d+(?:\.\d+)?(?:%|px|em|rem|vw|vh)?)?["']*''',
+    re.IGNORECASE,
+)
 CSS_ESCAPED_CHAR_RE = re.compile(r"\\(?P<escape>[0-9a-fA-F]{1,6}\s?|.)", re.DOTALL)
 CSS_PSEUDO_RE = re.compile(r"::?[a-zA-Z-]+(?:\([^)]*\))?")
 CSS_CLASS_SELECTOR_RE = re.compile(r"\.([_a-zA-Z][-_a-zA-Z0-9]*)")
@@ -137,6 +141,7 @@ ANOMALY_CLEARANCE_LABELS = {
 ANOMALY_ICON_BASE_URL = (
     "https://scp-wiki.wdfiles.com/local--files/component%3Aanomaly-class-bar"
 )
+ACS_ANOMALY_ICON_PLACEHOLDER_URL = "https://example.com/acs-image.svg"
 ANOMALY_ICON_NAMES = {
     "safe": "safe",
     "euclid": "euclid",
@@ -759,6 +764,7 @@ def _normalize_assets(page_content: Tag, base_url: str, asset_urls: list[str], s
         raw_url = tag.get(attribute)
         if not isinstance(raw_url, str):
             continue
+        raw_url = _normalize_malformed_wikidot_img_src(tag, raw_url)
 
         if _should_ignore_url(raw_url):
             tag.attrs.pop(attribute, None)
@@ -770,6 +776,24 @@ def _normalize_assets(page_content: Tag, base_url: str, asset_urls: list[str], s
             continue
 
         _append_once(asset_urls, seen_assets, normalized)
+
+
+def _normalize_malformed_wikidot_img_src(tag: Tag, raw_url: str) -> str:
+    if tag.name != "img" or not raw_url.endswith("="):
+        return raw_url
+
+    malformed_attributes = [
+        name
+        for name in tag.attrs
+        if isinstance(name, str)
+        and MALFORMED_WIKIDOT_IMG_WIDTH_ATTRIBUTE_RE.fullmatch(name) is not None
+    ]
+    if not malformed_attributes:
+        return raw_url
+
+    for name in malformed_attributes:
+        del tag.attrs[name]
+    return raw_url[:-1]
 
 
 def _normalize_links(
@@ -1203,6 +1227,8 @@ def _anomaly_icon_urls_from_styles(
             ):
                 continue
             normalized_url = normalize_url(base_url, raw_url)
+            if normalized_url == ACS_ANOMALY_ICON_PLACEHOLDER_URL:
+                continue
             for selector in rule.group("selectors").split(","):
                 field_class = _anomaly_field_class_for_selector(selector)
                 if field_class is None:
