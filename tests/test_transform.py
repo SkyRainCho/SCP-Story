@@ -1,15 +1,79 @@
 from pathlib import Path
 
 import pytest
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Comment
 
 from scp_epub.models import InlineDocumentSpec, PageRef, ProcessedPage
+from scp_epub.page_fallbacks import snapshot_layout_signature
 from scp_epub.transform import PageTransformOptions, insert_inline_fragments, transform_page
 
 
 FIXTURE = Path(__file__).parent / "fixtures" / "page_sample.html"
 FEATURED_LAYOUT_FIXTURES = Path(__file__).parent / "fixtures" / "featured-layout"
 BASE_URL = "https://scp-wiki-cn.wikidot.com/scp-999"
+FEATURED_TRANSLATIONS = Path(__file__).parents[1] / "translations" / "featured"
+
+
+@pytest.mark.parametrize(
+    (
+        "slug",
+        "markers",
+        "style_count",
+        "image_count",
+        "table_count",
+        "collapsible_count",
+        "layout_signature",
+    ),
+    [
+        (
+            "scp-4846",
+            ("SCP-4846 - 友善化石", "项目编号", "特殊收容措施", "个体编号"),
+            3,
+            10,
+            0,
+            1,
+            "ab2df0fa2b02c15b4756d308047108ef838e1e17b7287b0054588c8438601f88",
+        ),
+        (
+            "scp-8304",
+            ("SCP-8304 - 现代安慰", "《蝴蝶之卵》（The Butterfly's Egg）", "测试记录", "访谈目的"),
+            4,
+            0,
+            1,
+            1,
+            "d2f7ea2ba00e16bc329e1805f7589e64762c7bdd5f64bd7f2b26508565cb4217",
+        ),
+    ],
+)
+def test_featured_translation_snapshots_preserve_source_layout_without_site_chrome(
+    slug: str,
+    markers: tuple[str, ...],
+    style_count: int,
+    image_count: int,
+    table_count: int,
+    collapsible_count: int,
+    layout_signature: str,
+):
+    html = (FEATURED_TRANSLATIONS / f"{slug}.zh-CN.html").read_text(encoding="utf-8")
+    soup = BeautifulSoup(html, "html.parser")
+
+    assert soup.find(
+        string=lambda text: isinstance(text, Comment) and "source-language: en" in text
+    ) is not None
+    assert all(marker in html for marker in markers)
+    assert len(soup.find_all("style")) == style_count
+    assert len(soup.select("#page-content")) == 1
+    page_content = soup.select_one("#page-content")
+    assert page_content is not None
+    assert len(page_content.find_all("img")) == image_count
+    assert len(page_content.find_all("table")) == table_count
+    assert len(page_content.select(".collapsible-block")) == collapsible_count
+    assert page_content.find("script") is None
+    assert soup.find(id="header") is None
+    assert soup.find(id="side-bar") is None
+    assert soup.find(id="footer") is None
+    assert soup.find(id="page-options-container") is None
+    assert snapshot_layout_signature(html) == layout_signature
 
 
 def page_ref(slug: str = "scp-999") -> PageRef:

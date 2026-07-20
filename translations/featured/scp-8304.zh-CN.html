@@ -1,0 +1,2241 @@
+<!-- source-language: en; source-url: https://scp-wiki.wikidot.com/scp-8304; translated-title: SCP-8304 - 现代安慰 -->
+<style id="internal-style" type="text/css">
+        
+        /* modules */
+@import url(https://d3g0gp89917ko0.cloudfront.net/v--7690939296dc/common--modules/css/pagerate/PageRateWidgetModule.css);
+
+
+        
+                
+        /* theme */
+                    @import url(https://d3g0gp89917ko0.cloudfront.net/v--7690939296dc/common--theme/base/css/style.css);
+                    @import url(https://cdn.scpwiki.com/theme/en/sigma/css/sigma.min.css);
+            </style>
+<style>
+.hide-ios-cache-issue-notification {
+  width: fit-content;
+  margin-left: 2em;
+}
+
+.ios-cache-issue-notification:has(.hide-ios-cache-issue-notification .collapsible-block-unfolded:not([style*="none"])) {
+  display: none;
+}
+
+.ios-cache-issue-notification a:not(.collapsible-block-link) {
+  text-decoration: underline;
+}
+
+.ios-cache-issue-notification .code {
+  background-color: #fffafa;
+  border-radius: 10px;
+  border: 1px solid #f00;
+}
+
+.ios-cache-issue-notification {
+  line-height: 1.5;
+  position: fixed;
+  top: 65px;
+  left: 10px;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 0 5px black;
+  border: 1px solid red;
+  font-size: 125%;
+  color: black;
+  background-color: #fee;
+  z-index: 999999999;
+  width: calc(100vw - 70px);
+  clear: none;
+  max-height: calc(100vh - 130px);
+  overflow: auto;
+  animation: ios-cache-issue-notification-fadein 0.5s;
+  animation-delay: 2s;
+  animation-fill-mode: both;
+  max-width: 40em;
+}
+
+@keyframes ios-cache-issue-notification-fadein {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.ios-cache-issue-notification a {
+  color: #b01 !important;
+}
+</style>
+<style>
+iframe.scpnet-interwiki-frame { height: 0; }
+
+/* Forcibly change name of AHT banned user. */
+a[href*="user:info/adminbright"] {
+  font-size: 0;
+}
+
+a[href*="user:info/adminbright"]::before {
+    content: 'TheDuckMan';
+    font-size: .95rem;
+}
+
+a[href*="user:info/adminbright"]:nth-child(1) img {
+  display: none
+}
+
+a[href*="user:info/adminbright"]:nth-child(1)::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  background-image: url(https://05command.wdfiles.com/local--files/theme%3Asite/default_avatar.png), url(https://05command.wdfiles.com/local--files/theme%3Asite/karmabar.png);
+  display: inline-block;
+  background-size: contain;
+  vertical-align: -0.3em;
+  padding: 1px 9px 1px 8px;
+  background-repeat: no-repeat;
+  background-position-x: 8px, 0;
+}
+</style>
+<style>
+@import url('https://cdn.jsdelivr.net/gh/Nu-SCPTheme/Black-Highlighter@gh-pages/fonts/inter.css');
+
+:root {
+    --five-color: 196,2,51;
+    --four-color: 255,109,0;
+    --three-color: 255,211,0;
+    --two-color: 0,135,189;
+    --one-color: 0,159,107;
+}
+
+#page-title,
+.meta-title {
+    display: none;
+}
+
+.anom-bar-container,
+.anom-bar-container * {
+    -webkit-box-sizing: border-box;
+       -moz-box-sizing: border-box;
+            box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+    font-family: Inter, sans-serif;
+    font-family: var(--title-font, Inter, sans-serif);
+}
+
+.anom-bar-container {
+    width: 100%;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    position: relative;
+}
+
+hr + .anom-bar-container, 
+.anom-bar-container:not(first-child) {
+    padding-top: 1em;
+}
+
+.anom-bar {
+    display: -ms-grid;
+    display: grid;
+            grid-template-areas:
+        "top-box"
+        "bottom-box";
+    width: 100%;
+}
+
+.anom-bar > .top-box {
+    --wght: 600;
+    -ms-grid-row: 1;
+    -ms-grid-column: 1;
+    display: -ms-grid;
+    display: grid;
+    grid-area: top-box;
+    grid-template-areas:
+        "top-left-box top-center-box top-right-box";
+    width: 100%;
+        -ms-grid-columns: auto 1fr calc(5vw + 5rem);
+    grid-template-columns: auto 1fr -webkit-calc(5vw + 5rem);
+    grid-template-columns: auto 1fr -moz-calc(5vw + 5rem);
+    grid-template-columns: auto 1fr calc(5vw + 5rem);
+    -ms-grid-rows: 1fr;
+    grid-template-rows: 1fr;
+    font-weight: 600;
+    text-transform: uppercase;
+    justify-items: stretch;
+    padding-bottom: 1rem;
+}
+
+.top-box .top-left-box {
+    -ms-grid-row: 1;
+    -ms-grid-column: 1;
+    grid-area: top-left-box;
+}
+
+.top-left-box > .item {
+    font-size: -webkit-calc(12px + (20 - 12) * ( (100vw - 300px) / ( 1920 - 960) ));
+    font-size: -moz-calc(12px + (20 - 12) * ( (100vw - 300px) / ( 1920 - 960) ));
+    font-size: calc(12px + (20 - 12) * ( (100vw - 300px) / ( 1920 - 960) ));
+}
+
+.top-left-box > .number {
+    font-size: -webkit-calc(25px + (50 - 25) * ( (100vw - 300px) / ( 1920 - 300) ));
+    font-size: -moz-calc(25px + (50 - 25) * ( (100vw - 300px) / ( 1920 - 300) ));
+    font-size: calc(25px + (50 - 25) * ( (100vw - 300px) / ( 1920 - 300) ));
+}
+
+.top-box .top-center-box {
+    -ms-grid-row: 1;
+    -ms-grid-column: 2;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    grid-area: top-center-box;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -webkit-flex-direction: column;
+       -moz-box-orient: vertical;
+       -moz-box-direction: normal;
+        -ms-flex-direction: column;
+            flex-direction: column;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+       -moz-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    -webkit-box-pack: center;
+    -webkit-justify-content: center;
+       -moz-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+    height: 100%;
+    margin: 0 1rem;
+}
+
+.top-center-box > div {
+    background-color: rgb(0,0,0);
+    height: 0.5rem;
+    width: 100%;
+    margin: 0.125rem;
+    display: none;
+}
+
+.anom-bar-container.american .top-center-box > div {
+    background-image: 
+    -webkit-repeating-linear-gradient(65deg, 
+        rgb(178,34,52),
+        rgb(252,252,252) 45%,
+        rgb(252,252,252) 55%,
+        rgb(60,59,110) 100%);
+    background-image: 
+    -moz-repeating-linear-gradient(65deg, 
+        rgb(178,34,52),
+        rgb(252,252,252) 45%,
+        rgb(252,252,252) 55%,
+        rgb(60,59,110) 100%);
+    background-image: 
+    -o-repeating-linear-gradient(65deg, 
+        rgb(178,34,52),
+        rgb(252,252,252) 45%,
+        rgb(252,252,252) 55%,
+        rgb(60,59,110) 100%);
+    background-image: 
+    repeating-linear-gradient(25deg, 
+        rgb(178,34,52),
+        rgb(252,252,252) 45%,
+        rgb(252,252,252) 55%,
+        rgb(60,59,110) 100%);
+    background-attachment: scroll;
+}
+
+.anom-bar-container.clear-1 .top-center-box > div {
+    background-color: rgb(0,159,107);
+    background-color: rgb(var(--one-color));
+}
+
+.anom-bar-container.clear-2 .top-center-box > div {
+    background-color: rgb(0,135,189);
+    background-color: rgb(var(--two-color));
+}
+
+.anom-bar-container.clear-3 .top-center-box > div {
+    background-color: rgb(255,211,0);
+    background-color: rgb(var(--three-color));
+}
+
+.anom-bar-container.clear-4 .top-center-box > div {
+    background-color: rgb(255,109,0);
+    background-color: rgb(var(--four-color));
+}
+
+.anom-bar-container.clear-5 .top-center-box > div {
+    background-color: rgb(196,2,51);
+    background-color: rgb(var(--five-color));
+}
+
+.anom-bar-container.clear-1 .top-center-box > .bar-one,
+.anom-bar-container.clear-2 .top-center-box > .bar-one,
+.anom-bar-container.clear-3 .top-center-box > .bar-one,
+.anom-bar-container.clear-4 .top-center-box > .bar-one,
+.anom-bar-container.clear-5 .top-center-box > .bar-one,
+.anom-bar-container.clear-6 .top-center-box > .bar-one {
+    display: block;
+}
+
+.anom-bar-container.clear-2 .top-center-box > .bar-two,
+.anom-bar-container.clear-3 .top-center-box > .bar-two,
+.anom-bar-container.clear-4 .top-center-box > .bar-two,
+.anom-bar-container.clear-5 .top-center-box > .bar-two,
+.anom-bar-container.clear-6 .top-center-box > .bar-two {
+    display: block;
+}
+
+.anom-bar-container.clear-3 .top-center-box > .bar-three,
+.anom-bar-container.clear-4 .top-center-box > .bar-three,
+.anom-bar-container.clear-5 .top-center-box > .bar-three,
+.anom-bar-container.clear-6 .top-center-box > .bar-three {
+    display: block;
+}
+
+.anom-bar-container.clear-4 .top-center-box > .bar-four,
+.anom-bar-container.clear-5 .top-center-box > .bar-four,
+.anom-bar-container.clear-6 .top-center-box > .bar-four {
+    display: block;
+}
+
+.anom-bar-container.clear-5 .top-center-box > .bar-five,
+.anom-bar-container.clear-6 .top-center-box > .bar-five {
+    display: block;
+}
+
+.anom-bar-container.clear-6 .top-center-box > .bar-six {
+    display: block;
+}
+
+.anom-bar-container.clear-6 .anom-bar > .top-box {
+    -ms-grid-columns: auto 1fr calc(5vw + 8rem);
+    grid-template-columns: auto 1fr -webkit-calc(5vw + 8rem);
+    grid-template-columns: auto 1fr -moz-calc(5vw + 8rem);
+    grid-template-columns: auto 1fr calc(5vw + 8rem);
+    padding-bottom: 1.15em;
+}
+
+.anom-bar-container.clear-6 .top-center-box > div {
+    background-color: rgb(133, 0, 5);
+    background-color: rgb(var(--swatch-primary, 133, 0, 5));
+    background-image: url("https://scp-wiki.wdfiles.com/local--files/component%3Aanomaly-class-bar/galactic.jpg");
+    background-attachment: fixed;
+    background-size: contain;
+    background-blend-mode: overlay;
+}
+
+.top-box .top-right-box {
+    -ms-grid-row: 1;
+    -ms-grid-column: 3;
+    display: -ms-grid;
+    display: grid;
+    grid-area: top-right-box;
+            grid-template-areas:
+        "level"
+        "clearance";
+    -ms-grid-rows: (1fr)[2];
+    grid-template-rows: repeat(2, 1fr);
+    grid-gap: 0.5em;
+    gap: 0.5em;
+}
+
+.top-right-box > .level {
+    -ms-grid-row: 1;
+    -ms-grid-column: 1;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: end;
+    -webkit-align-items: flex-end;
+       -moz-box-align: end;
+        -ms-flex-align: end;
+            align-items: flex-end;
+    grid-area: level;
+    font-size: 2.5em;
+    line-height: 0.5;
+}
+
+.top-right-box > .clearance {
+    -ms-grid-row: 2;
+    -ms-grid-column: 1;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: start;
+    -webkit-align-items: flex-start;
+       -moz-box-align: start;
+        -ms-flex-align: start;
+            align-items: flex-start;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    grid-area: clearance;
+    font-size: -webkit-calc(12px + (15 - 12) * ( (100vw - 400px) / ( 1920 - 960) ));
+    font-size: -moz-calc(12px + (15 - 12) * ( (100vw - 400px) / ( 1920 - 960) ));
+    font-size: calc(12px + (15 - 12) * ( (100vw - 400px) / ( 1920 - 960) ));
+    line-height: 1.5;
+    white-space: nowrap;
+}
+
+.top-right-box > .clearance::before {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.anom-bar-container.clear-6 .top-right-box > .clearance::before {
+    content: "宇宙绝密";
+}
+
+.anom-bar-container.clear-5 .top-right-box > .clearance::before {
+    content: "最高机密";
+}
+
+.anom-bar-container.clear-4 .top-right-box > .clearance::before {
+    content: "机密";
+}
+
+.anom-bar-container.clear-3 .top-right-box > .clearance::before {
+    content: "保密";
+}
+
+.anom-bar-container.clear-2 .top-right-box > .clearance::before {
+    content: "限制";
+}
+
+.anom-bar-container.clear-1 .top-right-box > .clearance::before {
+    content: "无限制";
+}
+
+.anom-bar > .bottom-box {
+    --wght: 600;
+    -ms-grid-row: 2;
+    -ms-grid-column: 1;
+    display: -ms-grid;
+    display: grid;
+    grid-area: bottom-box;
+            grid-template-areas:
+        "text-part diamond-part"
+        "text-part diamond-part";
+    -ms-grid-rows: 1fr 0.5rem 1fr;
+    grid-template-rows: 1fr 1fr;
+    -ms-grid-columns: 1fr 0.5rem 6rem;
+    grid-template-columns: 1fr 6rem;
+    grid-gap: 0.5rem;
+    width: 100%; 
+    height: 6rem;
+    font-weight: 600;
+    -webkit-box-shadow: 0 -0.5rem 0 0 rgb(12, 12, 12);
+       -moz-box-shadow: 0 -0.5rem 0 0 rgb(12, 12, 12);
+            box-shadow: 0 -0.5rem 0 0 rgb(12, 12, 12);
+    -webkit-box-shadow: 0 -0.5rem 0 0 rgb(var(--swatch-menubg-black-color, 12, 12, 12));
+       -moz-box-shadow: 0 -0.5rem 0 0 rgb(var(--swatch-menubg-black-color, 12, 12, 12));
+            box-shadow: 0 -0.5rem 0 0 rgb(var(--swatch-menubg-black-color, 12, 12, 12));
+    margin-top: -0.5rem;
+    padding-top: 0.25rem;
+}
+
+.bottom-box > .text-part {
+    -ms-grid-row: 1;
+    -ms-grid-row-span: 3;
+    -ms-grid-column: 1;
+    display: -ms-grid;
+    display: grid;
+    height: 6rem;
+    grid-area: text-part;
+            grid-template-areas:
+        "main-class disrupt-class"
+        "main-class risk-class";
+    -ms-grid-rows: 1fr 0.25rem 1fr;
+    grid-template-rows: 1fr 1fr;
+    -ms-grid-columns: auto 0.25rem 1fr;
+    grid-template-columns: 3fr 2fr;
+    grid-gap: 0.25rem;
+    text-transform: uppercase;
+    -webkit-box-pack: stretch;
+    -webkit-justify-content: stretch;
+       -moz-box-pack: stretch;
+        -ms-flex-pack: stretch;
+            justify-content: stretch;
+    -webkit-box-align: stretch;
+    -webkit-align-items: stretch;
+       -moz-box-align: stretch;
+        -ms-flex-align: stretch;
+            align-items: stretch;
+}
+
+.text-part div {
+    padding: 0 0.125rem;
+    margin: 0 0 0 0.25rem;
+    position: relative;
+}
+
+.text-part > .main-class {
+    -ms-grid-row: 1;
+    -ms-grid-row-span: 3;
+    -ms-grid-column: 1;
+    position: relative;
+    grid-area: main-class;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -webkit-flex-direction: column;
+       -moz-box-orient: vertical;
+       -moz-box-direction: normal;
+        -ms-flex-direction: column;
+            flex-direction: column;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+       -moz-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    -webkit-box-pack: center;
+    -webkit-justify-content: center;
+       -moz-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+    -webkit-box-shadow: 0.25rem 0 0 0 rgba(0,0,0,0);
+       -moz-box-shadow: 0.25rem 0 0 0 rgba(0,0,0,0);
+            box-shadow: 0.25rem 0 0 0 rgba(0,0,0,0);
+}
+
+.anom-bar-container:not(.esoteric) .text-part > .main-class {
+    padding-right: 3.5rem;
+}
+
+.anom-bar-container.esoteric .text-part > .main-class {
+    padding-right: 2rem;
+}
+
+.text-part > .main-class::before {
+    content: "";
+    position: absolute;
+    top: -webkit-calc(50% - 2.25rem);
+    top: -moz-calc(50% - 2.25rem);
+    top: calc(50% - 2.25rem);
+    right: 0.5rem;
+    width: 3.53125rem;
+    height: 3.53125rem;
+    -webkit-border-radius: 50%;
+       -moz-border-radius: 50%;
+            border-radius: 50%;
+    border: 0.25rem solid rgb(12, 12, 12);
+    border: 0.25rem solid rgb(var(--swatch-menutxt-dark-color, 12, 12, 12));
+    background-color: rgb(252, 252, 252);
+    background-color: rgb(var(--swatch-background    , 252, 252, 252));
+    -webkit-background-size: contain;
+       -moz-background-size: contain;
+         -o-background-size: contain;
+            background-size: contain;
+    background-position: center center;
+}
+
+.anom-bar-container.esoteric .text-part > .main-class::before {
+    top: 0.5rem;
+    right: 1.25rem;
+    width: 5rem;
+    -webkit-border-radius: -webkit-calc(3.53125rem / 2);
+       -moz-border-radius: -moz-calc(3.53125rem / 2);
+            border-radius: calc(3.53125rem / 2);
+    background-color: rgb(252, 252, 252);
+    background-color: rgb(var(--swatch-background, 252, 252, 252));
+    border-color: rgb(var(--swatch-background, 252, 252, 252));
+    -webkit-filter: invert(1);
+            filter: invert(1);
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/esoteric-icon.svg");
+    -webkit-background-size: 75% 75%;
+       -moz-background-size: 75% 75%;
+         -o-background-size: 75% 75%;
+            background-size: 75% 75%;
+    background-repeat: no-repeat;
+    background-position: left -10px center;
+}
+
+.anom-bar-container.esoteric .text-part > .main-class::after {
+    content: "";
+    position: absolute;
+    top: 0.5rem;
+    right: 0.25rem;
+    width: 3.53125rem;
+    height: 3.53125rem;
+    -webkit-border-radius: 50%;
+       -moz-border-radius: 50%;
+            border-radius: 50%;
+    border: 0.25rem solid rgb(12, 12, 12);
+    border: 0.25rem solid rgb(var(--swatch-menutxt-dark-color, 12, 12, 12));
+    background-color: rgb(252, 252, 252);
+    background-color: rgb(var(--swatch-background, 252, 252, 252));
+    -webkit-background-size: contain;
+       -moz-background-size: contain;
+         -o-background-size: contain;
+            background-size: contain;
+    background-position: center center;
+}
+
+.anom-bar-container.none .text-part > .main-class::after {
+    background-image: url("https://example.com/acs-image.svg");
+}
+
+.anom-bar-container.explained .text-part > .main-class::before,
+.anom-bar-container.pending .text-part > .main-class::before,
+.anom-bar-container.neutralized .text-part > .main-class::before,
+.anom-bar-container.neutralised .text-part > .main-class::before {
+    display:none;
+}
+
+.anom-bar-container.keter .text-part > .main-class::before {
+    background-color: rgb(196,2,51);
+background-color: rgb(var(--five-color));
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/keter-icon.svg");
+}
+
+.anom-bar-container.euclid .text-part > .main-class::before {
+    background-color: rgb(255,211,0);
+background-color: rgb(var(--three-color));
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/euclid-icon.svg");
+}
+
+.anom-bar-container.safe .text-part > .main-class::before {
+    background-color: rgb(0,159,107);
+background-color: rgb(var(--one-color));
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/safe-icon.svg");
+}
+
+.text-part > .main-class > div {
+    width: 100%;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+}
+
+.anom-bar-container.esoteric .text-part > .main-class > .second-class > .class-text {
+    font-size: -webkit-calc( 6px + (11 - 6) * ( (100vw - 400px) / ( 800 - 400) ));
+    font-size: -moz-calc( 6px + (11 - 6) * ( (100vw - 400px) / ( 800 - 400) ));
+    font-size: calc( 6px + (11 - 6) * ( (100vw - 400px) / ( 800 - 400) ));
+    position: relative;
+}
+
+.anom-bar-container:not(.esoteric) .text-part > .main-class > .contain-class > .class-text {
+    font-size: -webkit-calc(10px + (18 - 10) * ( (100vw - 400px) / ( 800 - 400) ));
+    font-size: -moz-calc(10px + (18 - 10) * ( (100vw - 400px) / ( 800 - 400) ));
+    font-size: calc(10px + (18 - 10) * ( (100vw - 400px) / ( 800 - 400) ));
+}
+
+.anom-bar-container:not(.esoteric) .text-part > .main-class > .second-class {
+    display: none;
+}
+
+.text-part > .disrupt-class {
+    -ms-grid-row: 1;
+    -ms-grid-column: 3;
+    grid-area: disrupt-class;
+}
+
+.text-part > .risk-class {
+    -ms-grid-row: 3;
+    -ms-grid-column: 3;
+    grid-area: risk-class;
+}
+
+.text-part > .disrupt-class,
+.text-part > .risk-class {
+    overflow: hidden;
+}
+
+.anom-bar-container.esoteric .text-part .main-class {
+    background-color: rgba(66, 66, 72 ,0.15);
+    background-color: rgba(var(--swatch-menubg-dark-color, 66, 66, 72),0.15);
+    border-left: 0.75rem solid rgba(66, 66, 72 ,1);
+    border-left: 0.75rem solid rgba(var(--swatch-menubg-dark-color, 66, 66, 72),1);
+}
+
+.anom-bar-container.neutralized .text-part .main-class,
+.anom-bar-container.neutralised .text-part .main-class {
+    background-color: rgba(66, 66, 72 ,0.15);
+    background-color: rgba(var(--swatch-menubg-dark-color, 66, 66, 72),0.15);
+    border-left: 0.75rem solid rgba(66, 66, 72 ,1);
+    border-left: 0.75rem solid rgba(var(--swatch-menubg-dark-color, 66, 66, 72),1);
+}
+
+.anom-bar-container.pending .text-part .main-class {
+    background-color: rgba(12, 12, 12 ,0.15);
+    background-color: rgba(var(--swatch-menutxt-dark-color, 12, 12, 12),0.15);
+    border-left: 0.75rem solid rgba(12, 12, 12 ,1);
+    border-left: 0.75rem solid rgba(var(--swatch-menutxt-dark-color, 12, 12, 12),1);
+}
+
+.anom-bar-container.explained .text-part .main-class {
+    background-color: rgba(252, 252, 252 ,0.15);
+    background-color: rgba(var(--swatch-background, 252, 252, 252),0.15);
+    border-left: 0.75rem solid rgba(12, 12, 12 ,1);
+    border-left: 0.75rem solid rgba(var(--swatch-menutxt-dark-color, 12, 12, 12),1);
+}
+
+.anom-bar-container.keter .text-part .main-class,
+.anom-bar-container.amida .text-part .disrupt-class,
+.anom-bar-container.critical .text-part .risk-class {
+    background-color: rgba(196,2,51,0.15);
+    background-color: rgba(var(--five-color),0.15);
+    border-left: 0.5rem solid rgba(196,2,51,1);
+    border-left: 0.5rem solid rgba(var(--five-color),1);
+}
+
+.anom-bar-container.ekhi .text-part .disrupt-class,
+.anom-bar-container.danger .text-part .risk-class {
+    background-color: rgba(255,109,0,0.15);
+    background-color: rgba(var(--four-color),0.15);
+    border-left: 0.5rem solid rgba(255,109,0,1);
+    border-left: 0.5rem solid rgba(var(--four-color),1);
+}
+
+.anom-bar-container.euclid .text-part .main-class,
+.anom-bar-container.keneq .text-part .disrupt-class,
+.anom-bar-container.warning .text-part .risk-class {
+    border-left: 0.5rem solid rgba(255,211,0,1);
+    border-left: 0.5rem solid rgba(var(--three-color),1);
+    background-color: rgba(255,211,0,0.15);
+    background-color: rgba(var(--three-color),0.15);
+}
+
+.anom-bar-container.vlam .text-part .disrupt-class,
+.anom-bar-container.caution .text-part .risk-class {
+    border-left: 0.5rem solid rgba(0,135,189,1);
+    border-left: 0.5rem solid rgba(var(--two-color),1);
+    background-color: rgba(0,135,189,0.15);
+    background-color: rgba(var(--two-color),0.15);
+}
+
+.anom-bar-container.safe .text-part .main-class,
+.anom-bar-container.dark .text-part .disrupt-class,
+.anom-bar-container.notice .text-part .risk-class {
+    background-color: rgba(0,159,107,0.15);
+    background-color: rgba(var(--one-color),0.15);
+    border-left: 0.5rem solid rgba(0,159,107,1);
+    border-left: 0.5rem solid rgba(var(--one-color),1);
+}
+
+.anom-bar-container.neutralized .text-part,
+.anom-bar-container.neutralised .text-part,
+.anom-bar-container.pending .text-part,
+.anom-bar-container.explained .text-part {
+    -ms-grid-columns: 1fr;
+    grid-template-columns: 1fr;
+}
+
+.text-part .disrupt-class::after,
+.text-part .risk-class::after,
+.text-part .disrupt-class::before,
+.text-part .risk-class::before {
+    content: "";
+    position: absolute;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+       -moz-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    -webkit-box-pack: center;
+    -webkit-justify-content: center;
+       -moz-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+    -webkit-border-radius: 50%;
+       -moz-border-radius: 50%;
+            border-radius: 50%;
+    border: 0.25rem solid rgb(12, 12, 12);
+    border: 0.25rem solid rgb(var(--swatch-menutxt-dark-color, 12, 12, 12));
+    width: 2.5rem;
+    height: 2.5rem;
+    top: -webkit-calc(50% - 1.5rem);
+    top: -moz-calc(50% - 1.5rem);
+    top: calc(50% - 1.5rem);
+    font-size: 2em;
+    background-color: rgb(252, 252, 252);
+    background-color: rgb(var(--swatch-background, 252, 252, 252));
+    -webkit-background-size: contain;
+       -moz-background-size: contain;
+         -o-background-size: contain;
+            background-size: contain;
+    background-position: center center;
+}
+
+.text-part .disrupt-class::after,
+.text-part .risk-class::after {
+    right: 0.15em;
+}
+
+.text-part .disrupt-class::before,
+.text-part .risk-class::before {
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-pack: start;
+    -webkit-justify-content: flex-start;
+       -moz-box-pack: start;
+        -ms-flex-pack: start;
+            justify-content: flex-start;
+    background-color: rgb(12, 12, 12);
+    background-color: rgb(var(--swatch-menubg-black-color, 12, 12, 12));
+    width: 3rem;
+    height: 3rem;
+    top: -webkit-calc(50% - 1.5rem);
+    top: -moz-calc(50% - 1.5rem);
+    top: calc(50% - 1.5rem);
+    border: 0;
+    right: 1rem;
+    text-align: left;
+    font-size: 1em;
+    padding-left: 0.5rem;
+    color: rgb(252, 252, 252);
+    color: rgb(var(--swatch-text-secondary-color, 252, 252, 252));
+}
+
+.anom-bar-container.amida .text-part .disrupt-class::before,
+.anom-bar-container.critical .text-part .risk-class::before {
+    content: "5";
+}
+
+.anom-bar-container.ekhi .text-part .disrupt-class::before,
+.anom-bar-container.danger .text-part .risk-class::before {
+    content: "4";
+}
+
+.anom-bar-container.keneq .text-part .disrupt-class::before,
+.anom-bar-container.warning .text-part .risk-class::before {
+    content: "3";
+}
+
+.anom-bar-container.vlam .text-part .disrupt-class::before,
+.anom-bar-container.caution .text-part .risk-class::before {
+    content: "2";
+}
+
+.anom-bar-container.dark .text-part .disrupt-class::before,
+.anom-bar-container.notice .text-part .risk-class::before {
+    content: "1";
+}
+
+.anom-bar-container.amida .text-part .disrupt-class::after,
+.anom-bar-container.critical .text-part .risk-class::after {
+    background-color: rgb(196,2,51);
+background-color: rgb(var(--five-color));
+}
+
+.anom-bar-container.amida .text-part .disrupt-class::after {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/amida-icon.svg");
+}
+
+.anom-bar-container.critical .text-part .risk-class::after {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/critical-icon.svg");
+}
+
+.anom-bar-container.ekhi .text-part .disrupt-class::after,
+.anom-bar-container.danger .text-part .risk-class::after {
+    background-color: rgb(255,109,0);
+background-color: rgb(var(--four-color));
+}
+
+.anom-bar-container.ekhi .text-part .disrupt-class::after {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/ekhi-icon.svg");
+}
+
+.anom-bar-container.danger .text-part .risk-class::after {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/danger-icon.svg");
+}
+
+.anom-bar-container.keneq .text-part .disrupt-class::after,
+.anom-bar-container.warning .text-part .risk-class::after {
+    background-color: rgb(255,211,0);
+background-color: rgb(var(--three-color));
+}
+
+.anom-bar-container.keneq .text-part .disrupt-class::after {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/keneq-icon.svg");
+}
+
+.anom-bar-container.warning .text-part .risk-class::after {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/warning-icon.svg");
+}
+
+.anom-bar-container.vlam .text-part .disrupt-class::after,
+.anom-bar-container.caution .text-part .risk-class::after {
+    background-color: rgb(0,135,189);
+background-color: rgb(var(--two-color));
+}
+
+.anom-bar-container.vlam .text-part .disrupt-class::after {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/vlam-icon.svg");
+}
+
+.anom-bar-container.caution .text-part .risk-class::after {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/caution-icon.svg");
+}
+
+.anom-bar-container.dark .text-part .disrupt-class::after,
+.anom-bar-container.notice .text-part .risk-class::after {
+    background-color: rgb(0,159,107);
+background-color: rgb(var(--one-color));
+}
+
+.anom-bar-container.dark .text-part .disrupt-class::after {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/dark-icon.svg");
+}
+
+.anom-bar-container.notice .text-part .risk-class::after {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/notice-icon.svg");
+}
+
+.text-part .main-class {
+    border-width: 1em !important;
+}
+
+.text-part > div .class-category {
+    --wght: 500;
+    position: relative;
+    font-weight: 500;
+    left: 0;
+}
+
+.anom-bar-container.esoteric .contain-class > .class-category {
+    max-width: 55% !important;
+}
+
+.anom-bar-container.explained .second-class,
+.anom-bar-container.explained .disrupt-class,
+.anom-bar-container.explained .risk-class,
+.anom-bar-container.explained .danger-diamond > .quadrants > .left-quad,
+.anom-bar-container.explained .danger-diamond > .quadrants > .right-quad,
+.anom-bar-container.explained .danger-diamond > .left-icon,
+.anom-bar-container.explained .danger-diamond > .right-icon,
+.anom-bar-container.neutralized .second-class,
+.anom-bar-container.neutralized .disrupt-class,
+.anom-bar-container.neutralized .risk-class,
+.anom-bar-container.neutralized .danger-diamond > .quadrants > .left-quad,
+.anom-bar-container.neutralized .danger-diamond > .quadrants > .right-quad,
+.anom-bar-container.neutralized .danger-diamond > .left-icon,
+.anom-bar-container.neutralized .danger-diamond > .right-icon,
+.anom-bar-container.neutralised .second-class,
+.anom-bar-container.neutralised .disrupt-class,
+.anom-bar-container.neutralised .risk-class,
+.anom-bar-container.neutralised .danger-diamond > .quadrants > .left-quad,
+.anom-bar-container.neutralised .danger-diamond > .quadrants > .right-quad,
+.anom-bar-container.neutralised .danger-diamond > .left-icon,
+.anom-bar-container.neutralised .danger-diamond > .right-icon,
+.anom-bar-container.pending .second-class,
+.anom-bar-container.pending .disrupt-class,
+.anom-bar-container.pending .risk-class,
+.anom-bar-container.pending .danger-diamond > .quadrants > .left-quad,
+.anom-bar-container.pending .danger-diamond > .quadrants > .right-quad,
+.anom-bar-container.pending .danger-diamond > .left-icon,
+.anom-bar-container.pending .danger-diamond > .right-icon {
+    display: none;
+}
+
+.text-part .contain-class,
+.text-part .second-class,
+.text-part .disrupt-class,
+.text-part .risk-class {
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: horizontal;
+    -webkit-box-direction: normal;
+    -webkit-flex-direction: row;
+       -moz-box-orient: horizontal;
+       -moz-box-direction: normal;
+        -ms-flex-direction: row;
+            flex-direction: row;
+    -webkit-flex-wrap: wrap;
+        -ms-flex-wrap: wrap;
+            flex-wrap: wrap;
+    -webkit-align-content: center;
+        -ms-flex-line-pack: center;
+            align-content: center;
+    line-height: 1;
+}
+
+.text-part .contain-class > div,
+.text-part .second-class > div,
+.text-part .disrupt-class > div,
+.text-part .risk-class > div {
+    width: 100%;
+}
+
+.text-part > div > .class-category,
+.anom-bar-container.esoteric .text-part > .main-class > .contain-class > .class-category {
+    font-size: 0.75em;
+}
+
+.anom-bar-container.esoteric .text-part > .main-class > .contain-class > .class-text,
+.text-part > .disrupt-class > .class-text,
+.text-part > .risk-class > .class-text {
+    font-size: -webkit-calc( 8px + (12 - 8) * ( (100vw - 400px) / ( 800 - 400) ));
+    font-size: -moz-calc( 8px + (12 - 8) * ( (100vw - 400px) / ( 800 - 400) ));
+    font-size: calc( 8px + (12 - 8) * ( (100vw - 400px) / ( 800 - 400) ));
+}
+
+.bottom-box > .diamond-part {
+    -ms-grid-row: 1;
+    -ms-grid-row-span: 3;
+    -ms-grid-column: 3;
+    width: 100%;
+    padding-top: 100%;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    position: relative;
+    grid-area: diamond-part;
+    padding-left: 1rem;
+    -webkit-box-shadow: -0.5rem 0 0 0 rgb(12, 12, 12);
+       -moz-box-shadow: -0.5rem 0 0 0 rgb(12, 12, 12);
+            box-shadow: -0.5rem 0 0 0 rgb(12, 12, 12);
+    -webkit-box-shadow: -0.5rem 0 0 0 rgb(var(--swatch-menubg-black-color, 12, 12, 12));
+       -moz-box-shadow: -0.5rem 0 0 0 rgb(var(--swatch-menubg-black-color, 12, 12, 12));
+            box-shadow: -0.5rem 0 0 0 rgb(var(--swatch-menubg-black-color, 12, 12, 12));
+}
+
+.danger-diamond {
+    position: absolute;
+    width: 95%;
+    height: 95%;
+    top: 2.5%;
+    left: 5%;
+}
+
+.danger-diamond a {
+    color: rgba(0,0,0,0);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    -webkit-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+    z-index: 3;
+}
+
+.danger-diamond br {
+    display: none;
+}
+
+.danger-diamond > .arrows {
+    --danger-diamond-arrows: url("data:image/svg+xml,%3C%3Fxml version='1.0' encoding='utf-8'%3F%3E%3Csvg version='1.2' baseProfile='tiny' id='Layer_1' xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' x='0px' y='0px' viewBox='0 0 160 160' xml:space='preserve'%3E%3Cpath fill='%23010101' d='M136.1,133.3l23.9-23.9V51.2l-24-24l19.1-19.1l4.9,4.9l0-12.9l-12.9,0l4.9,4.9L133,24.2l-24-24H51l-24,24 L8,5.2l4.9-4.9L0,0.2l0,12.9l4.9-4.9L24,27.3l-24,24v58.2l23.9,23.9l-19,19L0,147.3l0,12.9l12.9,0L8,155.3l19-19l23.9,23.9h58.4 l23.9-23.9l19,19l-4.9,4.9l12.9,0l0-12.9l-4.9,4.9L136.1,133.3z M155.7,53v54.6l-22.6,22.6l-50-50L133,30.3L155.7,53z M52.8,4.5 h54.4l22.7,22.7L80,77.2L30.1,27.3L52.8,4.5z M4.3,107.6V53L27,30.3L77,80.2l-50,50L4.3,107.6z M107.4,155.9H52.6L30,133.3l50-50 l50,50L107.4,155.9z'/%3E%3C/svg%3E%0A");
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    background-color: rgb(var(--swatch-menubg-black-color, 12, 12, 12));
+    -webkit-mask-image: var(--danger-diamond-arrows);
+            mask-image: var(--danger-diamond-arrows);
+    -webkit-mask-repeat: no-repeat;
+            mask-repeat: no-repeat;
+}
+
+.danger-diamond > .octagon {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    text-align: center;
+    z-index: 0;
+    -webkit-clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
+            clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
+}
+
+.danger-diamond > .quadrants {
+    position: absolute;
+    width: 96%;
+    height: 96%;
+    top: 0;
+    left: 0;
+}
+
+.danger-diamond > .quadrants > div {
+    width: 67.5%;
+    padding-bottom: 50%;
+    position: absolute;
+    top: 2.25%;
+    left: 18.5%;
+    background-color: rgb(252, 252, 252);
+background-color: rgb(var(--swatch-background, 252, 252, 252));
+    -webkit-clip-path: polygon(22% 0, 77% 0, 100% 31%, 50% 100%, 0 31%);
+            clip-path: polygon(22% 0, 77% 0, 100% 31%, 50% 100%, 0 31%);
+    -webkit-transform-origin: bottom center;
+       -moz-transform-origin: bottom center;
+        -ms-transform-origin: bottom center;
+         -o-transform-origin: bottom center;
+            transform-origin: bottom center;
+}
+
+.danger-diamond > .quadrants > .left-quad {
+    -webkit-transform: rotate(270deg);
+       -moz-transform: rotate(270deg);
+        -ms-transform: rotate(270deg);
+         -o-transform: rotate(270deg);
+            transform: rotate(270deg);
+}
+
+.danger-diamond > .quadrants > .right-quad {
+    -webkit-transform: rotate(90deg);
+       -moz-transform: rotate(90deg);
+        -ms-transform: rotate(90deg);
+         -o-transform: rotate(90deg);
+            transform: rotate(90deg);
+}
+
+.danger-diamond > .quadrants > .bottom-quad {
+    background-color: transparent;
+    -webkit-transform: rotate(180deg);
+       -moz-transform: rotate(180deg);
+        -ms-transform: rotate(180deg);
+         -o-transform: rotate(180deg);
+            transform: rotate(180deg);
+}
+
+.danger-diamond > .quadrants > .bottom-quad.none {
+    background-color: rgb(252, 252, 252 ,0.25);
+    background-color: rgb(var(--swatch-background, 252, 252, 252),0.25);
+}
+
+.danger-diamond > .quadrants > .top-quad.pending {
+    background-color: rgb(12, 12, 12 ,0.25);
+    background-color: rgb(var(--swatch-menubg-black-color, 12, 12, 12),0.25);
+}
+
+.danger-diamond > .quadrants > .top-quad.neutralized,
+.danger-diamond > .quadrants > .top-quad.neutralised {
+    background-color: rgb(66, 66, 72 ,0.25);
+    background-color: rgb(var(--swatch-menubg-medium-dark-color, 66, 66, 72),0.25);
+}
+
+.danger-diamond > .quadrants > .top-quad.explained {
+    background-color: rgb(252, 252, 252 ,0.25);
+    background-color: rgb(var(--swatch-background, 252, 252, 252),0.25);
+}
+
+.anom-bar-container.esoteric .danger-diamond > .quadrants > .top-quad {
+    background-color: rgb(66, 66, 72 ,0.15);
+    background-color: rgb(var(--swatch-menubg-medium-dark-color, 66, 66, 72),0.15);
+}
+
+.anom-bar-container.keter .danger-diamond > .quadrants > .top-quad,
+.anom-bar-container.amida .danger-diamond > .quadrants > .left-quad,
+.anom-bar-container.critical .danger-diamond > .quadrants > .right-quad  {
+    background-color:rgba(196,2,51,0.25);
+    background-color: rgb(var(--five-color),0.25);
+}
+
+.anom-bar-container.ekhi .danger-diamond > .quadrants > .left-quad,
+.anom-bar-container.danger .danger-diamond > .quadrants > .right-quad {
+    background-color:rgba(255,109,0,0.25);
+    background-color: rgb(var(--five-color),0.25);
+}
+
+.anom-bar-container.euclid .danger-diamond > .quadrants > .top-quad,
+.anom-bar-container.keneq .danger-diamond > .quadrants > .left-quad,
+.anom-bar-container.warning .danger-diamond > .quadrants > .right-quad {
+    background-color:rgba(255,211,0,0.25);
+    background-color: rgb(var(--three-color),0.25);
+}
+
+.anom-bar-container.vlam .danger-diamond > .quadrants > .left-quad,
+.anom-bar-container.caution .danger-diamond > .quadrants > .right-quad {
+    background-color:rgba(0,135,189,0.25);
+    background-color: rgb(var(--two-color),0.25);
+}
+
+.anom-bar-container.safe .danger-diamond > .quadrants > .top-quad,
+.anom-bar-container.dark .danger-diamond > .quadrants > .left-quad,
+.anom-bar-container.notice .danger-diamond > .quadrants > .right-quad {
+    background-color:rgba(0,159,107,0.25);
+    background-color: rgb(var(--one-color),0.25);
+}
+
+.anom-bar-container.clear-5 .danger-diamond > .center-circle::before {
+    content: "5";
+}
+
+.anom-bar-container.clear-4 .danger-diamond > .center-circle::before {
+    content: "4";
+}
+
+.anom-bar-container.clear-3 .danger-diamond > .center-circle::before {
+    content: "3";
+}
+
+.anom-bar-container.clear-2 .danger-diamond > .center-circle::before {
+    content: "2";
+}
+
+.anom-bar-container.clear-1 .danger-diamond > .center-circle::before {
+    content: "1";
+}
+
+.danger-diamond > .top-icon,
+.danger-diamond > .right-icon,
+.danger-diamond > .left-icon,
+.danger-diamond > .bottom-icon {
+    position: absolute;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+       -moz-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    -webkit-box-pack: center;
+    -webkit-justify-content: center;
+       -moz-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+    width: 33%;
+    height: 33%;
+    -webkit-border-radius: 50%;
+       -moz-border-radius: 50%;
+            border-radius: 50%;
+    border: 0.1875rem solid rgb(12, 12, 12);
+    border: 0.1875rem solid rgb(var(--swatch-menubg-black-color, 12, 12, 12));
+    overflow: hidden;
+    z-index: 2;
+}
+
+.danger-diamond > .top-icon {
+    top: 0.25rem;
+    left: 33.5%;
+}
+
+.danger-diamond > .right-icon {
+    right: 0.25rem;
+    top: 33.5%;
+}
+
+.danger-diamond > .left-icon {
+    left: 0.25rem;
+    top: 33.5%;
+}
+
+.danger-diamond > .bottom-icon {
+    bottom: 0.25rem;
+    left: 33.5%;
+}
+
+.anom-bar-container.neutralized .danger-diamond > .top-icon,
+.anom-bar-container.neutralised .danger-diamond > .top-icon,
+.anom-bar-container.pending .danger-diamond > .top-icon,
+.anom-bar-container.explained .danger-diamond > .top-icon {
+    width: 65%;
+    height: 65%;
+    top: 17.5%;
+    left: 17.5%;
+    border-width: 0.3625rem;
+}
+
+.anom-bar-container.pending .danger-diamond > .top-icon {
+    background-color: rgb(var(--swatch-menubg-black-color, 12, 12, 12));
+}
+
+.anom-bar-container:not(.esoteric) .danger-diamond > .bottom-icon {
+    display: none;
+}
+
+.danger-diamond > .top-icon::before,
+.danger-diamond > .right-icon::before,
+.danger-diamond > .left-icon::before,
+.danger-diamond > .bottom-icon::before {
+    content: "";
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+       -moz-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    -webkit-box-pack: center;
+    -webkit-justify-content: center;
+       -moz-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+    top: 0;
+    left: 0;
+}
+
+.anom-bar-container.neutralized .danger-diamond > .top-icon,
+.anom-bar-container.neutralised .danger-diamond > .top-icon {
+    background-color: rgb(252, 252, 252);
+    background-color: rgb(var(--swatch-background, 252, 252, 252));
+}
+
+.anom-bar-container.neutralized .danger-diamond > .top-icon::before,
+.anom-bar-container.neutralised .danger-diamond > .top-icon::before {
+    background-color: rgba(66, 66, 72 ,0.15);
+    background-color: rgba(var(--swatch-menubg-medium-dark-color, 66, 66, 72),0.15);
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/neutralized-icon.svg");
+    -webkit-background-size: 110% 110%;
+       -moz-background-size: 110% 110%;
+         -o-background-size: 110% 110%;
+            background-size: 110% 110%;
+    background-position: center center;
+}
+
+.anom-bar-container.pending .danger-diamond > .top-icon::before {
+    background-color: rgb(12, 12, 12);
+    background-color: rgb(var(--swatch-menubg-black-color, 12, 12, 12));
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/pending-icon.svg");
+}
+
+.anom-bar-container.explained .danger-diamond > .top-icon::before {
+    background-color: rgb(252, 252, 252);
+    background-color: rgb(var(--swatch-background, 252, 252, 252));
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/explained-icon.svg");
+}
+
+.anom-bar-container.esoteric .danger-diamond > .top-icon::before {
+    background-color: rgb(252, 252, 252);
+    background-color: rgb(var(--swatch-background, 252, 252, 252));
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/esoteric-icon.svg");
+    -webkit-filter: invert(1);
+            filter: invert(1);
+}
+
+.anom-bar-container.keter .danger-diamond > .top-icon::before,
+.anom-bar-container.amida .danger-diamond > .left-icon::before,
+.anom-bar-container.critical .danger-diamond > .right-icon::before {
+    background-color: rgb(196,2,51);
+background-color: rgb(var(--five-color));
+}
+
+.anom-bar-container.keter .danger-diamond > .top-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/keter-icon.svg");
+}
+
+.anom-bar-container.amida .danger-diamond > .left-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/amida-icon.svg");
+}
+
+.anom-bar-container.critical .danger-diamond > .right-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/critical-icon.svg");
+}
+
+.anom-bar-container.ekhi .danger-diamond > .left-icon::before,
+.anom-bar-container.danger .danger-diamond > .right-icon::before {
+    background-color: rgb(255,109,0);
+background-color: rgb(var(--four-color));
+}
+
+.anom-bar-container.ekhi .danger-diamond > .left-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/ekhi-icon.svg");
+}
+
+.anom-bar-container.danger .danger-diamond > .right-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/danger-icon.svg");
+}
+
+.anom-bar-container.euclid .danger-diamond > .top-icon::before,
+.anom-bar-container.keneq .danger-diamond > .left-icon::before,
+.anom-bar-container.warning .danger-diamond > .right-icon::before {
+    background-color: rgb(255,211,0);
+background-color: rgb(var(--three-color));
+}
+
+.anom-bar-container.euclid .danger-diamond > .top-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/euclid-icon.svg");
+}
+
+.anom-bar-container.keneq .danger-diamond > .left-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/keneq-icon.svg");
+}
+
+.anom-bar-container.warning .danger-diamond > .right-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/warning-icon.svg");
+}
+
+.anom-bar-container.vlam .danger-diamond > .left-icon::before,
+.anom-bar-container.caution .danger-diamond > .right-icon::before {
+    background-color: rgb(0,135,189);
+background-color: rgb(var(--two-color));
+}
+
+.anom-bar-container.vlam .danger-diamond > .left-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/vlam-icon.svg");
+}
+
+.anom-bar-container.caution .danger-diamond > .right-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/caution-icon.svg");
+}
+
+.anom-bar-container.safe .danger-diamond > .top-icon::before,
+.anom-bar-container.dark .danger-diamond > .left-icon::before,
+.anom-bar-container.notice .danger-diamond > .right-icon::before {
+    background-color: rgb(0,159,107);
+background-color: rgb(var(--one-color));
+}
+
+.anom-bar-container.safe .danger-diamond > .top-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/safe-icon.svg");
+}
+
+.anom-bar-container.dark .danger-diamond > .left-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/dark-icon.svg");
+}
+
+.anom-bar-container.notice .danger-diamond > .right-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/notice-icon.svg");
+}
+
+.anom-bar-container.none .danger-diamond > .bottom-icon::before {
+    background-image: url("https://example.com/acs-image.svg");
+    background-size: contain;
+}
+
+@media (max-width: 960px ) {
+    .anom-bar > .top-box {
+        padding-bottom: 1.5em;
+    }
+
+    .anom-bar > .bottom-box {
+        -ms-grid-columns: 1fr 0.5rem 6rem;
+        grid-template-columns: 1fr 6rem;
+        height: 6rem;
+    }
+
+    .anom-bar-container.esoteric .text-part > .main-class > .contain-class > .class-text, .text-part > .disrupt-class > .class-text, .text-part > .risk-class > .class-text {
+        font-size: -webkit-calc( 18px + (24 - 18) * ( (100vw - 400px) / ( 960 - 300) ));
+        font-size: -moz-calc( 18px + (24 - 18) * ( (100vw - 400px) / ( 960 - 300) ));
+        font-size: calc( 18px + (24 - 18) * ( (100vw - 400px) / ( 960 - 300) ));
+    }
+
+    .anom-bar-container.esoteric .text-part > .main-class > .contain-class > .class-text {
+        font-size: -webkit-calc( 12px + (18 - 12) * ( (100vw - 400px) / ( 960 - 300) ));
+        font-size: -moz-calc( 12px + (18 - 12) * ( (100vw - 400px) / ( 960 - 300) ));
+        font-size: calc( 12px + (18 - 12) * ( (100vw - 400px) / ( 960 - 300) ));
+    }
+
+    .anom-bar-container.esoteric .text-part > .main-class > .second-class > .class-text {
+        font-size: -webkit-calc( 18px + (24 - 18) * ( (100vw - 400px) / ( 960 - 300) ));
+        font-size: -moz-calc( 18px + (24 - 18) * ( (100vw - 400px) / ( 960 - 300) ));
+        font-size: calc( 18px + (24 - 18) * ( (100vw - 400px) / ( 960 - 300) ));
+    }
+
+    .anom-bar-container:not(.esoteric) .text-part > .main-class > .contain-class > .class-text {
+        font-size: -webkit-calc( 20px + (40 - 20) * ( (100vw - 400px) / ( 960 - 300) ));
+        font-size: -moz-calc( 20px + (40 - 20) * ( (100vw - 400px) / ( 960 - 300) ));
+        font-size: calc( 20px + (40 - 20) * ( (100vw - 400px) / ( 960 - 300) ));
+    }
+
+    .text-part > .main-class {
+        -ms-grid-row: 1;
+        -ms-grid-row-span: 1;
+        -ms-grid-column: 1;
+    }
+
+    .text-part > .disrupt-class {
+        -ms-grid-row: 3;
+        -ms-grid-column: 1;
+    }
+
+    .text-part > .risk-class {
+        -ms-grid-row: 5;
+        -ms-grid-column: 1;
+    }
+}
+
+@media (max-width: 875px ) {
+    .text-part > div {
+        padding: 0.25rem 0;
+    }
+
+    .anom-bar-container.pending .bottom-box > .text-part,
+    .anom-bar-container.neutralized .bottom-box > .text-part,
+    .anom-bar-container.neutralised .bottom-box > .text-part,
+    .anom-bar-container.explained .bottom-box > .text-part {
+        height: 6rem;
+    }
+
+    .bottom-box > .text-part {
+        grid-template-areas: 
+            "main-class" 
+            "disrupt-class"
+            "risk-class";
+        -ms-grid-rows: 2fr 0.25rem 1fr 0.25rem 1fr;
+        grid-template-rows: 3fr 2fr 2fr;
+        -ms-grid-columns: 1fr;
+        grid-template-columns: 1fr;
+        height: 8rem;
+    }
+
+    .anom-bar > .bottom-box {
+        -ms-grid-columns: 1fr 0.5rem 8rem;
+        grid-template-columns: 1fr 8rem;
+        height: 8rem;
+    }
+
+    .anom-bar-container.esoteric .text-part > .main-class::after,
+    .text-part > .main-class::after {
+        height: 3rem;
+        width: 3rem;
+    }
+
+    .text-part .disrupt-class::after, 
+    .text-part .risk-class::after {
+        height: 1.75rem;
+        width: 1.75rem;
+    }
+
+    .anom-bar-container.esoteric .text-part > .main-class::after,
+    .text-part > .main-class::after,
+    .text-part .disrupt-class::after, 
+    .text-part .risk-class::after {
+        top: -webkit-calc(50% - 1.125rem);
+        top: -moz-calc(50% - 1.125rem);
+        top: calc(50% - 1.125rem);
+        border-width: 0.25rem;
+    }
+
+    .text-part > .main-class::before {
+        height: 2.5rem;
+        width: 2.5rem;
+        border-width: 0.25rem;
+        top: -webkit-calc(50% - 1.45rem);
+        top: -moz-calc(50% - 1.45rem);
+        top: calc(50% - 1.45rem);
+    }
+
+    .text-part .disrupt-class::before, 
+    .text-part .risk-class::before {
+        height: 2.25rem;
+        width: 2.25rem;
+        top: -webkit-calc(50% - 1.125rem);
+        top: -moz-calc(50% - 1.125rem);
+        top: calc(50% - 1.125rem);
+        right: 0.75rem;
+    }
+
+    .anom-bar-container.esoteric .text-part > .main-class::after {
+        top: 0.15rem;
+    }
+
+    .anom-bar-container.esoteric .text-part > .main-class::before {
+        top: 0.15rem;
+        width: 5.75rem;
+        height: 3rem;
+        right: 1.25rem;
+        -webkit-background-size: 100% 100%;
+           -moz-background-size: 100% 100%;
+             -o-background-size: 100% 100%;
+                background-size: 100% 100%;
+        background-position: left -20px center;
+    }
+
+    .anom-bar-container.esoteric .contain-class > .class-category {
+        max-width: 100% !important;
+    }
+
+    .anom-bar-container.pending .bottom-box > .text-part,
+    .anom-bar-container.neutralized .bottom-box > .text-part,
+    .anom-bar-container.neutralised .bottom-box > .text-part,
+    .anom-bar-container.explained .bottom-box > .text-part {
+        -ms-grid-rows: 1fr;
+        grid-template-rows: 1fr;
+            grid-template-areas: "main-class";
+    }
+
+    .text-part .disrupt-class,
+    .text-part .risk-class {
+        padding-left: 0.25rem;
+        display: -ms-grid;
+        display: grid;
+        -ms-grid-columns: auto 1fr;
+        grid-template-columns: auto 1fr;
+    }
+
+    .text-part .disrupt-class *,
+    .text-part .risk-class * {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-box-align: center;
+            -ms-flex-align: center;
+                align-items: center;
+    }
+}
+
+@media (max-width: 875px ) and (min-width: 480px ) {
+    .anom-bar-container.pending .anom-bar > .bottom-box,
+    .anom-bar-container.neutralized .anom-bar > .bottom-box,
+    .anom-bar-container.neutralised .anom-bar > .bottom-box,
+    .anom-bar-container.explained .anom-bar > .bottom-box {
+        -ms-grid-columns: 1fr 6rem;
+        grid-template-columns: 1fr 6rem;
+        height: 6rem;
+    }
+}
+
+@media (max-width: 480px ) {
+    .anom-bar {
+        position: relative;
+    }
+
+    .anom-bar > .top-box {
+        height: 40vw;
+        max-height: 40vw;
+                grid-template-areas: 
+            "."
+            "top-left-box"
+            "top-center-box"
+            "top-right-box"
+            ".";
+        -ms-grid-rows: 1fr 1fr 1fr 1fr 1fr;
+        grid-template-rows: 1fr 1fr 1fr 1fr 1fr;
+        font-size: -webkit-calc(5px + (10 - 5) * ( (100vw - 300px) / ( 480 - 300) ));
+        font-size: -moz-calc(5px + (10 - 5) * ( (100vw - 300px) / ( 480 - 300) ));
+        font-size: calc(5px + (10 - 5) * ( (100vw - 300px) / ( 480 - 300) ));
+        margin: 0 0 1rem 0;
+        padding-left: 1em;
+    }
+
+    .top-box .top-left-box {
+        display: -webkit-box;
+        display: -webkit-flex;
+        display: -moz-box;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -webkit-flex-direction: column;
+           -moz-box-orient: vertical;
+           -moz-box-direction: normal;
+            -ms-flex-direction: column;
+                flex-direction: column;
+        -webkit-box-align: center;
+        -webkit-align-items: center;
+           -moz-box-align: center;
+            -ms-flex-align: center;
+                align-items: center;
+        -webkit-box-pack: center;
+        -webkit-justify-content: center;
+           -moz-box-pack: center;
+            -ms-flex-pack: center;
+                justify-content: center;
+        -webkit-flex-wrap: wrap;
+            -ms-flex-wrap: wrap;
+                flex-wrap: wrap;
+        line-height: 1;
+    }
+
+    .top-left-box > .item {
+        font-size: 3em;
+    }
+
+    .top-box .top-left-box > span {
+        width: 100%;
+    }
+
+    .top-box .top-center-box {
+        -webkit-box-orient: horizontal;
+        -webkit-box-direction: normal;
+        -webkit-flex-direction: row;
+           -moz-box-orient: horizontal;
+           -moz-box-direction: normal;
+            -ms-flex-direction: row;
+                flex-direction: row;
+    width: 100%;
+        max-width: 48vw;
+        margin: 0 0 0 -0.15rem;
+    height: 2rem;
+    }
+
+    .top-center-box > div {
+        height: 25%;
+        margin: 0.15rem 0.15rem 0 0.15rem;
+    }
+
+    .top-box .top-right-box {
+        display: -webkit-box;
+        display: -webkit-flex;
+        display: -moz-box;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -webkit-flex-direction: column;
+           -moz-box-orient: vertical;
+           -moz-box-direction: normal;
+            -ms-flex-direction: column;
+                flex-direction: column;
+    width: 100%;
+        max-width: 48vw;
+        margin: 0 0 0 -0.15rem;
+    height: 3rem;
+    }
+
+    .top-right-box > div {
+        line-height: 1;
+    }
+
+    .top-right-box > .level {
+        font-size: 4em;
+    }
+
+    .top-right-box > .clearance {
+        line-height: 1.5;
+        -webkit-box-align: center;
+        -webkit-align-items: center;
+           -moz-box-align: center;
+            -ms-flex-align: center;
+                align-items: center;
+        font-size: -webkit-calc(14px + (14 - 10) * ( (100vw - 400px) / ( 480 - 300) ));
+        font-size: -moz-calc(14px + (14 - 10) * ( (100vw - 400px) / ( 480 - 300) ));
+        font-size: calc(14px + (14 - 10) * ( (100vw - 400px) / ( 480 - 300) ));
+        width: initial;
+        height: 1.5rem;
+    }
+
+    .top-right-box > .clearance::before {
+        line-height: 0.5;
+        -webkit-box-align: center;
+        -webkit-align-items: center;
+           -moz-box-align: center;
+            -ms-flex-align: center;
+                align-items: center;
+        width: initial;
+        height: initial;
+        position: initial;
+    }
+
+    .anom-bar > .bottom-box {
+        position: initial;
+        -ms-grid-columns: 1fr;
+        grid-template-columns: 1fr;
+        height: 8rem;
+    }
+
+    .anom-bar-container:not(.esoteric) .text-part > .main-class::before {
+        width: 2.5rem;
+        height: 2.5rem;
+        top: -webkit-calc(50% - 1.475rem);
+        top: -moz-calc(50% - 1.475rem);
+        top: calc(50% - 1.475rem);
+        right: 0.5rem;
+    }
+
+    .text-part > div > .class-category, 
+    .anom-bar-container.esoteric .text-part > .main-class > .contain-class > .class-category {
+        font-size: 1em;
+    }
+
+    .text-part .disrupt-class,
+    .text-part .risk-class {
+        font-size: 0.9em;
+    }
+
+    .text-part > .main-class::after,
+    .text-part .disrupt-class::after,
+    .text-part .risk-class::after {
+        height: 2rem;
+        width: 2rem;
+        top: -webkit-calc(50% - 1.25rem);
+        top: -moz-calc(50% - 1.25rem);
+        top: calc(50% - 1.25rem);
+    }
+
+    .text-part > .main-class::before,
+    .text-part .disrupt-class::before,
+    .text-part .risk-class::before {
+        height: 2.5rem;
+        width: 2.5rem;
+        font-size: 1rem;
+        top: -webkit-calc(50% - 1.25rem);
+        top: -moz-calc(50% - 1.25rem);
+        top: calc(50% - 1.25rem);
+        right: 1.5rem;
+    }
+
+    .anom-bar-container.esoteric .text-part > .main-class::before {
+        top: 0.15rem;
+        width: 4.5rem;
+        height: 2.5rem;
+        right: 1rem;
+        -webkit-background-size: 100% 100%;
+           -moz-background-size: 100% 100%;
+             -o-background-size: 100% 100%;
+                background-size: 100% 100%;
+        background-position: left -10px center;
+    }
+
+    .anom-bar-container.esoteric .text-part > .main-class::after {
+        height: 2.5rem;
+        width: 2.5rem;
+    }
+
+    .bottom-box > .diamond-part {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 40vw;
+        height: 40vw;
+        padding: 0;
+    }
+
+    .diamond-part * {
+        background-repeat: no-repeat;
+    }
+
+    .top-box .top-left-box {
+        -ms-grid-row: 2;
+        -ms-grid-column: 1;
+    }
+
+    .top-box .top-center-box {
+        -ms-grid-row: 3;
+        -ms-grid-column: 1;
+    }
+
+    .top-box .top-right-box {
+        -ms-grid-row: 4;
+        -ms-grid-column: 1;
+    }
+
+    .anom-bar-container.pending .anom-bar > .bottom-box,
+    .anom-bar-container.neutralized .anom-bar > .bottom-box,
+    .anom-bar-container.neutralised .anom-bar > .bottom-box,
+    .anom-bar-container.explained .anom-bar > .bottom-box {
+        height: 6rem;
+    }
+
+    .danger-diamond > .top-icon {
+        top: 0.375rem;
+    }
+
+    .danger-diamond > .right-icon {
+        right: 0.375rem;
+    }
+
+    .danger-diamond > .left-icon {
+        left: 0.375rem;
+    }
+
+    .danger-diamond > .bottom-icon {
+        bottom: 0.375rem;
+    }
+}
+
+@supports not (--css: variables) {
+
+    .anom-bar {
+        display: -webkit-box;
+        display: -webkit-flex;
+        display: -moz-box;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -webkit-flex-flow: column nowrap;
+           -moz-box-orient: vertical;
+           -moz-box-direction: normal;
+            -ms-flex-flow: column nowrap;
+                flex-flow: column nowrap;
+    }
+
+    .anom-bar > .top-box { 
+        display: -webkit-box; 
+        display: -webkit-flex; 
+        display: -moz-box; 
+        display: -ms-flexbox; 
+        display: flex;
+        -webkit-box-orient: horizontal;
+        -webkit-box-direction: normal;
+        -webkit-flex-direction: row;
+           -moz-box-orient: horizontal;
+           -moz-box-direction: normal;
+            -ms-flex-direction: row;
+                flex-direction: row;
+        -webkit-flex-wrap: nowrap;
+            -ms-flex-wrap: nowrap;
+                flex-wrap: nowrap;
+    }
+
+    .top-box .top-center-box {
+        -webkit-box-flex: 2;
+        -webkit-flex-grow: 2;
+           -moz-box-flex: 2;
+            -ms-flex-positive: 2;
+                flex-grow: 2;
+    }
+
+    .anom-bar > .bottom-box {
+        display: -webkit-box;
+        display: -webkit-flex;
+        display: -moz-box;
+        display: -ms-flexbox;
+        display: flex;
+    }
+
+    .bottom-box > .text-part {
+        -webkit-box-flex: 1;
+        -webkit-flex-grow: 1;
+           -moz-box-flex: 1;
+            -ms-flex-positive: 1;
+                flex-grow: 1;
+        width: 100%;
+    }
+
+    .anom-bar-container .text-part .main-class {
+        overflow: hidden;
+    }
+
+    .anom-bar-container .text-part .disrupt-class,
+    .anom-bar-container .text-part .risk-class {
+        display: -webkit-box;
+        display: -webkit-flex;
+        display: -moz-box;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-box-orient: horizontal;
+        -webkit-box-direction: normal;
+        -webkit-flex-direction: row;
+           -moz-box-orient: horizontal;
+           -moz-box-direction: normal;
+            -ms-flex-direction: row;
+                flex-direction: row;
+        -webkit-flex-wrap: nowrap;
+            -ms-flex-wrap: nowrap;
+                flex-wrap: nowrap; 
+        -webkit-box-align: center; 
+        -webkit-align-items: center; 
+           -moz-box-align: center; 
+            -ms-flex-align: center; 
+                align-items: center;
+        -webkit-box-pack: start;
+        -webkit-justify-content: flex-start;
+           -moz-box-pack: start;
+            -ms-flex-pack: start;
+                justify-content: flex-start;
+    }
+
+    .anom-bar-container .text-part .disrupt-class .class-category,
+    .anom-bar-container .text-part .risk-class  .class-category {
+        -webkit-flex-shrink: 4;
+            -ms-flex-negative: 4;
+                flex-shrink: 4;
+    }
+
+    .bottom-box > .diamond-part {
+        width: 6rem;
+        height: 6rem;
+        -webkit-box-flex: 0;
+        -webkit-flex-grow: 0;
+           -moz-box-flex: 0;
+            -ms-flex-positive: 0;
+                flex-grow: 0;
+        -webkit-flex-shrink: 0;
+            -ms-flex-negative: 0;
+                flex-shrink: 0;
+        display: -webkit-box;
+        display: -webkit-flex;
+        display: -moz-box;
+        display: -ms-flexbox;
+        display: flex;
+    }
+
+@media (max-width: 480px ) {
+        .anom-bar > .top-box {
+            height: 6rem;
+            display: -webkit-box;
+            display: -webkit-flex;
+            display: -moz-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-orient: vertical;
+            -webkit-box-direction: normal;
+            -webkit-flex-direction: column;
+               -moz-box-orient: vertical;
+               -moz-box-direction: normal;
+                -ms-flex-direction: column;
+                    flex-direction: column;
+            -webkit-flex-wrap: nowrap;
+                -ms-flex-wrap: nowrap;
+                    flex-wrap: nowrap;
+            width: -webkit-calc(100% - 40vw);
+            width: -moz-calc(100% - 40vw);
+            width: calc(100% - 40vw);
+        }
+
+        .top-box .top-left-box {
+            display: initial;
+        }
+
+        .top-box > * {
+            width: 100%;
+            height: auto;
+        }
+
+        .top-box .top-center-box {
+                -webkit-box-flex: 0;
+                -webkit-flex-grow: 0;
+                   -moz-box-flex: 0;
+                    -ms-flex-positive: 0;
+                        flex-grow: 0;
+        }
+
+    }
+}
+</style>
+<div id="page-content">
+<div style="text-align: right;"><div class="page-rate-widget-box"><span class="rate-points">评分： <span class="number prw54353">+22</span></span><span class="rateup btn btn-default"><a href="javascript:;" onclick="WIKIDOT.modules.PageRateWidgetModule.listeners.rate(event, 1)" title="赞同">+</a></span><span class="ratedown btn btn-default"><a href="javascript:;" onclick="WIKIDOT.modules.PageRateWidgetModule.listeners.rate(event, -1)" title="不赞同">–</a></span><span class="cancel btn btn-default"><a href="javascript:;" onclick="WIKIDOT.modules.PageRateWidgetModule.listeners.cancelVote(event)" title="取消投票">x</a></span></div></div>
+<div class="anom-bar-container item-8304 clear-2 safe none dark caution {$american}">
+<div class="anom-bar">
+<div class="top-box">
+<div class="top-left-box"><span class="item">项目编号：</span> <span class="number">8304</span></div>
+<div class="top-center-box">
+<div class="bar-one"></div>
+<div class="bar-two"></div>
+<div class="bar-three"></div>
+<div class="bar-four"></div>
+<div class="bar-five"></div>
+<div class="bar-six"></div>
+</div>
+<div class="top-right-box">
+<div class="level">等级2</div>
+<div class="clearance"></div>
+</div>
+</div>
+<div class="bottom-box">
+<div class="text-part">
+<div class="main-class">
+<div class="contain-class">
+<div class="class-category">收容等级：</div>
+<div class="class-text">安全</div>
+</div>
+<div class="second-class">
+<div class="class-category">次要等级：</div>
+<div class="class-text">无</div>
+</div>
+</div>
+<div class="disrupt-class">
+<div class="class-category">扰动等级：</div>
+<div class="class-text">暗</div>
+</div>
+<div class="risk-class">
+<div class="class-category">风险等级：</div>
+<div class="class-text">警戒</div>
+</div>
+</div>
+<div class="diamond-part">
+<div class="danger-diamond"><a href="/classification-committee-memo">备忘录链接</a><br/>
+<div class="arrows"></div>
+<div class="octagon"></div>
+<div class="quadrants">
+<div class="top-quad"></div>
+<div class="right-quad"></div>
+<div class="left-quad"></div>
+<div class="bottom-quad"></div>
+</div>
+<div class="top-icon"></div>
+<div class="right-icon"></div>
+<div class="left-icon"></div>
+<div class="bottom-icon"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p><strong>特殊收容措施：</strong> SCP-8304及其副本须存放于标准低风险收容柜中。为测试而制作的录像或副本在使用后须转存至USB设备并入库存放。在收容外发现的任何SCP-8304副本均须立即上报。寻找Kevin Fox的工作仍在继续。</p>
+<p><strong>描述：</strong> SCP-8304是一张收录业余剧情片 <em>《蝴蝶之卵》（The Butterfly's Egg）</em>的DVD，由Kevin Fox创作。影片讲述Joshua Christophers爱上一名叫Audrey的罪犯，并试图使其改过自新。经申请可获得该片已知台词稿的完整副本。影片播放约25分钟时，其异常性质开始显现：Joshua带Audrey到河边约会。镜头背景中可以看到一只未成年 <em>Lutra lutra</em> （欧亚水獭）的遗骸，编号为SCP-8304-1；遗骸随后落入河中。观看此场景的受试者会确信SCP-8304-1具有象征意义，并会牺牲对影片其余部分的关注，专注于这种自认为存在的象征含义。该效应在副本与录像中仍然存在，因此始终无法准确记录影片的后续内容。测试表明，受试者对SCP-8304-1的解读深受个人经历影响，且所有已知受试者的解读均不相同。尽管如此，不同受试者的解读中仍普遍出现若干主题：</p>
+<p>- Audrey和/或Christophers将无法获得真正的幸福。<br/>
+- Audrey与Christophers的关系将受到严重考验，甚至彻底结束。<br/>
+- 死亡等存在主义主题，尽管影片显然从未讨论过此类话题。<br/>
+- 某些角色或整个世界都将迎来黯淡的未来。</p>
+<div class="blockquote"></div>
+<p><strong>测试记录</strong></p>
+<table style="border-collapse:collapse; max-width: 700;">
+<tr>
+<td style="font-weight:bold;padding: .3em .7em; text-align: center; border: 1px solid black; background-color: silver; width: 20%;">受试者</td>
+<td style="font-weight:bold; padding: .3em .7em; text-align: center; border: 1px solid black; background-color: silver;">背景</td>
+<td style="font-weight:bold; padding: .3em .7em; text-align: center; border: 1px solid black; background-color: silver;">解读</td>
+</tr>
+<tr>
+<td style="text-align: center; padding: .3em .7em; border: 1px solid black">D-112156</td>
+<td style="border: 1px solid black; padding: .3em .7em;">受试者曾因多起一级谋杀罪被定罪，并有试图挑起与警卫及其他D级人员斗殴的前科。他声称自己的行为“与狩猎没有区别”。</td>
+<td style="border: 1px solid black; padding: .3em .7em;">SCP-8304-1象征人类生命毫无价值。</td>
+</tr>
+<tr>
+<td style="text-align: center; padding: .3em .7em; border: 1px solid black">D-275823</td>
+<td style="border: 1px solid black; padding: .3em .7em;">受试者目睹数名人员在一次收容失效事件中惨死，近期开始出现创伤后应激障碍症状。</td>
+<td style="border: 1px solid black; padding: .3em .7em;">SCP-8304-1是Christophers过去未能救下的某个人的灵魂。</td>
+</tr>
+<tr>
+<td style="text-align: center; border: 1px solid black">D-923521</td>
+<td style="border: 1px solid black; padding: .3em .7em;">受试者在因谋杀被定罪前曾从事动物救援工作。受害者曾被判虐待动物罪名不成立，但D-923521认定其确有罪责。</td>
+<td style="border: 1px solid black; padding: .3em .7em;">角色们对SCP-8304-1漠不关心，象征他们无法认清生命中真正重要的事物。</td>
+</tr>
+<tr>
+<td style="text-align: center; border: 1px solid black">初级研究员Parsons<sup class="footnoteref"><a class="footnoteref" href="javascript:;" id="footnoteref-1" onclick="WIKIDOT.page.utils.scrollToReference('footnote-1')">1</a></sup></td>
+<td style="border: 1px solid black; padding: .3em .7em;">Parsons近期发现伴侣不忠，刚刚与其分手。</td>
+<td style="border: 1px solid black; padding: .3em .7em;">SCP-8304-1预示Christophers与Audrey的关系从一开始便注定失败。</td>
+</tr>
+<tr>
+<td style="text-align: center; border: 1px solid black">D-589125</td>
+<td style="border: 1px solid black; padding: .3em .7em;">受试者近期曾与另一名D级人员发生口角，对方不久后死亡；他多次表示后悔两人的最后一次交流以不愉快告终。受试者自出生起便失明，且在测试前未被告知SCP-8304-1的存在。</td>
+<td style="border: 1px solid black; padding: .3em .7em;">受试者声称听到一声“落水声”<sup class="footnoteref"><a class="footnoteref" href="javascript:;" id="footnoteref-2" onclick="WIKIDOT.page.utils.scrollToReference('footnote-2')">2</a></sup> ，并认为这象征某些行为会激起无法逆转的涟漪，预示Christophers的行为将造成意外后果。</td>
+</tr>
+<tr>
+<td style="text-align: center; border: 1px solid black">D-242258</td>
+<td style="border: 1px solid black; padding: .3em .7em;">受试者近期精神崩溃，并开始质疑现实的本质。</td>
+<td style="border: 1px solid black; padding: .3em .7em;">角色们之所以无视SCP-8304-1，是因为他们身处模拟世界，只能感知模拟器所有者允许他们感知的事物。</td>
+</tr>
+<tr>
+<td style="text-align: center; border: 1px solid black">D-512890</td>
+<td style="border: 1px solid black; padding: .3em .7em;">受试者极度多疑。工作人员询问其解读时，他起初指控工作人员企图让他复述一项信息危害，并声称基金会经常以此手段杀害知情过多的人员。</td>
+<td style="border: 1px solid black; padding: .3em .7em;">SCP-8304-1暗示Christophers接近Audrey另有所图。</td>
+</tr>
+</table>
+<div class="blockquote"></div>
+<p><strong>SCP-8304评论</strong><br/>
+在SCP-8304的盒中发现了若干篇影评节选，汇编如下；其中还附有一张显然由Fox书写的便条。</p>
+<div class="blockquote">
+<p>“——虽然Joshua不像原剧本里那么惹人厌，但他仍然无法令人产生共鸣，而且完美得过头，根本不像一个可信的角色。他没有任何实质性缺点，整篇故事（如果这种简单的男孩遇见女孩情节真能被称为‘故事’的话）也因此大受拖累。坦白说，Joshua的外表和行为都可疑地像是你的自我投射——”</p>
+</div>
+<div class="blockquote">
+<p>“大多数象征似乎只是为了有象征而硬塞进去的。水獭用来表现Audrey处境绝望，这一点倒很聪明，但除此之外的内容究竟有什么意义——如果原本真有意义的话——我完全不明白。我猜那些（剪辑得很糟的）蝴蝶是想表现主角多么特别、多么纯真，仿佛出自一个不懂‘展示，而非讲述’的人之手。另外，别忘了我是在帮你的忙。要是你别再因为我没理解你想传达的一切而侮辱我，我会很感激。虽然某些元素或许还有挽救的余地，但目前的剧情纯属愚蠢——”</p>
+</div>
+<div class="blockquote">
+<p>“——至于结局，它一定无聊到令人难忘，因为我完全不记得。约会和水獭之后的任何内容我也都想不起来。如果你是想让人思考我们终有一日都会坠入死亡之河，那你的确成功了，但代价是整部影片的其余部分——”</p>
+</div>
+<div class="blockquote">
+<p><strong>备注：</strong> 以下影评似乎针对的是一个不具异常性质的早期版本，也是目前唯一记载影片结局的资料。最终版本的SCP-8304与该草稿存在多大差异尚不明确。</p>
+<hr/>
+<p>“——所以，这种帮派就这么让她离开，实在很不现实。我也觉得影片一再告诉观众Joshua比这些人更优秀有些侮辱人，他的行为本应足以证明这一点。也许是因为他任由半个帮派的人死去，而这绝不是英雄所为。结尾时的Audrey与开头判若两人，而且并非好的转变。她变得盲目服从Joshua，而我们还应该把这看作一件好——”</p>
+</div>
+<div class="blockquote">
+<p>“蠢货们就算被好电影迎面砸中也认不出来。或者砸中屁股。对某些人来说好像也没多大区别。我发誓，等我查出是谁先开这个愚蠢的水獭玩笑……”</p>
+</div>
+<p><strong>附录 2019/9/28：</strong><br/>
+2019年9月28日，基金会批准突袭一处已知的‘我们酷毙了吗？’组织据点，试图重新收容最后一次在该据点附近现身的SCP-████。这次原本与本文无关的突袭导致PoI-39105（Steven Wright）被捕；此人是一名已知异常艺术家<sup class="footnoteref"><a class="footnoteref" href="javascript:;" id="footnoteref-3" onclick="WIKIDOT.page.utils.scrollToReference('footnote-3')">3</a></sup> ，涉嫌参与SCP-████逃脱事件，并在SCP-8304的演职员表中被列为“超特别特效主管”。</p>
+<div class="blockquote">
+<p><strong>访谈目的：</strong> 确定PoI-39105与SCP-████及SCP-8304之间的关系程度。<br/>
+<strong>受访者：</strong> PoI-39105 (Steven Wright)</p>
+<hr/>
+<p><strong>审讯员：</strong> 我知道你为什么在这儿，你也知道自己为什么在这儿，所以我们开门见山吧。你为什么把SCP-████从收容中放了出来？</p>
+<p><strong>Wright：</strong> 介意向观众解释一下那些数字是什么意思吗？</p>
+<p><strong>审讯员：</strong> 你可能更熟悉它的另一个名字：Stanley ██████████。</p>
+<p><strong>Wright：</strong> 哦，原来是 <em>那个</em> 家伙。我一直不怎么喜欢他。更不可能喜欢到冒着失去自由的风险把他放出来。说真的，考虑到那家伙有多傲慢，我很惊讶他居然没更早被抓住。</p>
+<p><strong>审讯员：</strong> 所以你否认参与了它的逃脱？</p>
+<p><strong>Wright：</strong> 他的逃脱与我无关。我现在能走了吗？</p>
+<p><strong>审讯员：</strong> 还不行。我们还有一件事要谈。</p>
+<p><em>[审讯员将一张SCP-8304封面的照片沿桌面滑了过去。]</em></p>
+<p><strong>审讯员：</strong> 看着眼熟吗？</p>
+<p><strong>Wright：</strong> 有点印象……</p>
+<p><strong>审讯员：</strong> Joshua Christophers、Audrey、Kevin Fox？</p>
+<p><strong>Wright：</strong> 啊，原来是这个。真不敢相信我以前居然喜欢过Kev。我想那时我太年轻，把固执误当成了自信。</p>
+<p><strong>审讯员：</strong> 哦？</p>
+<p><strong>Wright：</strong> Kev从来听不得批评。我觉得他父母这辈子可能从没对他说过“不”。他开始上电影课后情况更糟了。他以为自己会成为下一个Hitchcock，坚信所有人都喜欢他。实际上，几乎所有人都觉得他让人难以忍受，最后连我也一样。</p>
+<p><strong>审讯员：</strong> 这种态度也影响了这部影片？</p>
+<p><strong>Wright：</strong> 这个嘛，考虑到Andrea当着半个班的面拒绝他之后，他才开始制作这部影片……</p>
+<p><strong>审讯员：</strong> 明白了。那水獭呢？</p>
+<p><strong>Wright：</strong> 什么水獭？</p>
+<p><strong>审讯员：</strong> 别装傻。你被列为“超特别特效主管”的原因呢？</p>
+<p><strong>Wright：</strong> ……他果然这么称呼。是说特效特别厉害，还是想拍我马屁？哦，等等，那得先要求他看得见周围人的价值，而不只是他们能替他做什么。这样会让他成为反社会人格，还是精神病态者？</p>
+<p><strong>审讯员：</strong> 我不知道，也看不出这种区别与此有什么关系。继续说。</p>
+<p><strong>Wright：</strong> 那家伙一直不明白电影为什么会好看。他以为只要加上一大堆归根结底毫无意义的象征，就能解决别人不断指出的问题。</p>
+<p><strong>审讯员：</strong> 所以水獭就是这时候出现的？</p>
+<p><strong>Wright：</strong> 差不多吧。你看，他自以为是得要命，无法接受自己可能拍出了一部从根本上就烂透了的电影。所以他当然认定影评人只是太没文化，无法理解他不断硬塞进去的象征。他对认知危害、异常艺术之类略有了解，也知道我会制作其中一些东西。于是他纠缠了我好几个星期，要我“强迫他们欣赏这些象征”。最后我同意了，只为让他闭嘴。问题是，他从没说我必须让他们欣赏 <em>有意安排的</em> 象征……</p>
+<p><strong>审讯员：</strong> 所以那只水獭原本根本没有任何含义？</p>
+<p><strong>Wright：</strong> 没有。拍摄时它恰好在那里，而他剪辑时一直没注意到。等他终于明白为什么所有人都在谈论水獭时，我早已毕业，可以直接不理他了。</p>
+<p><strong>审讯员：</strong> 感谢配合。我只剩最后一个问题：Fox现在在哪里？</p>
+<p><strong>Wright：</strong> 你凭什么觉得我知道？</p>
+<p><strong>审讯员：</strong> 除了你日历上写着“往Kevin McBitchcock家扔鸡蛋”，日期是…… <em>[查看笔记]</em> 9月30日？</p>
+<p><strong>Wright：</strong> 首先，选万圣节动手对我的品味来说太随大流了。其次，我也许不喜欢那家伙，但我绝不会把他卖给你们。</p>
+<p><strong>审讯员：</strong> 看来我们的看法在这里不一致。你好像误以为自己在这件事上有选择。警卫，把——</p>
+<p><em>[审讯员与安保人员以符合SCP-████异常性质的方式失去自主肌肉控制并倒地。SCP-████与数名逃脱的‘我们酷毙了吗？’成员进入房间。]</em></p>
+<p><strong>Wright：</strong> <em>[叹气]</em> 你非得等到最有戏剧性的时刻，是吧，Stanley？</p>
+<p><strong>SCP-████：</strong> 请直接叫我Stan！我们是朋友，不是吗？</p>
+<p><strong>Wright：</strong> 你真想让我回答吗？</p>
+<p><strong>SCP-████：</strong> <em>[拙劣地模仿Wright]</em> “哎呀，真是太感谢你精彩绝伦的营救了，Stan！”</p>
+<p><strong>Wright：</strong> 我们赶紧离开这里吧。</p>
+<p><em>[Wright转身面向审讯员。]</em></p>
+<p><strong>Wright：</strong> 哦，还有，如果你们找到Kevin，告诉他我说让他滚去操自己吧。</p>
+<p><em>[众人离开；Wright退出时对摄像机做出猥亵手势。一张便条从他口袋里掉了出来。]</em></p>
+<hr/>
+<p><strong>后记：</strong> SCP-████在嘲弄一名倒地警卫时很快被重新收容；该警卫已恢复足够的肌肉控制，用电击枪击中了它。Wright与另外几名相关人士在增援抵达前逃脱，目前仍逍遥法外。</p>
+</div>
+<br/>
+PoI-39105的便条：
+<div class="blockquote">
+<p>有些人就算被烂电影迎面砸中也认不出来。或者砸中屁股。对某些人来说好像也没多大区别。每年提醒你一次：你被一只死水獭抢了风头。</p>
+<p>- Steve</p>
+<p>又及：如果你需要，我认识几个很棒的窗户清洁工！</p>
+</div>
+<div class="licensebox">
+<div class="collapsible-block">
+<div class="collapsible-block-folded"><a class="collapsible-block-link" href="javascript:;">‡ 授权 / 引用</a></div>
+<div class="collapsible-block-unfolded" style="display:none">
+<div class="collapsible-block-unfolded-link"><a class="collapsible-block-link" href="javascript:;">‡ 隐藏授权 / 引用</a></div>
+<div class="collapsible-block-content">
+<p>引用本页时请写作：</p>
+<div class="list-pages-box"> <div class="list-pages-item">
+<blockquote>
+<p>"<a href="/scp-8304">SCP-8304</a>”，作者为 DappledDaspletosaur，发布于 <a href="https://scpwiki.com">SCP Wiki</a>。来源： <a href="https://scpwiki.com/scp-8304">https://scpwiki.com/scp-8304</a>。采用以下许可： <a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA</a>.</p>
+</blockquote>
+</div>
+</div>
+<p>关于此组件的使用方法，请参阅 <a href="/component:license-box">授权框组件</a>。有关授权政策，请参阅 <a href="/licensing-guide">授权指南</a>.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="footnotes-footer">
+<div class="title">脚注</div>
+<div class="footnote-footer" id="footnote-1"><a href="javascript:;" onclick="WIKIDOT.page.utils.scrollToReference('footnoteref-1')">1</a>。SCP-8304曾被误认为一张非异常DVD并放入员工休息室，导致其意外暴露。</div>
+<div class="footnote-footer" id="footnote-2"><a href="javascript:;" onclick="WIKIDOT.page.utils.scrollToReference('footnoteref-2')">2</a>。其他受试者均未报告听到SCP-8304-1发出任何声音。让视力正常的受试者观看能听到SCP-8304音轨、但看不见SCP-8304-1的录像时，也复现了这一效应。</div>
+<div class="footnote-footer" id="footnote-3"><a href="javascript:;" onclick="WIKIDOT.page.utils.scrollToReference('footnoteref-3')">3</a>。异常艺术家。</div>
+</div>
+<div class="footer-wikiwalk-nav">
+<div style="text-align: center;">
+<p>« <a href="/scp-8303">SCP-8303</a> | SCP-8304 | <a href="/scp-8305">SCP-8305</a> »</p>
+</div>
+</div>
+</div>
