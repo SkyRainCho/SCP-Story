@@ -1,0 +1,2652 @@
+<!-- source-language: en; source-url: https://scp-wiki.wikidot.com/scp-7875; translated-title: SCP-7875 - 患上正常症 -->
+<style id="internal-style" type="text/css">
+        
+        /* modules */
+@import url(https://d3g0gp89917ko0.cloudfront.net/v--7690939296dc/common--modules/css/pagerate/PageRateWidgetModule.css);
+
+
+        
+                
+        /* theme */
+                    @import url(https://d3g0gp89917ko0.cloudfront.net/v--7690939296dc/common--theme/base/css/style.css);
+                    @import url(https://cdn.scpwiki.com/theme/en/sigma/css/sigma.min.css);
+            </style>
+<style>
+.hide-ios-cache-issue-notification {
+  width: fit-content;
+  margin-left: 2em;
+}
+
+.ios-cache-issue-notification:has(.hide-ios-cache-issue-notification .collapsible-block-unfolded:not([style*="none"])) {
+  display: none;
+}
+
+.ios-cache-issue-notification a:not(.collapsible-block-link) {
+  text-decoration: underline;
+}
+
+.ios-cache-issue-notification .code {
+  background-color: #fffafa;
+  border-radius: 10px;
+  border: 1px solid #f00;
+}
+
+.ios-cache-issue-notification {
+  line-height: 1.5;
+  position: fixed;
+  top: 65px;
+  left: 10px;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 0 5px black;
+  border: 1px solid red;
+  font-size: 125%;
+  color: black;
+  background-color: #fee;
+  z-index: 999999999;
+  width: calc(100vw - 70px);
+  clear: none;
+  max-height: calc(100vh - 130px);
+  overflow: auto;
+  animation: ios-cache-issue-notification-fadein 0.5s;
+  animation-delay: 2s;
+  animation-fill-mode: both;
+  max-width: 40em;
+}
+
+@keyframes ios-cache-issue-notification-fadein {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.ios-cache-issue-notification a {
+  color: #b01 !important;
+}
+</style>
+<style>
+iframe.scpnet-interwiki-frame { height: 0; }
+
+/* Forcibly change name of AHT banned user. */
+a[href*="user:info/adminbright"] {
+  font-size: 0;
+}
+
+a[href*="user:info/adminbright"]::before {
+    content: 'TheDuckMan';
+    font-size: .95rem;
+}
+
+a[href*="user:info/adminbright"]:nth-child(1) img {
+  display: none
+}
+
+a[href*="user:info/adminbright"]:nth-child(1)::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  background-image: url(https://05command.wdfiles.com/local--files/theme%3Asite/default_avatar.png), url(https://05command.wdfiles.com/local--files/theme%3Asite/karmabar.png);
+  display: inline-block;
+  background-size: contain;
+  vertical-align: -0.3em;
+  padding: 1px 9px 1px 8px;
+  background-repeat: no-repeat;
+  background-position-x: 8px, 0;
+}
+</style>
+<style>
+@import url("https://cdn.scpwiki.com/theme/en/black-highlighter/css/min/normalize.min.css");
+@import url("https://cdn.scpwiki.com/theme/en/black-highlighter/css/min/black-highlighter.min.css");
+
+a[rel="license"]::after {
+    content: ".";
+}
+</style>
+<style>
+@import url("https://scp-wiki.wdfiles.com/local--code/component%3Acentered-header-bhl/1")
+</style>
+<style>
+@import url("https://scp-wiki.wdfiles.com/local--code/component%3Atoggle-sidebar-bhl/1")
+</style>
+<style>
+@import url("https://scp-wiki.wdfiles.com/local--code/theme%3Aminimalist-bhl/1")
+</style>
+<style>
+@import url('https://scp-wiki.wdfiles.com/local--code/component%3Aacs-animation/1');
+</style>
+<style>
+.email-example .collapsible-block-folded a.collapsible-block-link {
+    animation: blink 0.8s ease-in-out infinite alternate;
+}
+@keyframes blink {
+    0% { color: transparent; }
+    50%, 100% { color: #b01; }
+}
+.email {border: solid 2px #000000; width: 88%; padding: 1px 15px; margin: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.5)}
+.email-example a.collapsible-block-link {font-weight: bold;}
+.tofrom {margin-left: 10px; margin-top: 5px; padding: 1px 15px; border-left: solid 3px maroon}
+</style>
+<style>
+:root {
+ --header-title: "SITE-92: PATHOLOGY DIVISION";
+ --header-subtitle: "SEQUESTER - CLASSIFY - PREVENT";
+}
+</style>
+<style>
+@import url('https://cdn.jsdelivr.net/gh/Nu-SCPTheme/Black-Highlighter@gh-pages/fonts/inter.css');
+
+:root {
+    --five-color: 196,2,51;
+    --four-color: 255,109,0;
+    --three-color: 255,211,0;
+    --two-color: 0,135,189;
+    --one-color: 0,159,107;
+}
+
+#page-title,
+.meta-title {
+    display: none;
+}
+
+.anom-bar-container,
+.anom-bar-container * {
+    -webkit-box-sizing: border-box;
+       -moz-box-sizing: border-box;
+            box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+    font-family: Inter, sans-serif;
+    font-family: var(--title-font, Inter, sans-serif);
+}
+
+.anom-bar-container {
+    width: 100%;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    position: relative;
+}
+
+hr + .anom-bar-container, 
+.anom-bar-container:not(first-child) {
+    padding-top: 1em;
+}
+
+.anom-bar {
+    display: -ms-grid;
+    display: grid;
+            grid-template-areas:
+        "top-box"
+        "bottom-box";
+    width: 100%;
+}
+
+.anom-bar > .top-box {
+    --wght: 600;
+    -ms-grid-row: 1;
+    -ms-grid-column: 1;
+    display: -ms-grid;
+    display: grid;
+    grid-area: top-box;
+    grid-template-areas:
+        "top-left-box top-center-box top-right-box";
+    width: 100%;
+        -ms-grid-columns: auto 1fr calc(5vw + 5rem);
+    grid-template-columns: auto 1fr -webkit-calc(5vw + 5rem);
+    grid-template-columns: auto 1fr -moz-calc(5vw + 5rem);
+    grid-template-columns: auto 1fr calc(5vw + 5rem);
+    -ms-grid-rows: 1fr;
+    grid-template-rows: 1fr;
+    font-weight: 600;
+    text-transform: uppercase;
+    justify-items: stretch;
+    padding-bottom: 1rem;
+}
+
+.top-box .top-left-box {
+    -ms-grid-row: 1;
+    -ms-grid-column: 1;
+    grid-area: top-left-box;
+}
+
+.top-left-box > .item {
+    font-size: -webkit-calc(12px + (20 - 12) * ( (100vw - 300px) / ( 1920 - 960) ));
+    font-size: -moz-calc(12px + (20 - 12) * ( (100vw - 300px) / ( 1920 - 960) ));
+    font-size: calc(12px + (20 - 12) * ( (100vw - 300px) / ( 1920 - 960) ));
+}
+
+.top-left-box > .number {
+    font-size: -webkit-calc(25px + (50 - 25) * ( (100vw - 300px) / ( 1920 - 300) ));
+    font-size: -moz-calc(25px + (50 - 25) * ( (100vw - 300px) / ( 1920 - 300) ));
+    font-size: calc(25px + (50 - 25) * ( (100vw - 300px) / ( 1920 - 300) ));
+}
+
+.top-box .top-center-box {
+    -ms-grid-row: 1;
+    -ms-grid-column: 2;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    grid-area: top-center-box;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -webkit-flex-direction: column;
+       -moz-box-orient: vertical;
+       -moz-box-direction: normal;
+        -ms-flex-direction: column;
+            flex-direction: column;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+       -moz-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    -webkit-box-pack: center;
+    -webkit-justify-content: center;
+       -moz-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+    height: 100%;
+    margin: 0 1rem;
+}
+
+.top-center-box > div {
+    background-color: rgb(0,0,0);
+    height: 0.5rem;
+    width: 100%;
+    margin: 0.125rem;
+    display: none;
+}
+
+.anom-bar-container.american .top-center-box > div {
+    background-image: 
+    -webkit-repeating-linear-gradient(65deg, 
+        rgb(178,34,52),
+        rgb(252,252,252) 45%,
+        rgb(252,252,252) 55%,
+        rgb(60,59,110) 100%);
+    background-image: 
+    -moz-repeating-linear-gradient(65deg, 
+        rgb(178,34,52),
+        rgb(252,252,252) 45%,
+        rgb(252,252,252) 55%,
+        rgb(60,59,110) 100%);
+    background-image: 
+    -o-repeating-linear-gradient(65deg, 
+        rgb(178,34,52),
+        rgb(252,252,252) 45%,
+        rgb(252,252,252) 55%,
+        rgb(60,59,110) 100%);
+    background-image: 
+    repeating-linear-gradient(25deg, 
+        rgb(178,34,52),
+        rgb(252,252,252) 45%,
+        rgb(252,252,252) 55%,
+        rgb(60,59,110) 100%);
+    background-attachment: scroll;
+}
+
+.anom-bar-container.clear-1 .top-center-box > div {
+    background-color: rgb(0,159,107);
+    background-color: rgb(var(--one-color));
+}
+
+.anom-bar-container.clear-2 .top-center-box > div {
+    background-color: rgb(0,135,189);
+    background-color: rgb(var(--two-color));
+}
+
+.anom-bar-container.clear-3 .top-center-box > div {
+    background-color: rgb(255,211,0);
+    background-color: rgb(var(--three-color));
+}
+
+.anom-bar-container.clear-4 .top-center-box > div {
+    background-color: rgb(255,109,0);
+    background-color: rgb(var(--four-color));
+}
+
+.anom-bar-container.clear-5 .top-center-box > div {
+    background-color: rgb(196,2,51);
+    background-color: rgb(var(--five-color));
+}
+
+.anom-bar-container.clear-1 .top-center-box > .bar-one,
+.anom-bar-container.clear-2 .top-center-box > .bar-one,
+.anom-bar-container.clear-3 .top-center-box > .bar-one,
+.anom-bar-container.clear-4 .top-center-box > .bar-one,
+.anom-bar-container.clear-5 .top-center-box > .bar-one,
+.anom-bar-container.clear-6 .top-center-box > .bar-one {
+    display: block;
+}
+
+.anom-bar-container.clear-2 .top-center-box > .bar-two,
+.anom-bar-container.clear-3 .top-center-box > .bar-two,
+.anom-bar-container.clear-4 .top-center-box > .bar-two,
+.anom-bar-container.clear-5 .top-center-box > .bar-two,
+.anom-bar-container.clear-6 .top-center-box > .bar-two {
+    display: block;
+}
+
+.anom-bar-container.clear-3 .top-center-box > .bar-three,
+.anom-bar-container.clear-4 .top-center-box > .bar-three,
+.anom-bar-container.clear-5 .top-center-box > .bar-three,
+.anom-bar-container.clear-6 .top-center-box > .bar-three {
+    display: block;
+}
+
+.anom-bar-container.clear-4 .top-center-box > .bar-four,
+.anom-bar-container.clear-5 .top-center-box > .bar-four,
+.anom-bar-container.clear-6 .top-center-box > .bar-four {
+    display: block;
+}
+
+.anom-bar-container.clear-5 .top-center-box > .bar-five,
+.anom-bar-container.clear-6 .top-center-box > .bar-five {
+    display: block;
+}
+
+.anom-bar-container.clear-6 .top-center-box > .bar-six {
+    display: block;
+}
+
+.anom-bar-container.clear-6 .anom-bar > .top-box {
+    -ms-grid-columns: auto 1fr calc(5vw + 8rem);
+    grid-template-columns: auto 1fr -webkit-calc(5vw + 8rem);
+    grid-template-columns: auto 1fr -moz-calc(5vw + 8rem);
+    grid-template-columns: auto 1fr calc(5vw + 8rem);
+    padding-bottom: 1.15em;
+}
+
+.anom-bar-container.clear-6 .top-center-box > div {
+    background-color: rgb(133, 0, 5);
+    background-color: rgb(var(--swatch-primary, 133, 0, 5));
+    background-image: url("https://scp-wiki.wdfiles.com/local--files/component%3Aanomaly-class-bar/galactic.jpg");
+    background-attachment: fixed;
+    background-size: contain;
+    background-blend-mode: overlay;
+}
+
+.top-box .top-right-box {
+    -ms-grid-row: 1;
+    -ms-grid-column: 3;
+    display: -ms-grid;
+    display: grid;
+    grid-area: top-right-box;
+            grid-template-areas:
+        "level"
+        "clearance";
+    -ms-grid-rows: (1fr)[2];
+    grid-template-rows: repeat(2, 1fr);
+    grid-gap: 0.5em;
+    gap: 0.5em;
+}
+
+.top-right-box > .level {
+    -ms-grid-row: 1;
+    -ms-grid-column: 1;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: end;
+    -webkit-align-items: flex-end;
+       -moz-box-align: end;
+        -ms-flex-align: end;
+            align-items: flex-end;
+    grid-area: level;
+    font-size: 2.5em;
+    line-height: 0.5;
+}
+
+.top-right-box > .clearance {
+    -ms-grid-row: 2;
+    -ms-grid-column: 1;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: start;
+    -webkit-align-items: flex-start;
+       -moz-box-align: start;
+        -ms-flex-align: start;
+            align-items: flex-start;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    grid-area: clearance;
+    font-size: -webkit-calc(12px + (15 - 12) * ( (100vw - 400px) / ( 1920 - 960) ));
+    font-size: -moz-calc(12px + (15 - 12) * ( (100vw - 400px) / ( 1920 - 960) ));
+    font-size: calc(12px + (15 - 12) * ( (100vw - 400px) / ( 1920 - 960) ));
+    line-height: 1.5;
+    white-space: nowrap;
+}
+
+.top-right-box > .clearance::before {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.anom-bar-container.clear-6 .top-right-box > .clearance::before {
+    content: "宇宙绝密";
+}
+
+.anom-bar-container.clear-5 .top-right-box > .clearance::before {
+    content: "绝密";
+}
+
+.anom-bar-container.clear-4 .top-right-box > .clearance::before {
+    content: "秘密";
+}
+
+.anom-bar-container.clear-3 .top-right-box > .clearance::before {
+    content: "机密";
+}
+
+.anom-bar-container.clear-2 .top-right-box > .clearance::before {
+    content: "受限";
+}
+
+.anom-bar-container.clear-1 .top-right-box > .clearance::before {
+    content: "无限制";
+}
+
+.anom-bar > .bottom-box {
+    --wght: 600;
+    -ms-grid-row: 2;
+    -ms-grid-column: 1;
+    display: -ms-grid;
+    display: grid;
+    grid-area: bottom-box;
+            grid-template-areas:
+        "text-part diamond-part"
+        "text-part diamond-part";
+    -ms-grid-rows: 1fr 0.5rem 1fr;
+    grid-template-rows: 1fr 1fr;
+    -ms-grid-columns: 1fr 0.5rem 6rem;
+    grid-template-columns: 1fr 6rem;
+    grid-gap: 0.5rem;
+    width: 100%; 
+    height: 6rem;
+    font-weight: 600;
+    -webkit-box-shadow: 0 -0.5rem 0 0 rgb(12, 12, 12);
+       -moz-box-shadow: 0 -0.5rem 0 0 rgb(12, 12, 12);
+            box-shadow: 0 -0.5rem 0 0 rgb(12, 12, 12);
+    -webkit-box-shadow: 0 -0.5rem 0 0 rgb(var(--swatch-menubg-black-color, 12, 12, 12));
+       -moz-box-shadow: 0 -0.5rem 0 0 rgb(var(--swatch-menubg-black-color, 12, 12, 12));
+            box-shadow: 0 -0.5rem 0 0 rgb(var(--swatch-menubg-black-color, 12, 12, 12));
+    margin-top: -0.5rem;
+    padding-top: 0.25rem;
+}
+
+.bottom-box > .text-part {
+    -ms-grid-row: 1;
+    -ms-grid-row-span: 3;
+    -ms-grid-column: 1;
+    display: -ms-grid;
+    display: grid;
+    height: 6rem;
+    grid-area: text-part;
+            grid-template-areas:
+        "main-class disrupt-class"
+        "main-class risk-class";
+    -ms-grid-rows: 1fr 0.25rem 1fr;
+    grid-template-rows: 1fr 1fr;
+    -ms-grid-columns: auto 0.25rem 1fr;
+    grid-template-columns: 3fr 2fr;
+    grid-gap: 0.25rem;
+    text-transform: uppercase;
+    -webkit-box-pack: stretch;
+    -webkit-justify-content: stretch;
+       -moz-box-pack: stretch;
+        -ms-flex-pack: stretch;
+            justify-content: stretch;
+    -webkit-box-align: stretch;
+    -webkit-align-items: stretch;
+       -moz-box-align: stretch;
+        -ms-flex-align: stretch;
+            align-items: stretch;
+}
+
+.text-part div {
+    padding: 0 0.125rem;
+    margin: 0 0 0 0.25rem;
+    position: relative;
+}
+
+.text-part > .main-class {
+    -ms-grid-row: 1;
+    -ms-grid-row-span: 3;
+    -ms-grid-column: 1;
+    position: relative;
+    grid-area: main-class;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -webkit-flex-direction: column;
+       -moz-box-orient: vertical;
+       -moz-box-direction: normal;
+        -ms-flex-direction: column;
+            flex-direction: column;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+       -moz-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    -webkit-box-pack: center;
+    -webkit-justify-content: center;
+       -moz-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+    -webkit-box-shadow: 0.25rem 0 0 0 rgba(0,0,0,0);
+       -moz-box-shadow: 0.25rem 0 0 0 rgba(0,0,0,0);
+            box-shadow: 0.25rem 0 0 0 rgba(0,0,0,0);
+}
+
+.anom-bar-container:not(.esoteric) .text-part > .main-class {
+    padding-right: 3.5rem;
+}
+
+.anom-bar-container.esoteric .text-part > .main-class {
+    padding-right: 2rem;
+}
+
+.text-part > .main-class::before {
+    content: "";
+    position: absolute;
+    top: -webkit-calc(50% - 2.25rem);
+    top: -moz-calc(50% - 2.25rem);
+    top: calc(50% - 2.25rem);
+    right: 0.5rem;
+    width: 3.53125rem;
+    height: 3.53125rem;
+    -webkit-border-radius: 50%;
+       -moz-border-radius: 50%;
+            border-radius: 50%;
+    border: 0.25rem solid rgb(12, 12, 12);
+    border: 0.25rem solid rgb(var(--swatch-menutxt-dark-color, 12, 12, 12));
+    background-color: rgb(252, 252, 252);
+    background-color: rgb(var(--swatch-background    , 252, 252, 252));
+    -webkit-background-size: contain;
+       -moz-background-size: contain;
+         -o-background-size: contain;
+            background-size: contain;
+    background-position: center center;
+}
+
+.anom-bar-container.esoteric .text-part > .main-class::before {
+    top: 0.5rem;
+    right: 1.25rem;
+    width: 5rem;
+    -webkit-border-radius: -webkit-calc(3.53125rem / 2);
+       -moz-border-radius: -moz-calc(3.53125rem / 2);
+            border-radius: calc(3.53125rem / 2);
+    background-color: rgb(252, 252, 252);
+    background-color: rgb(var(--swatch-background, 252, 252, 252));
+    border-color: rgb(var(--swatch-background, 252, 252, 252));
+    -webkit-filter: invert(1);
+            filter: invert(1);
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/esoteric-icon.svg");
+    -webkit-background-size: 75% 75%;
+       -moz-background-size: 75% 75%;
+         -o-background-size: 75% 75%;
+            background-size: 75% 75%;
+    background-repeat: no-repeat;
+    background-position: left -10px center;
+}
+
+.anom-bar-container.esoteric .text-part > .main-class::after {
+    content: "";
+    position: absolute;
+    top: 0.5rem;
+    right: 0.25rem;
+    width: 3.53125rem;
+    height: 3.53125rem;
+    -webkit-border-radius: 50%;
+       -moz-border-radius: 50%;
+            border-radius: 50%;
+    border: 0.25rem solid rgb(12, 12, 12);
+    border: 0.25rem solid rgb(var(--swatch-menutxt-dark-color, 12, 12, 12));
+    background-color: rgb(252, 252, 252);
+    background-color: rgb(var(--swatch-background, 252, 252, 252));
+    -webkit-background-size: contain;
+       -moz-background-size: contain;
+         -o-background-size: contain;
+            background-size: contain;
+    background-position: center center;
+}
+
+.anom-bar-container.none .text-part > .main-class::after {
+    background-image: url("https://example.com/acs-image.svg");
+}
+
+.anom-bar-container.explained .text-part > .main-class::before,
+.anom-bar-container.pending .text-part > .main-class::before,
+.anom-bar-container.neutralized .text-part > .main-class::before,
+.anom-bar-container.neutralised .text-part > .main-class::before {
+    display:none;
+}
+
+.anom-bar-container.keter .text-part > .main-class::before {
+    background-color: rgb(196,2,51);
+background-color: rgb(var(--five-color));
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/keter-icon.svg");
+}
+
+.anom-bar-container.euclid .text-part > .main-class::before {
+    background-color: rgb(255,211,0);
+background-color: rgb(var(--three-color));
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/euclid-icon.svg");
+}
+
+.anom-bar-container.safe .text-part > .main-class::before {
+    background-color: rgb(0,159,107);
+background-color: rgb(var(--one-color));
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/safe-icon.svg");
+}
+
+.text-part > .main-class > div {
+    width: 100%;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+}
+
+.anom-bar-container.esoteric .text-part > .main-class > .second-class > .class-text {
+    font-size: -webkit-calc( 6px + (11 - 6) * ( (100vw - 400px) / ( 800 - 400) ));
+    font-size: -moz-calc( 6px + (11 - 6) * ( (100vw - 400px) / ( 800 - 400) ));
+    font-size: calc( 6px + (11 - 6) * ( (100vw - 400px) / ( 800 - 400) ));
+    position: relative;
+}
+
+.anom-bar-container:not(.esoteric) .text-part > .main-class > .contain-class > .class-text {
+    font-size: -webkit-calc(10px + (18 - 10) * ( (100vw - 400px) / ( 800 - 400) ));
+    font-size: -moz-calc(10px + (18 - 10) * ( (100vw - 400px) / ( 800 - 400) ));
+    font-size: calc(10px + (18 - 10) * ( (100vw - 400px) / ( 800 - 400) ));
+}
+
+.anom-bar-container:not(.esoteric) .text-part > .main-class > .second-class {
+    display: none;
+}
+
+.text-part > .disrupt-class {
+    -ms-grid-row: 1;
+    -ms-grid-column: 3;
+    grid-area: disrupt-class;
+}
+
+.text-part > .risk-class {
+    -ms-grid-row: 3;
+    -ms-grid-column: 3;
+    grid-area: risk-class;
+}
+
+.text-part > .disrupt-class,
+.text-part > .risk-class {
+    overflow: hidden;
+}
+
+.anom-bar-container.esoteric .text-part .main-class {
+    background-color: rgba(66, 66, 72 ,0.15);
+    background-color: rgba(var(--swatch-menubg-dark-color, 66, 66, 72),0.15);
+    border-left: 0.75rem solid rgba(66, 66, 72 ,1);
+    border-left: 0.75rem solid rgba(var(--swatch-menubg-dark-color, 66, 66, 72),1);
+}
+
+.anom-bar-container.neutralized .text-part .main-class,
+.anom-bar-container.neutralised .text-part .main-class {
+    background-color: rgba(66, 66, 72 ,0.15);
+    background-color: rgba(var(--swatch-menubg-dark-color, 66, 66, 72),0.15);
+    border-left: 0.75rem solid rgba(66, 66, 72 ,1);
+    border-left: 0.75rem solid rgba(var(--swatch-menubg-dark-color, 66, 66, 72),1);
+}
+
+.anom-bar-container.pending .text-part .main-class {
+    background-color: rgba(12, 12, 12 ,0.15);
+    background-color: rgba(var(--swatch-menutxt-dark-color, 12, 12, 12),0.15);
+    border-left: 0.75rem solid rgba(12, 12, 12 ,1);
+    border-left: 0.75rem solid rgba(var(--swatch-menutxt-dark-color, 12, 12, 12),1);
+}
+
+.anom-bar-container.explained .text-part .main-class {
+    background-color: rgba(252, 252, 252 ,0.15);
+    background-color: rgba(var(--swatch-background, 252, 252, 252),0.15);
+    border-left: 0.75rem solid rgba(12, 12, 12 ,1);
+    border-left: 0.75rem solid rgba(var(--swatch-menutxt-dark-color, 12, 12, 12),1);
+}
+
+.anom-bar-container.keter .text-part .main-class,
+.anom-bar-container.amida .text-part .disrupt-class,
+.anom-bar-container.critical .text-part .risk-class {
+    background-color: rgba(196,2,51,0.15);
+    background-color: rgba(var(--five-color),0.15);
+    border-left: 0.5rem solid rgba(196,2,51,1);
+    border-left: 0.5rem solid rgba(var(--five-color),1);
+}
+
+.anom-bar-container.ekhi .text-part .disrupt-class,
+.anom-bar-container.danger .text-part .risk-class {
+    background-color: rgba(255,109,0,0.15);
+    background-color: rgba(var(--four-color),0.15);
+    border-left: 0.5rem solid rgba(255,109,0,1);
+    border-left: 0.5rem solid rgba(var(--four-color),1);
+}
+
+.anom-bar-container.euclid .text-part .main-class,
+.anom-bar-container.keneq .text-part .disrupt-class,
+.anom-bar-container.warning .text-part .risk-class {
+    border-left: 0.5rem solid rgba(255,211,0,1);
+    border-left: 0.5rem solid rgba(var(--three-color),1);
+    background-color: rgba(255,211,0,0.15);
+    background-color: rgba(var(--three-color),0.15);
+}
+
+.anom-bar-container.vlam .text-part .disrupt-class,
+.anom-bar-container.caution .text-part .risk-class {
+    border-left: 0.5rem solid rgba(0,135,189,1);
+    border-left: 0.5rem solid rgba(var(--two-color),1);
+    background-color: rgba(0,135,189,0.15);
+    background-color: rgba(var(--two-color),0.15);
+}
+
+.anom-bar-container.safe .text-part .main-class,
+.anom-bar-container.dark .text-part .disrupt-class,
+.anom-bar-container.notice .text-part .risk-class {
+    background-color: rgba(0,159,107,0.15);
+    background-color: rgba(var(--one-color),0.15);
+    border-left: 0.5rem solid rgba(0,159,107,1);
+    border-left: 0.5rem solid rgba(var(--one-color),1);
+}
+
+.anom-bar-container.neutralized .text-part,
+.anom-bar-container.neutralised .text-part,
+.anom-bar-container.pending .text-part,
+.anom-bar-container.explained .text-part {
+    -ms-grid-columns: 1fr;
+    grid-template-columns: 1fr;
+}
+
+.text-part .disrupt-class::after,
+.text-part .risk-class::after,
+.text-part .disrupt-class::before,
+.text-part .risk-class::before {
+    content: "";
+    position: absolute;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+       -moz-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    -webkit-box-pack: center;
+    -webkit-justify-content: center;
+       -moz-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+    -webkit-border-radius: 50%;
+       -moz-border-radius: 50%;
+            border-radius: 50%;
+    border: 0.25rem solid rgb(12, 12, 12);
+    border: 0.25rem solid rgb(var(--swatch-menutxt-dark-color, 12, 12, 12));
+    width: 2.5rem;
+    height: 2.5rem;
+    top: -webkit-calc(50% - 1.5rem);
+    top: -moz-calc(50% - 1.5rem);
+    top: calc(50% - 1.5rem);
+    font-size: 2em;
+    background-color: rgb(252, 252, 252);
+    background-color: rgb(var(--swatch-background, 252, 252, 252));
+    -webkit-background-size: contain;
+       -moz-background-size: contain;
+         -o-background-size: contain;
+            background-size: contain;
+    background-position: center center;
+}
+
+.text-part .disrupt-class::after,
+.text-part .risk-class::after {
+    right: 0.15em;
+}
+
+.text-part .disrupt-class::before,
+.text-part .risk-class::before {
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-pack: start;
+    -webkit-justify-content: flex-start;
+       -moz-box-pack: start;
+        -ms-flex-pack: start;
+            justify-content: flex-start;
+    background-color: rgb(12, 12, 12);
+    background-color: rgb(var(--swatch-menubg-black-color, 12, 12, 12));
+    width: 3rem;
+    height: 3rem;
+    top: -webkit-calc(50% - 1.5rem);
+    top: -moz-calc(50% - 1.5rem);
+    top: calc(50% - 1.5rem);
+    border: 0;
+    right: 1rem;
+    text-align: left;
+    font-size: 1em;
+    padding-left: 0.5rem;
+    color: rgb(252, 252, 252);
+    color: rgb(var(--swatch-text-secondary-color, 252, 252, 252));
+}
+
+.anom-bar-container.amida .text-part .disrupt-class::before,
+.anom-bar-container.critical .text-part .risk-class::before {
+    content: "5";
+}
+
+.anom-bar-container.ekhi .text-part .disrupt-class::before,
+.anom-bar-container.danger .text-part .risk-class::before {
+    content: "4";
+}
+
+.anom-bar-container.keneq .text-part .disrupt-class::before,
+.anom-bar-container.warning .text-part .risk-class::before {
+    content: "3";
+}
+
+.anom-bar-container.vlam .text-part .disrupt-class::before,
+.anom-bar-container.caution .text-part .risk-class::before {
+    content: "2";
+}
+
+.anom-bar-container.dark .text-part .disrupt-class::before,
+.anom-bar-container.notice .text-part .risk-class::before {
+    content: "1";
+}
+
+.anom-bar-container.amida .text-part .disrupt-class::after,
+.anom-bar-container.critical .text-part .risk-class::after {
+    background-color: rgb(196,2,51);
+background-color: rgb(var(--five-color));
+}
+
+.anom-bar-container.amida .text-part .disrupt-class::after {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/amida-icon.svg");
+}
+
+.anom-bar-container.critical .text-part .risk-class::after {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/critical-icon.svg");
+}
+
+.anom-bar-container.ekhi .text-part .disrupt-class::after,
+.anom-bar-container.danger .text-part .risk-class::after {
+    background-color: rgb(255,109,0);
+background-color: rgb(var(--four-color));
+}
+
+.anom-bar-container.ekhi .text-part .disrupt-class::after {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/ekhi-icon.svg");
+}
+
+.anom-bar-container.danger .text-part .risk-class::after {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/danger-icon.svg");
+}
+
+.anom-bar-container.keneq .text-part .disrupt-class::after,
+.anom-bar-container.warning .text-part .risk-class::after {
+    background-color: rgb(255,211,0);
+background-color: rgb(var(--three-color));
+}
+
+.anom-bar-container.keneq .text-part .disrupt-class::after {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/keneq-icon.svg");
+}
+
+.anom-bar-container.warning .text-part .risk-class::after {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/warning-icon.svg");
+}
+
+.anom-bar-container.vlam .text-part .disrupt-class::after,
+.anom-bar-container.caution .text-part .risk-class::after {
+    background-color: rgb(0,135,189);
+background-color: rgb(var(--two-color));
+}
+
+.anom-bar-container.vlam .text-part .disrupt-class::after {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/vlam-icon.svg");
+}
+
+.anom-bar-container.caution .text-part .risk-class::after {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/caution-icon.svg");
+}
+
+.anom-bar-container.dark .text-part .disrupt-class::after,
+.anom-bar-container.notice .text-part .risk-class::after {
+    background-color: rgb(0,159,107);
+background-color: rgb(var(--one-color));
+}
+
+.anom-bar-container.dark .text-part .disrupt-class::after {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/dark-icon.svg");
+}
+
+.anom-bar-container.notice .text-part .risk-class::after {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/notice-icon.svg");
+}
+
+.text-part .main-class {
+    border-width: 1em !important;
+}
+
+.text-part > div .class-category {
+    --wght: 500;
+    position: relative;
+    font-weight: 500;
+    left: 0;
+}
+
+.anom-bar-container.esoteric .contain-class > .class-category {
+    max-width: 55% !important;
+}
+
+.anom-bar-container.explained .second-class,
+.anom-bar-container.explained .disrupt-class,
+.anom-bar-container.explained .risk-class,
+.anom-bar-container.explained .danger-diamond > .quadrants > .left-quad,
+.anom-bar-container.explained .danger-diamond > .quadrants > .right-quad,
+.anom-bar-container.explained .danger-diamond > .left-icon,
+.anom-bar-container.explained .danger-diamond > .right-icon,
+.anom-bar-container.neutralized .second-class,
+.anom-bar-container.neutralized .disrupt-class,
+.anom-bar-container.neutralized .risk-class,
+.anom-bar-container.neutralized .danger-diamond > .quadrants > .left-quad,
+.anom-bar-container.neutralized .danger-diamond > .quadrants > .right-quad,
+.anom-bar-container.neutralized .danger-diamond > .left-icon,
+.anom-bar-container.neutralized .danger-diamond > .right-icon,
+.anom-bar-container.neutralised .second-class,
+.anom-bar-container.neutralised .disrupt-class,
+.anom-bar-container.neutralised .risk-class,
+.anom-bar-container.neutralised .danger-diamond > .quadrants > .left-quad,
+.anom-bar-container.neutralised .danger-diamond > .quadrants > .right-quad,
+.anom-bar-container.neutralised .danger-diamond > .left-icon,
+.anom-bar-container.neutralised .danger-diamond > .right-icon,
+.anom-bar-container.pending .second-class,
+.anom-bar-container.pending .disrupt-class,
+.anom-bar-container.pending .risk-class,
+.anom-bar-container.pending .danger-diamond > .quadrants > .left-quad,
+.anom-bar-container.pending .danger-diamond > .quadrants > .right-quad,
+.anom-bar-container.pending .danger-diamond > .left-icon,
+.anom-bar-container.pending .danger-diamond > .right-icon {
+    display: none;
+}
+
+.text-part .contain-class,
+.text-part .second-class,
+.text-part .disrupt-class,
+.text-part .risk-class {
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: horizontal;
+    -webkit-box-direction: normal;
+    -webkit-flex-direction: row;
+       -moz-box-orient: horizontal;
+       -moz-box-direction: normal;
+        -ms-flex-direction: row;
+            flex-direction: row;
+    -webkit-flex-wrap: wrap;
+        -ms-flex-wrap: wrap;
+            flex-wrap: wrap;
+    -webkit-align-content: center;
+        -ms-flex-line-pack: center;
+            align-content: center;
+    line-height: 1;
+}
+
+.text-part .contain-class > div,
+.text-part .second-class > div,
+.text-part .disrupt-class > div,
+.text-part .risk-class > div {
+    width: 100%;
+}
+
+.text-part > div > .class-category,
+.anom-bar-container.esoteric .text-part > .main-class > .contain-class > .class-category {
+    font-size: 0.75em;
+}
+
+.anom-bar-container.esoteric .text-part > .main-class > .contain-class > .class-text,
+.text-part > .disrupt-class > .class-text,
+.text-part > .risk-class > .class-text {
+    font-size: -webkit-calc( 8px + (12 - 8) * ( (100vw - 400px) / ( 800 - 400) ));
+    font-size: -moz-calc( 8px + (12 - 8) * ( (100vw - 400px) / ( 800 - 400) ));
+    font-size: calc( 8px + (12 - 8) * ( (100vw - 400px) / ( 800 - 400) ));
+}
+
+.bottom-box > .diamond-part {
+    -ms-grid-row: 1;
+    -ms-grid-row-span: 3;
+    -ms-grid-column: 3;
+    width: 100%;
+    padding-top: 100%;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    position: relative;
+    grid-area: diamond-part;
+    padding-left: 1rem;
+    -webkit-box-shadow: -0.5rem 0 0 0 rgb(12, 12, 12);
+       -moz-box-shadow: -0.5rem 0 0 0 rgb(12, 12, 12);
+            box-shadow: -0.5rem 0 0 0 rgb(12, 12, 12);
+    -webkit-box-shadow: -0.5rem 0 0 0 rgb(var(--swatch-menubg-black-color, 12, 12, 12));
+       -moz-box-shadow: -0.5rem 0 0 0 rgb(var(--swatch-menubg-black-color, 12, 12, 12));
+            box-shadow: -0.5rem 0 0 0 rgb(var(--swatch-menubg-black-color, 12, 12, 12));
+}
+
+.danger-diamond {
+    position: absolute;
+    width: 95%;
+    height: 95%;
+    top: 2.5%;
+    left: 5%;
+}
+
+.danger-diamond a {
+    color: rgba(0,0,0,0);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    -webkit-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+    z-index: 3;
+}
+
+.danger-diamond br {
+    display: none;
+}
+
+.danger-diamond > .arrows {
+    --danger-diamond-arrows: url("data:image/svg+xml,%3C%3Fxml version='1.0' encoding='utf-8'%3F%3E%3Csvg version='1.2' baseProfile='tiny' id='Layer_1' xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' x='0px' y='0px' viewBox='0 0 160 160' xml:space='preserve'%3E%3Cpath fill='%23010101' d='M136.1,133.3l23.9-23.9V51.2l-24-24l19.1-19.1l4.9,4.9l0-12.9l-12.9,0l4.9,4.9L133,24.2l-24-24H51l-24,24 L8,5.2l4.9-4.9L0,0.2l0,12.9l4.9-4.9L24,27.3l-24,24v58.2l23.9,23.9l-19,19L0,147.3l0,12.9l12.9,0L8,155.3l19-19l23.9,23.9h58.4 l23.9-23.9l19,19l-4.9,4.9l12.9,0l0-12.9l-4.9,4.9L136.1,133.3z M155.7,53v54.6l-22.6,22.6l-50-50L133,30.3L155.7,53z M52.8,4.5 h54.4l22.7,22.7L80,77.2L30.1,27.3L52.8,4.5z M4.3,107.6V53L27,30.3L77,80.2l-50,50L4.3,107.6z M107.4,155.9H52.6L30,133.3l50-50 l50,50L107.4,155.9z'/%3E%3C/svg%3E%0A");
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    background-color: rgb(var(--swatch-menubg-black-color, 12, 12, 12));
+    -webkit-mask-image: var(--danger-diamond-arrows);
+            mask-image: var(--danger-diamond-arrows);
+    -webkit-mask-repeat: no-repeat;
+            mask-repeat: no-repeat;
+}
+
+.danger-diamond > .octagon {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    text-align: center;
+    z-index: 0;
+    -webkit-clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
+            clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
+}
+
+.danger-diamond > .quadrants {
+    position: absolute;
+    width: 96%;
+    height: 96%;
+    top: 0;
+    left: 0;
+}
+
+.danger-diamond > .quadrants > div {
+    width: 67.5%;
+    padding-bottom: 50%;
+    position: absolute;
+    top: 2.25%;
+    left: 18.5%;
+    background-color: rgb(252, 252, 252);
+background-color: rgb(var(--swatch-background, 252, 252, 252));
+    -webkit-clip-path: polygon(22% 0, 77% 0, 100% 31%, 50% 100%, 0 31%);
+            clip-path: polygon(22% 0, 77% 0, 100% 31%, 50% 100%, 0 31%);
+    -webkit-transform-origin: bottom center;
+       -moz-transform-origin: bottom center;
+        -ms-transform-origin: bottom center;
+         -o-transform-origin: bottom center;
+            transform-origin: bottom center;
+}
+
+.danger-diamond > .quadrants > .left-quad {
+    -webkit-transform: rotate(270deg);
+       -moz-transform: rotate(270deg);
+        -ms-transform: rotate(270deg);
+         -o-transform: rotate(270deg);
+            transform: rotate(270deg);
+}
+
+.danger-diamond > .quadrants > .right-quad {
+    -webkit-transform: rotate(90deg);
+       -moz-transform: rotate(90deg);
+        -ms-transform: rotate(90deg);
+         -o-transform: rotate(90deg);
+            transform: rotate(90deg);
+}
+
+.danger-diamond > .quadrants > .bottom-quad {
+    background-color: transparent;
+    -webkit-transform: rotate(180deg);
+       -moz-transform: rotate(180deg);
+        -ms-transform: rotate(180deg);
+         -o-transform: rotate(180deg);
+            transform: rotate(180deg);
+}
+
+.danger-diamond > .quadrants > .bottom-quad.none {
+    background-color: rgb(252, 252, 252 ,0.25);
+    background-color: rgb(var(--swatch-background, 252, 252, 252),0.25);
+}
+
+.danger-diamond > .quadrants > .top-quad.pending {
+    background-color: rgb(12, 12, 12 ,0.25);
+    background-color: rgb(var(--swatch-menubg-black-color, 12, 12, 12),0.25);
+}
+
+.danger-diamond > .quadrants > .top-quad.neutralized,
+.danger-diamond > .quadrants > .top-quad.neutralised {
+    background-color: rgb(66, 66, 72 ,0.25);
+    background-color: rgb(var(--swatch-menubg-medium-dark-color, 66, 66, 72),0.25);
+}
+
+.danger-diamond > .quadrants > .top-quad.explained {
+    background-color: rgb(252, 252, 252 ,0.25);
+    background-color: rgb(var(--swatch-background, 252, 252, 252),0.25);
+}
+
+.anom-bar-container.esoteric .danger-diamond > .quadrants > .top-quad {
+    background-color: rgb(66, 66, 72 ,0.15);
+    background-color: rgb(var(--swatch-menubg-medium-dark-color, 66, 66, 72),0.15);
+}
+
+.anom-bar-container.keter .danger-diamond > .quadrants > .top-quad,
+.anom-bar-container.amida .danger-diamond > .quadrants > .left-quad,
+.anom-bar-container.critical .danger-diamond > .quadrants > .right-quad  {
+    background-color:rgba(196,2,51,0.25);
+    background-color: rgb(var(--five-color),0.25);
+}
+
+.anom-bar-container.ekhi .danger-diamond > .quadrants > .left-quad,
+.anom-bar-container.danger .danger-diamond > .quadrants > .right-quad {
+    background-color:rgba(255,109,0,0.25);
+    background-color: rgb(var(--five-color),0.25);
+}
+
+.anom-bar-container.euclid .danger-diamond > .quadrants > .top-quad,
+.anom-bar-container.keneq .danger-diamond > .quadrants > .left-quad,
+.anom-bar-container.warning .danger-diamond > .quadrants > .right-quad {
+    background-color:rgba(255,211,0,0.25);
+    background-color: rgb(var(--three-color),0.25);
+}
+
+.anom-bar-container.vlam .danger-diamond > .quadrants > .left-quad,
+.anom-bar-container.caution .danger-diamond > .quadrants > .right-quad {
+    background-color:rgba(0,135,189,0.25);
+    background-color: rgb(var(--two-color),0.25);
+}
+
+.anom-bar-container.safe .danger-diamond > .quadrants > .top-quad,
+.anom-bar-container.dark .danger-diamond > .quadrants > .left-quad,
+.anom-bar-container.notice .danger-diamond > .quadrants > .right-quad {
+    background-color:rgba(0,159,107,0.25);
+    background-color: rgb(var(--one-color),0.25);
+}
+
+.anom-bar-container.clear-5 .danger-diamond > .center-circle::before {
+    content: "5";
+}
+
+.anom-bar-container.clear-4 .danger-diamond > .center-circle::before {
+    content: "4";
+}
+
+.anom-bar-container.clear-3 .danger-diamond > .center-circle::before {
+    content: "3";
+}
+
+.anom-bar-container.clear-2 .danger-diamond > .center-circle::before {
+    content: "2";
+}
+
+.anom-bar-container.clear-1 .danger-diamond > .center-circle::before {
+    content: "1";
+}
+
+.danger-diamond > .top-icon,
+.danger-diamond > .right-icon,
+.danger-diamond > .left-icon,
+.danger-diamond > .bottom-icon {
+    position: absolute;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+       -moz-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    -webkit-box-pack: center;
+    -webkit-justify-content: center;
+       -moz-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+    width: 33%;
+    height: 33%;
+    -webkit-border-radius: 50%;
+       -moz-border-radius: 50%;
+            border-radius: 50%;
+    border: 0.1875rem solid rgb(12, 12, 12);
+    border: 0.1875rem solid rgb(var(--swatch-menubg-black-color, 12, 12, 12));
+    overflow: hidden;
+    z-index: 2;
+}
+
+.danger-diamond > .top-icon {
+    top: 0.25rem;
+    left: 33.5%;
+}
+
+.danger-diamond > .right-icon {
+    right: 0.25rem;
+    top: 33.5%;
+}
+
+.danger-diamond > .left-icon {
+    left: 0.25rem;
+    top: 33.5%;
+}
+
+.danger-diamond > .bottom-icon {
+    bottom: 0.25rem;
+    left: 33.5%;
+}
+
+.anom-bar-container.neutralized .danger-diamond > .top-icon,
+.anom-bar-container.neutralised .danger-diamond > .top-icon,
+.anom-bar-container.pending .danger-diamond > .top-icon,
+.anom-bar-container.explained .danger-diamond > .top-icon {
+    width: 65%;
+    height: 65%;
+    top: 17.5%;
+    left: 17.5%;
+    border-width: 0.3625rem;
+}
+
+.anom-bar-container.pending .danger-diamond > .top-icon {
+    background-color: rgb(var(--swatch-menubg-black-color, 12, 12, 12));
+}
+
+.anom-bar-container:not(.esoteric) .danger-diamond > .bottom-icon {
+    display: none;
+}
+
+.danger-diamond > .top-icon::before,
+.danger-diamond > .right-icon::before,
+.danger-diamond > .left-icon::before,
+.danger-diamond > .bottom-icon::before {
+    content: "";
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+       -moz-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    -webkit-box-pack: center;
+    -webkit-justify-content: center;
+       -moz-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+    top: 0;
+    left: 0;
+}
+
+.anom-bar-container.neutralized .danger-diamond > .top-icon,
+.anom-bar-container.neutralised .danger-diamond > .top-icon {
+    background-color: rgb(252, 252, 252);
+    background-color: rgb(var(--swatch-background, 252, 252, 252));
+}
+
+.anom-bar-container.neutralized .danger-diamond > .top-icon::before,
+.anom-bar-container.neutralised .danger-diamond > .top-icon::before {
+    background-color: rgba(66, 66, 72 ,0.15);
+    background-color: rgba(var(--swatch-menubg-medium-dark-color, 66, 66, 72),0.15);
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/neutralized-icon.svg");
+    -webkit-background-size: 110% 110%;
+       -moz-background-size: 110% 110%;
+         -o-background-size: 110% 110%;
+            background-size: 110% 110%;
+    background-position: center center;
+}
+
+.anom-bar-container.pending .danger-diamond > .top-icon::before {
+    background-color: rgb(12, 12, 12);
+    background-color: rgb(var(--swatch-menubg-black-color, 12, 12, 12));
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/pending-icon.svg");
+}
+
+.anom-bar-container.explained .danger-diamond > .top-icon::before {
+    background-color: rgb(252, 252, 252);
+    background-color: rgb(var(--swatch-background, 252, 252, 252));
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/explained-icon.svg");
+}
+
+.anom-bar-container.esoteric .danger-diamond > .top-icon::before {
+    background-color: rgb(252, 252, 252);
+    background-color: rgb(var(--swatch-background, 252, 252, 252));
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/esoteric-icon.svg");
+    -webkit-filter: invert(1);
+            filter: invert(1);
+}
+
+.anom-bar-container.keter .danger-diamond > .top-icon::before,
+.anom-bar-container.amida .danger-diamond > .left-icon::before,
+.anom-bar-container.critical .danger-diamond > .right-icon::before {
+    background-color: rgb(196,2,51);
+background-color: rgb(var(--five-color));
+}
+
+.anom-bar-container.keter .danger-diamond > .top-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/keter-icon.svg");
+}
+
+.anom-bar-container.amida .danger-diamond > .left-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/amida-icon.svg");
+}
+
+.anom-bar-container.critical .danger-diamond > .right-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/critical-icon.svg");
+}
+
+.anom-bar-container.ekhi .danger-diamond > .left-icon::before,
+.anom-bar-container.danger .danger-diamond > .right-icon::before {
+    background-color: rgb(255,109,0);
+background-color: rgb(var(--four-color));
+}
+
+.anom-bar-container.ekhi .danger-diamond > .left-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/ekhi-icon.svg");
+}
+
+.anom-bar-container.danger .danger-diamond > .right-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/danger-icon.svg");
+}
+
+.anom-bar-container.euclid .danger-diamond > .top-icon::before,
+.anom-bar-container.keneq .danger-diamond > .left-icon::before,
+.anom-bar-container.warning .danger-diamond > .right-icon::before {
+    background-color: rgb(255,211,0);
+background-color: rgb(var(--three-color));
+}
+
+.anom-bar-container.euclid .danger-diamond > .top-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/euclid-icon.svg");
+}
+
+.anom-bar-container.keneq .danger-diamond > .left-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/keneq-icon.svg");
+}
+
+.anom-bar-container.warning .danger-diamond > .right-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/warning-icon.svg");
+}
+
+.anom-bar-container.vlam .danger-diamond > .left-icon::before,
+.anom-bar-container.caution .danger-diamond > .right-icon::before {
+    background-color: rgb(0,135,189);
+background-color: rgb(var(--two-color));
+}
+
+.anom-bar-container.vlam .danger-diamond > .left-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/vlam-icon.svg");
+}
+
+.anom-bar-container.caution .danger-diamond > .right-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/caution-icon.svg");
+}
+
+.anom-bar-container.safe .danger-diamond > .top-icon::before,
+.anom-bar-container.dark .danger-diamond > .left-icon::before,
+.anom-bar-container.notice .danger-diamond > .right-icon::before {
+    background-color: rgb(0,159,107);
+background-color: rgb(var(--one-color));
+}
+
+.anom-bar-container.safe .danger-diamond > .top-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/safe-icon.svg");
+}
+
+.anom-bar-container.dark .danger-diamond > .left-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/dark-icon.svg");
+}
+
+.anom-bar-container.notice .danger-diamond > .right-icon::before {
+    background-image: url("https://scp-wiki.wikidot.com/local--files/component:anomaly-class-bar/notice-icon.svg");
+}
+
+.anom-bar-container.none .danger-diamond > .bottom-icon::before {
+    background-image: url("https://example.com/acs-image.svg");
+    background-size: contain;
+}
+
+@media (max-width: 960px ) {
+    .anom-bar > .top-box {
+        padding-bottom: 1.5em;
+    }
+
+    .anom-bar > .bottom-box {
+        -ms-grid-columns: 1fr 0.5rem 6rem;
+        grid-template-columns: 1fr 6rem;
+        height: 6rem;
+    }
+
+    .anom-bar-container.esoteric .text-part > .main-class > .contain-class > .class-text, .text-part > .disrupt-class > .class-text, .text-part > .risk-class > .class-text {
+        font-size: -webkit-calc( 18px + (24 - 18) * ( (100vw - 400px) / ( 960 - 300) ));
+        font-size: -moz-calc( 18px + (24 - 18) * ( (100vw - 400px) / ( 960 - 300) ));
+        font-size: calc( 18px + (24 - 18) * ( (100vw - 400px) / ( 960 - 300) ));
+    }
+
+    .anom-bar-container.esoteric .text-part > .main-class > .contain-class > .class-text {
+        font-size: -webkit-calc( 12px + (18 - 12) * ( (100vw - 400px) / ( 960 - 300) ));
+        font-size: -moz-calc( 12px + (18 - 12) * ( (100vw - 400px) / ( 960 - 300) ));
+        font-size: calc( 12px + (18 - 12) * ( (100vw - 400px) / ( 960 - 300) ));
+    }
+
+    .anom-bar-container.esoteric .text-part > .main-class > .second-class > .class-text {
+        font-size: -webkit-calc( 18px + (24 - 18) * ( (100vw - 400px) / ( 960 - 300) ));
+        font-size: -moz-calc( 18px + (24 - 18) * ( (100vw - 400px) / ( 960 - 300) ));
+        font-size: calc( 18px + (24 - 18) * ( (100vw - 400px) / ( 960 - 300) ));
+    }
+
+    .anom-bar-container:not(.esoteric) .text-part > .main-class > .contain-class > .class-text {
+        font-size: -webkit-calc( 20px + (40 - 20) * ( (100vw - 400px) / ( 960 - 300) ));
+        font-size: -moz-calc( 20px + (40 - 20) * ( (100vw - 400px) / ( 960 - 300) ));
+        font-size: calc( 20px + (40 - 20) * ( (100vw - 400px) / ( 960 - 300) ));
+    }
+
+    .text-part > .main-class {
+        -ms-grid-row: 1;
+        -ms-grid-row-span: 1;
+        -ms-grid-column: 1;
+    }
+
+    .text-part > .disrupt-class {
+        -ms-grid-row: 3;
+        -ms-grid-column: 1;
+    }
+
+    .text-part > .risk-class {
+        -ms-grid-row: 5;
+        -ms-grid-column: 1;
+    }
+}
+
+@media (max-width: 875px ) {
+    .text-part > div {
+        padding: 0.25rem 0;
+    }
+
+    .anom-bar-container.pending .bottom-box > .text-part,
+    .anom-bar-container.neutralized .bottom-box > .text-part,
+    .anom-bar-container.neutralised .bottom-box > .text-part,
+    .anom-bar-container.explained .bottom-box > .text-part {
+        height: 6rem;
+    }
+
+    .bottom-box > .text-part {
+        grid-template-areas: 
+            "main-class" 
+            "disrupt-class"
+            "risk-class";
+        -ms-grid-rows: 2fr 0.25rem 1fr 0.25rem 1fr;
+        grid-template-rows: 3fr 2fr 2fr;
+        -ms-grid-columns: 1fr;
+        grid-template-columns: 1fr;
+        height: 8rem;
+    }
+
+    .anom-bar > .bottom-box {
+        -ms-grid-columns: 1fr 0.5rem 8rem;
+        grid-template-columns: 1fr 8rem;
+        height: 8rem;
+    }
+
+    .anom-bar-container.esoteric .text-part > .main-class::after,
+    .text-part > .main-class::after {
+        height: 3rem;
+        width: 3rem;
+    }
+
+    .text-part .disrupt-class::after, 
+    .text-part .risk-class::after {
+        height: 1.75rem;
+        width: 1.75rem;
+    }
+
+    .anom-bar-container.esoteric .text-part > .main-class::after,
+    .text-part > .main-class::after,
+    .text-part .disrupt-class::after, 
+    .text-part .risk-class::after {
+        top: -webkit-calc(50% - 1.125rem);
+        top: -moz-calc(50% - 1.125rem);
+        top: calc(50% - 1.125rem);
+        border-width: 0.25rem;
+    }
+
+    .text-part > .main-class::before {
+        height: 2.5rem;
+        width: 2.5rem;
+        border-width: 0.25rem;
+        top: -webkit-calc(50% - 1.45rem);
+        top: -moz-calc(50% - 1.45rem);
+        top: calc(50% - 1.45rem);
+    }
+
+    .text-part .disrupt-class::before, 
+    .text-part .risk-class::before {
+        height: 2.25rem;
+        width: 2.25rem;
+        top: -webkit-calc(50% - 1.125rem);
+        top: -moz-calc(50% - 1.125rem);
+        top: calc(50% - 1.125rem);
+        right: 0.75rem;
+    }
+
+    .anom-bar-container.esoteric .text-part > .main-class::after {
+        top: 0.15rem;
+    }
+
+    .anom-bar-container.esoteric .text-part > .main-class::before {
+        top: 0.15rem;
+        width: 5.75rem;
+        height: 3rem;
+        right: 1.25rem;
+        -webkit-background-size: 100% 100%;
+           -moz-background-size: 100% 100%;
+             -o-background-size: 100% 100%;
+                background-size: 100% 100%;
+        background-position: left -20px center;
+    }
+
+    .anom-bar-container.esoteric .contain-class > .class-category {
+        max-width: 100% !important;
+    }
+
+    .anom-bar-container.pending .bottom-box > .text-part,
+    .anom-bar-container.neutralized .bottom-box > .text-part,
+    .anom-bar-container.neutralised .bottom-box > .text-part,
+    .anom-bar-container.explained .bottom-box > .text-part {
+        -ms-grid-rows: 1fr;
+        grid-template-rows: 1fr;
+            grid-template-areas: "main-class";
+    }
+
+    .text-part .disrupt-class,
+    .text-part .risk-class {
+        padding-left: 0.25rem;
+        display: -ms-grid;
+        display: grid;
+        -ms-grid-columns: auto 1fr;
+        grid-template-columns: auto 1fr;
+    }
+
+    .text-part .disrupt-class *,
+    .text-part .risk-class * {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-box-align: center;
+            -ms-flex-align: center;
+                align-items: center;
+    }
+}
+
+@media (max-width: 875px ) and (min-width: 480px ) {
+    .anom-bar-container.pending .anom-bar > .bottom-box,
+    .anom-bar-container.neutralized .anom-bar > .bottom-box,
+    .anom-bar-container.neutralised .anom-bar > .bottom-box,
+    .anom-bar-container.explained .anom-bar > .bottom-box {
+        -ms-grid-columns: 1fr 6rem;
+        grid-template-columns: 1fr 6rem;
+        height: 6rem;
+    }
+}
+
+@media (max-width: 480px ) {
+    .anom-bar {
+        position: relative;
+    }
+
+    .anom-bar > .top-box {
+        height: 40vw;
+        max-height: 40vw;
+                grid-template-areas: 
+            "."
+            "top-left-box"
+            "top-center-box"
+            "top-right-box"
+            ".";
+        -ms-grid-rows: 1fr 1fr 1fr 1fr 1fr;
+        grid-template-rows: 1fr 1fr 1fr 1fr 1fr;
+        font-size: -webkit-calc(5px + (10 - 5) * ( (100vw - 300px) / ( 480 - 300) ));
+        font-size: -moz-calc(5px + (10 - 5) * ( (100vw - 300px) / ( 480 - 300) ));
+        font-size: calc(5px + (10 - 5) * ( (100vw - 300px) / ( 480 - 300) ));
+        margin: 0 0 1rem 0;
+        padding-left: 1em;
+    }
+
+    .top-box .top-left-box {
+        display: -webkit-box;
+        display: -webkit-flex;
+        display: -moz-box;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -webkit-flex-direction: column;
+           -moz-box-orient: vertical;
+           -moz-box-direction: normal;
+            -ms-flex-direction: column;
+                flex-direction: column;
+        -webkit-box-align: center;
+        -webkit-align-items: center;
+           -moz-box-align: center;
+            -ms-flex-align: center;
+                align-items: center;
+        -webkit-box-pack: center;
+        -webkit-justify-content: center;
+           -moz-box-pack: center;
+            -ms-flex-pack: center;
+                justify-content: center;
+        -webkit-flex-wrap: wrap;
+            -ms-flex-wrap: wrap;
+                flex-wrap: wrap;
+        line-height: 1;
+    }
+
+    .top-left-box > .item {
+        font-size: 3em;
+    }
+
+    .top-box .top-left-box > span {
+        width: 100%;
+    }
+
+    .top-box .top-center-box {
+        -webkit-box-orient: horizontal;
+        -webkit-box-direction: normal;
+        -webkit-flex-direction: row;
+           -moz-box-orient: horizontal;
+           -moz-box-direction: normal;
+            -ms-flex-direction: row;
+                flex-direction: row;
+    width: 100%;
+        max-width: 48vw;
+        margin: 0 0 0 -0.15rem;
+    height: 2rem;
+    }
+
+    .top-center-box > div {
+        height: 25%;
+        margin: 0.15rem 0.15rem 0 0.15rem;
+    }
+
+    .top-box .top-right-box {
+        display: -webkit-box;
+        display: -webkit-flex;
+        display: -moz-box;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -webkit-flex-direction: column;
+           -moz-box-orient: vertical;
+           -moz-box-direction: normal;
+            -ms-flex-direction: column;
+                flex-direction: column;
+    width: 100%;
+        max-width: 48vw;
+        margin: 0 0 0 -0.15rem;
+    height: 3rem;
+    }
+
+    .top-right-box > div {
+        line-height: 1;
+    }
+
+    .top-right-box > .level {
+        font-size: 4em;
+    }
+
+    .top-right-box > .clearance {
+        line-height: 1.5;
+        -webkit-box-align: center;
+        -webkit-align-items: center;
+           -moz-box-align: center;
+            -ms-flex-align: center;
+                align-items: center;
+        font-size: -webkit-calc(14px + (14 - 10) * ( (100vw - 400px) / ( 480 - 300) ));
+        font-size: -moz-calc(14px + (14 - 10) * ( (100vw - 400px) / ( 480 - 300) ));
+        font-size: calc(14px + (14 - 10) * ( (100vw - 400px) / ( 480 - 300) ));
+        width: initial;
+        height: 1.5rem;
+    }
+
+    .top-right-box > .clearance::before {
+        line-height: 0.5;
+        -webkit-box-align: center;
+        -webkit-align-items: center;
+           -moz-box-align: center;
+            -ms-flex-align: center;
+                align-items: center;
+        width: initial;
+        height: initial;
+        position: initial;
+    }
+
+    .anom-bar > .bottom-box {
+        position: initial;
+        -ms-grid-columns: 1fr;
+        grid-template-columns: 1fr;
+        height: 8rem;
+    }
+
+    .anom-bar-container:not(.esoteric) .text-part > .main-class::before {
+        width: 2.5rem;
+        height: 2.5rem;
+        top: -webkit-calc(50% - 1.475rem);
+        top: -moz-calc(50% - 1.475rem);
+        top: calc(50% - 1.475rem);
+        right: 0.5rem;
+    }
+
+    .text-part > div > .class-category, 
+    .anom-bar-container.esoteric .text-part > .main-class > .contain-class > .class-category {
+        font-size: 1em;
+    }
+
+    .text-part .disrupt-class,
+    .text-part .risk-class {
+        font-size: 0.9em;
+    }
+
+    .text-part > .main-class::after,
+    .text-part .disrupt-class::after,
+    .text-part .risk-class::after {
+        height: 2rem;
+        width: 2rem;
+        top: -webkit-calc(50% - 1.25rem);
+        top: -moz-calc(50% - 1.25rem);
+        top: calc(50% - 1.25rem);
+    }
+
+    .text-part > .main-class::before,
+    .text-part .disrupt-class::before,
+    .text-part .risk-class::before {
+        height: 2.5rem;
+        width: 2.5rem;
+        font-size: 1rem;
+        top: -webkit-calc(50% - 1.25rem);
+        top: -moz-calc(50% - 1.25rem);
+        top: calc(50% - 1.25rem);
+        right: 1.5rem;
+    }
+
+    .anom-bar-container.esoteric .text-part > .main-class::before {
+        top: 0.15rem;
+        width: 4.5rem;
+        height: 2.5rem;
+        right: 1rem;
+        -webkit-background-size: 100% 100%;
+           -moz-background-size: 100% 100%;
+             -o-background-size: 100% 100%;
+                background-size: 100% 100%;
+        background-position: left -10px center;
+    }
+
+    .anom-bar-container.esoteric .text-part > .main-class::after {
+        height: 2.5rem;
+        width: 2.5rem;
+    }
+
+    .bottom-box > .diamond-part {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 40vw;
+        height: 40vw;
+        padding: 0;
+    }
+
+    .diamond-part * {
+        background-repeat: no-repeat;
+    }
+
+    .top-box .top-left-box {
+        -ms-grid-row: 2;
+        -ms-grid-column: 1;
+    }
+
+    .top-box .top-center-box {
+        -ms-grid-row: 3;
+        -ms-grid-column: 1;
+    }
+
+    .top-box .top-right-box {
+        -ms-grid-row: 4;
+        -ms-grid-column: 1;
+    }
+
+    .anom-bar-container.pending .anom-bar > .bottom-box,
+    .anom-bar-container.neutralized .anom-bar > .bottom-box,
+    .anom-bar-container.neutralised .anom-bar > .bottom-box,
+    .anom-bar-container.explained .anom-bar > .bottom-box {
+        height: 6rem;
+    }
+
+    .danger-diamond > .top-icon {
+        top: 0.375rem;
+    }
+
+    .danger-diamond > .right-icon {
+        right: 0.375rem;
+    }
+
+    .danger-diamond > .left-icon {
+        left: 0.375rem;
+    }
+
+    .danger-diamond > .bottom-icon {
+        bottom: 0.375rem;
+    }
+}
+
+@supports not (--css: variables) {
+
+    .anom-bar {
+        display: -webkit-box;
+        display: -webkit-flex;
+        display: -moz-box;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -webkit-flex-flow: column nowrap;
+           -moz-box-orient: vertical;
+           -moz-box-direction: normal;
+            -ms-flex-flow: column nowrap;
+                flex-flow: column nowrap;
+    }
+
+    .anom-bar > .top-box { 
+        display: -webkit-box; 
+        display: -webkit-flex; 
+        display: -moz-box; 
+        display: -ms-flexbox; 
+        display: flex;
+        -webkit-box-orient: horizontal;
+        -webkit-box-direction: normal;
+        -webkit-flex-direction: row;
+           -moz-box-orient: horizontal;
+           -moz-box-direction: normal;
+            -ms-flex-direction: row;
+                flex-direction: row;
+        -webkit-flex-wrap: nowrap;
+            -ms-flex-wrap: nowrap;
+                flex-wrap: nowrap;
+    }
+
+    .top-box .top-center-box {
+        -webkit-box-flex: 2;
+        -webkit-flex-grow: 2;
+           -moz-box-flex: 2;
+            -ms-flex-positive: 2;
+                flex-grow: 2;
+    }
+
+    .anom-bar > .bottom-box {
+        display: -webkit-box;
+        display: -webkit-flex;
+        display: -moz-box;
+        display: -ms-flexbox;
+        display: flex;
+    }
+
+    .bottom-box > .text-part {
+        -webkit-box-flex: 1;
+        -webkit-flex-grow: 1;
+           -moz-box-flex: 1;
+            -ms-flex-positive: 1;
+                flex-grow: 1;
+        width: 100%;
+    }
+
+    .anom-bar-container .text-part .main-class {
+        overflow: hidden;
+    }
+
+    .anom-bar-container .text-part .disrupt-class,
+    .anom-bar-container .text-part .risk-class {
+        display: -webkit-box;
+        display: -webkit-flex;
+        display: -moz-box;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-box-orient: horizontal;
+        -webkit-box-direction: normal;
+        -webkit-flex-direction: row;
+           -moz-box-orient: horizontal;
+           -moz-box-direction: normal;
+            -ms-flex-direction: row;
+                flex-direction: row;
+        -webkit-flex-wrap: nowrap;
+            -ms-flex-wrap: nowrap;
+                flex-wrap: nowrap; 
+        -webkit-box-align: center; 
+        -webkit-align-items: center; 
+           -moz-box-align: center; 
+            -ms-flex-align: center; 
+                align-items: center;
+        -webkit-box-pack: start;
+        -webkit-justify-content: flex-start;
+           -moz-box-pack: start;
+            -ms-flex-pack: start;
+                justify-content: flex-start;
+    }
+
+    .anom-bar-container .text-part .disrupt-class .class-category,
+    .anom-bar-container .text-part .risk-class  .class-category {
+        -webkit-flex-shrink: 4;
+            -ms-flex-negative: 4;
+                flex-shrink: 4;
+    }
+
+    .bottom-box > .diamond-part {
+        width: 6rem;
+        height: 6rem;
+        -webkit-box-flex: 0;
+        -webkit-flex-grow: 0;
+           -moz-box-flex: 0;
+            -ms-flex-positive: 0;
+                flex-grow: 0;
+        -webkit-flex-shrink: 0;
+            -ms-flex-negative: 0;
+                flex-shrink: 0;
+        display: -webkit-box;
+        display: -webkit-flex;
+        display: -moz-box;
+        display: -ms-flexbox;
+        display: flex;
+    }
+
+@media (max-width: 480px ) {
+        .anom-bar > .top-box {
+            height: 6rem;
+            display: -webkit-box;
+            display: -webkit-flex;
+            display: -moz-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-orient: vertical;
+            -webkit-box-direction: normal;
+            -webkit-flex-direction: column;
+               -moz-box-orient: vertical;
+               -moz-box-direction: normal;
+                -ms-flex-direction: column;
+                    flex-direction: column;
+            -webkit-flex-wrap: nowrap;
+                -ms-flex-wrap: nowrap;
+                    flex-wrap: nowrap;
+            width: -webkit-calc(100% - 40vw);
+            width: -moz-calc(100% - 40vw);
+            width: calc(100% - 40vw);
+        }
+
+        .top-box .top-left-box {
+            display: initial;
+        }
+
+        .top-box > * {
+            width: 100%;
+            height: auto;
+        }
+
+        .top-box .top-center-box {
+                -webkit-box-flex: 0;
+                -webkit-flex-grow: 0;
+                   -moz-box-flex: 0;
+                    -ms-flex-positive: 0;
+                        flex-grow: 0;
+        }
+
+    }
+}
+</style>
+<div id="page-content">
+<div style="text-align: right;"><div class="page-rate-widget-box"><span class="rate-points">评分： <span class="number prw54353">+100</span></span><span class="rateup btn btn-default"><a href="javascript:;" onclick="WIKIDOT.modules.PageRateWidgetModule.listeners.rate(event, 1)" title="我喜欢">+</a></span><span class="ratedown btn btn-default"><a href="javascript:;" onclick="WIKIDOT.modules.PageRateWidgetModule.listeners.rate(event, -1)" title="我不喜欢">–</a></span><span class="cancel btn btn-default"><a href="javascript:;" onclick="WIKIDOT.modules.PageRateWidgetModule.listeners.cancelVote(event)" title="取消我的投票">x</a></span></div></div>
+<div style="display: none"><iframe src="//interwiki.scpwiki.com/styleFrame.html?priority=1&amp;theme=https://cdn.scpwiki.com/theme/en/black-highlighter/css/min/normalize.min.css&amp;css={$css}" style="display: none"></iframe> <iframe src="//interwiki.scpwiki.com/styleFrame.html?priority=2&amp;theme=https://cdn.scpwiki.com/theme/en/black-highlighter/css/min/black-highlighter.min.css&amp;css={$css}" style="display: none"></iframe></div>
+<p><iframe src="//interwiki.scpwiki.com/styleFrame.html?priority=3&amp;theme=https://scp-wiki.wdfiles.com/local--code/theme%3Aminimalist-bhl/1&amp;css={$css}" style="display: none"></iframe></p>
+<div class="anom-bar-container item-7875 clear-3 keter none keneq danger {$american}">
+<div class="anom-bar">
+<div class="top-box">
+<div class="top-left-box"><span class="item">项目编号：</span> <span class="number">7875</span></div>
+<div class="top-center-box">
+<div class="bar-one"></div>
+<div class="bar-two"></div>
+<div class="bar-three"></div>
+<div class="bar-four"></div>
+<div class="bar-five"></div>
+<div class="bar-six"></div>
+</div>
+<div class="top-right-box">
+<div class="level">等级3</div>
+<div class="clearance"></div>
+</div>
+</div>
+<div class="bottom-box">
+<div class="text-part">
+<div class="main-class">
+<div class="contain-class">
+<div class="class-category">收容等级：</div>
+<div class="class-text">Keter</div>
+</div>
+<div class="second-class">
+<div class="class-category">次要等级：</div>
+<div class="class-text">无</div>
+</div>
+</div>
+<div class="disrupt-class">
+<div class="class-category">扰动等级：</div>
+<div class="class-text">Keneq</div>
+</div>
+<div class="risk-class">
+<div class="class-category">风险等级：</div>
+<div class="class-text">危险</div>
+</div>
+</div>
+<div class="diamond-part">
+<div class="danger-diamond"><a href="/classification-committee-memo">备忘录链接</a><br/>
+<div class="arrows"></div>
+<div class="octagon"></div>
+<div class="quadrants">
+<div class="top-quad"></div>
+<div class="right-quad"></div>
+<div class="left-quad"></div>
+<div class="bottom-quad"></div>
+</div>
+<div class="top-icon"></div>
+<div class="right-icon"></div>
+<div class="left-icon"></div>
+<div class="bottom-icon"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p><strong>特殊收容措施：</strong><br/>
+所有<em>体外</em>SCP-7875样本均须储存在超低温冷冻柜<sup class="footnoteref"><a class="footnoteref" href="javascript:;" id="footnoteref-1" onclick="WIKIDOT.page.utils.scrollToReference('footnote-1')">1</a></sup>中，该设备位于Site-92病理科。涉及SCP-7875的测试<span style="text-decoration: line-through;">必须获得McIntyre主管批准，并由3级或更高权限人员监督</span>，现已暂停，直至另行通知。若上述储存装置发生机械故障，须部署移动式斯克兰顿现实稳定锚（SRA），确保所有<em>体外</em>样本得到收容。</p>
+<p>任何被发现感染<sup class="footnoteref"><a class="footnoteref" href="javascript:;" id="footnoteref-2" onclick="WIKIDOT.page.utils.scrollToReference('footnote-2')">2</a></sup>SCP-7875的人员，必须立即隔离在经改装的负压隔离单元（NPIU）<sup class="footnoteref"><a class="footnoteref" href="javascript:;" id="footnoteref-3" onclick="WIKIDOT.page.utils.scrollToReference('footnote-3')">3</a></sup>内。健康的基金会人员在任何情况下都不得与SCP-7875-a个体近距离接触。与感染个体的一切身体接触均须通过远程驾驶医疗无人机（RPMD）完成。</p>
+<p>若SCP-7875-a个体死亡，或以其他方式试图突破收容，在场人员须立即执行以下程序。</p>
+<div class="collapsible-block">
+<div class="collapsible-block-folded"><a class="collapsible-block-link" href="javascript:;">阿斯克勒庇俄斯协议</a></div>
+<div class="collapsible-block-unfolded" style="display:none">
+<div class="collapsible-block-unfolded-link"><a class="collapsible-block-link" href="javascript:;">关闭</a></div>
+<div class="collapsible-block-content">
+<table class="wiki-content-table">
+<tr>
+<th>阶段</th>
+<th>名称</th>
+<th>描述</th>
+</tr>
+<tr>
+<td>I</td>
+<td>热处理</td>
+<td>SCP-7875-a生命机能停止后，须立即由一队改装RPMD单元焚烧该个体及其收容室。收容室内部温度必须达到至少800°C，以确保所有有机物质均被摧毁。SCP-7875-a的火化残骸须依照<em>《基金会生物危害物质处置指南》</em></td>
+</tr>
+<tr>
+<td>II</td>
+<td>去污</td>
+<td>移除先前个体后，须在收容室所有表面彻底涂覆DIA-149<sup class="footnoteref"><a class="footnoteref" href="javascript:;" id="footnoteref-4" onclick="WIKIDOT.page.utils.scrollToReference('footnote-4')">4</a></sup>。该溶液须至少停留15分钟，方可开始第三阶段。</td>
+</tr>
+<tr>
+<td>III</td>
+<td>紫外线—休谟辐照</td>
+<td>在新的SCP-7875-a个体入住前，收容室须始终由移动式UVC灯进行紫外线辐照。此外，改装的SRA须对<em>不动杆菌</em>属实施大范围基因组湮灭。</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="scp-image-block" style="width:44%; float: right; padding:0px 25px 25px 25px;"><img alt="SCP-7875-1拟议四级结构的空间填充三维模型" class="image" src='https://upload.wikimedia.org/wikipedia/commons/f/fb/PDB_1q3s_EBI.jpg?20090322065751="width:100%"'/>
+<div class="scp-image-caption" style="width:100%;">
+<p>SCP-7875-1拟议四级结构的空间填充三维模型</p>
+</div>
+</div>
+<p><strong>描述：</strong><br/>
+SCP-7875指一种此前未被识别的嗜极性<em>Acinetobacter baumannii</em>菌株。SCP-7875仅发现于Site-92医疗区，与同物种其他成员具有诸多相似之处，主要体现在其院内感染性质<sup class="footnoteref"><a class="footnoteref" href="javascript:;" id="footnoteref-5" onclick="WIKIDOT.page.utils.scrollToReference('footnote-5')">5</a></sup>与一般细胞解剖结构上。SCP-7875与其他菌株的区别，在于其表达SCP-7875-1<sup class="footnoteref"><a class="footnoteref" href="javascript:;" id="footnoteref-6" onclick="WIKIDOT.page.utils.scrollToReference('footnote-6')">6</a></sup>.</p>
+<p>SCP-7875-1是一种0.97 MDa的蛋白质复合物，其表达会吸收周围环境的休谟水平。在医疗设备等非有机环境中，这通常只会造成轻微空间扭曲；但在活体生物内，休谟水平降低会逐渐使宿主的受影响组织去物质化<sup class="footnoteref"><a class="footnoteref" href="javascript:;" id="footnoteref-7" onclick="WIKIDOT.page.utils.scrollToReference('footnote-7')">7</a></sup>.</p>
+<p>除上述本体动力学操纵外，SCP-7875还表现出异常高的遗传可塑性。其机制仍在研究中，目前的假说认为，这种遗传修复能力与RecA蛋白表达升高有关<sup class="footnoteref"><a class="footnoteref" href="javascript:;" id="footnoteref-8" onclick="WIKIDOT.page.utils.scrollToReference('footnote-8')">8</a></sup>。另有观点认为，SCP-7875-1会将所吸收休谟场中的多余本体动力学能量转化为RecA蛋白所需的机械能，从而促成这一异常迅速的活动。</p>
+<p>由于遗传改变速度极快，SCP-7875感染愈发难以治疗。感染者症状的发作速度虽与其他<em>A. baumannii</em>菌株相近，但SCP-7875的修复能力使一切现有抗生素疗法几乎完全失效。目前，适应性噬菌体疗法（APT）已被证明是唯一可行的感染对抗手段。</p>
+<p>若SCP-7875-a个体未接受治疗或最终死于感染，SCP-7875会令感染者彻底去物质化。达到这一阶段后，残余的SCP-7875菌落将重组为生物膜，实际进入休眠，直至感染新的对象。</p>
+<p>有关SCP-7875发现经过的详情，请参阅附录7875-1至-5。</p>
+<p><strong>附录7875-1：</strong> ‘万灵药’项目提案节选</p>
+<div class="blockquote" style="border-radius: 10px; margin: 10px">
+<div style="text-align: center;">
+<p><span style="font-size:xx-large;"><strong><em>‘万灵药’项目</em></strong></span><br/>
+E. Aldrich博士、R. Carvalho博士、Y. Hasashi博士</p>
+</div>
+<p><span style="font-size:large;"><em>引言</em></span><br/>
+自20世纪40年代出现耐链霉素的<em>M. tuberculosis</em>以来，人类便一直与耐抗微生物药物（AMR）细菌持续斗争。诸如<em>S. aureus</em>和前述<em>M. tuberculosis</em>等病原体，一度被认为可用抗生素治疗，却以比以往更强的势头卷土重来。所谓“抗生素黄金时代”的发现虽遏制了许多AMR细菌，但人类的探索与创新终有极限。这番出于善意却存在缺陷的努力，造就了当今许多多重耐药病原体（MDRP）；它们如今同时肆虐公共医疗设施与基金会附属医疗设施。</p>
+<p>就后者而言，Site-47后勤部门报告称，仅2022年，各基金会站点就有惊人的███人直接死于此类感染，较2019年增加175%。这一数字固然是多种AMR细菌感染的总和，但有一种病原体造成了其中超过65%的死亡，即<em>Acinetobacter baumannii</em>.</p>
+<p>作为一种机会性革兰氏阴性细菌，<em>A. baumannii</em>对几乎所有类别的现有抗生素都表现出异乎寻常的耐药性。研究强烈表明，这种耐药性与RecA蛋白复合物的表达相关，但针对这一DNA修复复合物的有效干预始终未能成功。因此，多黏菌素是少数能够遏制<em>A. baumannii</em>感染传播的可行治疗途径之一。然而，此类抗生素供应有限，远不能满足不断增长的需求，许多患者因而急需新的创新疗法。此外，<em>A. baumannii</em>最终发展出抵御多黏菌素疗法的耐药通路，其风险也在日益升高。</p>
+<p>这几乎必然会给公共医疗设施带来灭顶之灾，但基金会各设施进行的病理学研究已经开始探索有前景的抗生素替代疗法。本提案将进一步研究其中一项最受关注的候选方案：一种旨在彻底清除宿主体内外来病原体的实验疗法。该疗法现称“休谟疗法”，利用一组改装斯克兰顿现实稳定锚锁定病原体——在此案例中为<em>A. baumannii</em>——的遗传序列，再以相反场抵消其休谟特征。两种场相互作用，从而将目标病原体从基准现实中抹除。</p>
+<p><span style="font-size:large;"><em>材料与方法</em></span></p>
+<p><span style="font-size:small;"><strong>基因组休谟靶向</strong></span><br/>
+Hasashi博士及应用本体动力学部的同事以Scranton博士同名现实稳定锚的早期图纸为基础，为上述SRA型号集成了一系列改装。这些调整包括加入微型康德计扫描仪、原核生物BLAST数据库等组件，其他部件见图2c。完成改装后，这些新命名的基因组现实稳定锚（GRA）能够有效扫描并锁定所研究模式生物独有的遗传序列。</p>
+<p>与物质—反物质湮灭事件相似，这种靶向会诱导出反向场，抵消对应遗传序列的天然休谟特征，将其从基准现实中抹除。通过标出病原体生存所必需的基因组区域，抹除这些序列便会在外来生物体内引发大范围细胞凋亡，同时不伤及宿主。</p>
+<p><span style="font-size:small;"><strong>模式生物</strong></span><br/>
+本研究所用模式生物由Site-107微生物学部提供，包括：<em>Acinetobacter baylyi</em>（变体87、105、149、289、302和375）、<em>Escherichia coli</em>变体401，以及<em>Enterococcus faecalis</em>变体269。所有生物均依照<em>《基金会微生物实验监管指南》</em>进行操作与培养。Site-107另提供5只<em>Mus musculus</em>对象用于<em>活体</em>测试。与前述细菌相同，所有<em>Mus musculus</em>个体均依照<em>《基金会活体实验伦理与监管指南》</em>.</p>
+<p><span style="font-size:large;"><em>结果</em></span></p>
+<div class="blockquote" style="border-radius: 8px; margin: 8px">
+<table class="wiki-content-table">
+<tr>
+<th>目标</th>
+<th>测试对象</th>
+<th>结果</th>
+</tr>
+<tr>
+<td>确认休谟疗法对单一细菌物种的有效性</td>
+<td>一只装有<em>Acinetobacter Baylyi</em></td>
+<td>的培养皿</td>
+</tr>
+<tr>
+<td>所有现存菌落均被完全本体动力学湮灭</td>
+<td>确认存在多种细菌时休谟疗法的准确性<em>一只划有多种菌株的培养皿，其中包含</em><sup class="footnoteref"><a class="footnoteref" href="javascript:;" id="footnoteref-9" onclick="WIKIDOT.page.utils.scrollToReference('footnote-9')">9</a></sup>, <em>E. coli</em>及<em>E. faecalis</em></td>
+<td>完全本体动力学湮灭<em>A. baylyi</em>。<em>E. coli</em>与<em>E. faecalis</em>菌落未受影响。</td>
+</tr>
+<tr>
+<td>确认存在近缘细菌物种时休谟疗法的准确性</td>
+<td>一只划有6种<em>A. baylyi</em><sup class="footnoteref"><a class="footnoteref" href="javascript:;" id="footnoteref-10" onclick="WIKIDOT.page.utils.scrollToReference('footnote-10')">10</a></sup></td>
+<td>变体的培养皿</td>
+</tr>
+<tr>
+<td>V149被完全本体动力学湮灭，其余5个变体菌落未受影响<em>观察休谟疗法在</em>活体</td>
+<td><em>模式中的效果</em>感染了减毒致病性<em>A. baylyi</em></td>
+<td>变体的<em>A. baylyi</em>被完全本体动力学湮灭。模式生物未观察到有害影响</td>
+</tr>
+</table>
+<p><span style="color: #2c3e50">下图汇总了使用休谟疗法对多种模式生物进行的全部临床前测试。</span> <span style="color: #808b96">测试主要由Riccardo Carvalho博士执行，</span> <span style="color: #abb2b9">Aldrich博士和Hasashi博士直接监督。</span></p>
+</div>
+</div>
+<div class="collapsible-block">
+<div class="collapsible-block-folded"><a class="collapsible-block-link" href="javascript:;">附录 7875-2： 临床 试验 提案</a></div>
+<div class="collapsible-block-unfolded" style="display:none">
+<div class="collapsible-block-unfolded-link"><a class="collapsible-block-link" href="javascript:;">关闭</a></div>
+<div class="collapsible-block-content">
+<div class="email-example">
+<div style="text-align: center;">
+<hr/>
+<div style="text-align: left;">
+<div class="email">
+<div class="tofrom">
+<p><strong>收件人：</strong> Ethan Aldrich（<span class="wiki-email">gro.tenpics|e.hcirdla#gro.tenpics|e.hcirdla</span>)<br/>
+<strong>发件人：</strong> Kieran McIntyre（<span class="wiki-email">gro.tenpics|k.erytnicm#gro.tenpics|k.erytnicm</span>)<br/>
+<strong>日期：</strong> 24/05/2022<br/>
+<strong>主题：</strong> 临床试验提案：‘万灵药’项目</p>
+</div>
+<hr/>
+<p>Aldrich博士：</p>
+<p>希望您已经适应了Site-403的生活。我联系您，是想告知伦理委员会与我已正式审阅您的临床试验提案，并准备批准。不过在此之前，我们还有一个小小的顾虑，希望您先予以说明。</p>
+<p>我们注意到，您在<em>人员</em>一节中将Carvalho博士列为本阶段项目的首席医学研究员。根据他以往的履历，我毫不怀疑他是一位才华出众的研究员；然而，这类试验意义重大，处理过程中固有的风险也绝非小事。您确定他已准备好承担此类测试的责任吗？</p>
+<p>——McIntyre主管</p>
+</div>
+<br/>
+<span style="white-space: pre-wrap;"> </span>
+<div class="email">
+<div class="tofrom">
+<p><strong>收件人：</strong> Kieran McIntyre（<span class="wiki-email">gro.tenpics|k.erytnicm#gro.tenpics|k.erytnicm</span>)<br/>
+<strong>发件人：</strong> Ethan Aldrich（<span class="wiki-email">gro.tenpics|e.hcirdla#gro.tenpics|e.hcirdla</span>)<br/>
+<strong>日期：</strong> 26/05/2022<br/>
+<strong>主题：</strong> 回复：临床试验提案：‘万灵药’项目</p>
+</div>
+<hr/>
+<p>McIntyre主管：</p>
+<p>十分感谢您来信。鉴于Carvalho博士过去未曾接触这类场景，您对他的顾虑完全可以理解。不过，我可以向您保证，他绝对已经准备好负责这些试验。Carvalho博士不仅才华横溢，做研究也同样一丝不苟。他在我的实验室里展现的可靠与才智无人能及，因此我完全放心在自己缺席时让他负责。</p>
+<p>况且，他也不会独自完成所有工作。Hasashi博士将亲自监督一切GRA操作，我也已经计划频繁与他联系，了解每位患者的情况。</p>
+<p>如果您还有其他问题，我非常乐意回答。</p>
+<p>顺颂安祺，</p>
+<p>Aldrich博士</p>
+</div>
+<br/>
+<span style="white-space: pre-wrap;"> </span>
+<div class="email">
+<div class="tofrom">
+<p><strong>收件人：</strong> Ethan Aldrich（<span class="wiki-email">gro.tenpics|e.hcirdla#gro.tenpics|e.hcirdla</span>)<br/>
+<strong>发件人：</strong> Kieran McIntyre（<span class="wiki-email">gro.tenpics|k.erytnicm#gro.tenpics|k.erytnicm</span>)<br/>
+<strong>日期：</strong> 05/06/2022<br/>
+<strong>主题：</strong> 回复：临床试验提案：‘万灵药’项目</p>
+</div>
+<hr/>
+<p>Aldrich博士：</p>
+<p>考虑到这个项目相当紧迫，我愿意相信您的判断。我想自己没有其他问题了，因此会批准您的项目。</p>
+<p>祝你们好运！</p>
+<p>McIntyre主管</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p><strong>附录7875-3：</strong> 临床试验</p>
+<p>测试开始前，对Site-92医疗区进行筛查，以查找由<em>A. baumannii</em>引发的感染。结果见下图。</p>
+<div class="blockquote" style="border-radius: 8px; margin: 8px">
+<div class="yui-navset" id="wiki-tabview-25671855fc6646a04e32408c635a0ca7">
+<ul class="yui-nav">
+<li class="selected"><a href="javascript:;"><em>患者053</em></a></li>
+<li><a href="javascript:;"><em>患者077</em></a></li>
+<li><a href="javascript:;"><em>患者035</em></a></li>
+<li><a href="javascript:;"><em>患者007</em></a></li>
+</ul>
+<div class="yui-content">
+<div id="wiki-tab-0-0">
+<p><strong>日期：</strong> 26/06/2022<br/>
+<strong>在场人员：</strong> Riccardo Carvalho博士、Yelena Hasashi博士<br/>
+<strong>诊断：</strong> 尿路感染（UTI）<br/>
+<strong>治疗：</strong> 基因组休谟疗法。<br/>
+<strong>结果：</strong> 尿液分析结果为阴性。053在治疗后约36小时完全康复。</p>
+</div>
+<div id="wiki-tab-0-1" style="display:none">
+<p><strong>日期：</strong> 29/06/2022<br/>
+<strong>在场人员：</strong> Riccardo Carvalho博士、Yelena Hasashi博士<br/>
+<strong>诊断：</strong> 手术部位感染（左肱二头肌）<br/>
+<strong>治疗：</strong> 基因组休谟疗法、局部消毒<br/>
+<strong>结果：</strong> 受影响组织的针刺活检结果为阴性。对象的手术部位预计将正常再生，并已实施局部消毒以确保无菌。</p>
+</div>
+<div id="wiki-tab-0-2" style="display:none">
+<p><strong>日期：</strong> 01/07/2022<br/>
+<strong>在场人员：</strong> Riccardo Carvalho博士、Yelena Hasashi博士<br/>
+<strong>诊断：</strong> 呼吸机相关性肺炎（VAP）<br/>
+<strong>治疗：</strong> 基因组休谟疗法、氧疗、静脉补液<br/>
+<strong>结果：</strong> 肺部针刺活检结果为阴性。035仍处于病情严重但稳定的状态。将继续给予补充氧气和静脉补液，直至完全康复。</p>
+</div>
+<div id="wiki-tab-0-3" style="display:none">
+<p><strong>日期：</strong> 05/07/2022<br/>
+<strong>在场人员：</strong> Riccardo Carvalho博士、Yelena Hasashi博士<br/>
+<strong>诊断：</strong> 手术诱发败血症<br/>
+<strong>治疗：</strong> 基因组休谟疗法。<br/>
+<strong>结果：</strong> 见附录7875-4</p>
+</div>
+</div>
+</div>
+</div>
+<p><strong>附录7875-4：</strong> 零号患者时间线</p>
+<p>尽管GHT起初成功治疗了多种由<em>A. baumannii</em>引发的感染，患者007却对治疗表现出异常反应。以下为其反应时间线，由在场医师Riccardo Carvalho博士记录。</p>
+<div class="blockquote" style="border-radius: 8px; margin: 8px">
+<div class="yui-navset" id="wiki-tabview-3189c96cc8fe23e33d4740fbf0ce10cf">
+<ul class="yui-nav">
+<li class="selected"><a href="javascript:;"><em>治疗后30分钟</em></a></li>
+<li><a href="javascript:;"><em>治疗后24小时</em></a></li>
+<li><a href="javascript:;"><em>治疗后72小时</em></a></li>
+<li><a href="javascript:;"><em>治疗后84小时</em></a></li>
+<li><a href="javascript:;"><em>治疗后100小时</em></a></li>
+<li><a href="javascript:;"><em>治疗后108小时</em></a></li>
+</ul>
+<div class="yui-content">
+<div id="wiki-tab-0-0">
+<p><strong>日期：</strong> 05/07/2022<br/>
+<strong>在场人员：</strong> Riccardo Carvalho博士<br/>
+<strong>观察：</strong> 患者007对基因组休谟疗法未表现出不良反应。其先前症状仍然存在，但可能与持续的免疫反应有关。在生命体征稳定前，将继续给予头孢菌素复合制剂与补液。同时，我已从对象肺部组织提取针刺活检样本，以扫描残余细菌菌落。</p>
+</div>
+<div id="wiki-tab-0-1" style="display:none">
+<p><strong>日期：</strong> 06/07/2022<br/>
+<strong>在场人员：</strong> Riccardo Carvalho博士<br/>
+<strong>观察：</strong> 患者007似乎已恢复稳定，大多数生命体征回到正常水平。其血氧水平略低于正常值，持续保持在92%左右。对昨日活检样本的快速检测未发现值得注意之处，因此我们将进入长期观察，以监测任何潜在副作用。</p>
+</div>
+<div id="wiki-tab-0-2" style="display:none">
+<p><strong>日期：</strong> 08/07/2022<br/>
+<strong>在场人员：</strong> Riccardo Carvalho博士<br/>
+<strong>观察：</strong> 患者呼吸愈发费力，表明存在某种呼吸道病原体。其呼吸也变得粗哑，排出的痰液明显带有更多血液。鉴于其先前诊断，患者免疫系统可能已经受损，更易遭受此类感染。也有可能这只是此前未被发现的共病，在<em>A. baumannii</em>消失后得以肆意发展。无论如何，在取得新活检结果前，我们将着重缓解症状。</p>
+</div>
+<div id="wiki-tab-0-3" style="display:none">
+<p><strong>日期：</strong> 08/07/2022<br/>
+<strong>在场人员：</strong> Riccardo Carvalho博士<br/>
+<strong>观察：</strong> 尽管外来生物筛查结果为阴性，患者病情仍呈指数恶化。其似乎再次进入败血症状态，身体各处不规则地出现多块疑似坏死组织。考虑到坏死性筋膜炎的可能性，我将立即安排手术干预，切除所有坏死部位，随后转入重症监护室进一步观察。</p>
+</div>
+<div id="wiki-tab-0-4" style="display:none">
+<p><strong>日期：</strong> 09/07/2022<br/>
+<strong>在场人员：</strong> Riccardo Carvalho博士<br/>
+<strong>观察：</strong> 患者病情继续迅速恶化，现已进入植物状态。此外，尽管先前实施了紧急手术干预，坏死部位仍在全身扩散。清创患者前臂时，我们又取得一份切取活检样本，试图识别相关病原体。然而，受某种光学干扰影响，对受影响组织的快速显微观察未能得出结论。不论这是怎么回事，恐怕我们快没时间了。</p>
+</div>
+<div id="wiki-tab-0-5" style="display:none">
+<p><strong>日期：</strong> 09/07/2022<br/>
+<strong>在场人员：</strong> Riccardo Carvalho博士<br/>
+<strong>观察：</strong> 患者007已正式死亡。对象遗体目前正被运往Site-92尸检科进行尸检。正式报告尚未发布，但我在之前的切取活检样本中注意到一件怪事。首轮测试无法得出结论后，我依照正确储存规程保存了样本，以便日后分析。然而今天回来检查时，样本不见了。容器底部只剩下一层薄膜。无论那是什么，我都会对它做些测试，看看能查出什么。</p>
+</div>
+</div>
+</div>
+</div>
+<div class="collapsible-block">
+<div class="collapsible-block-folded"><a class="collapsible-block-link" href="javascript:;">附录 7875-5： Site-92 疫情</a></div>
+<div class="collapsible-block-unfolded" style="display:none">
+<div class="collapsible-block-unfolded-link"><a class="collapsible-block-link" href="javascript:;">关闭</a></div>
+<div class="collapsible-block-content">
+<div class="blockquote" style="border-radius: 8px; margin: 8px">
+<p><strong>直接通讯记录</strong></p>
+<p><strong>人员</strong>:</p>
+<ul>
+<li>Ethan Aldrich，医学博士/理学博士；病理学高级研究员</li>
+<li>Riccardo Carvalho，医学博士；病理学首席研究员</li>
+</ul>
+<hr/>
+<div style="text-align: center;">
+<p><em>7月18日，03:25</em></p>
+</div>
+<p><strong>Carvalho:</strong> Ethan，你醒着吗？有件事想请你帮忙。</p>
+<p><strong>Aldrich:</strong> 你知道时区是怎么回事，对吧？</p>
+<p><strong>Carvalho:</strong> 抱歉。医疗区出了点问题，我想请你帮忙看看几份活检结果。</p>
+<p><strong>Aldrich:</strong> 行，给我一点时间起床活动一下，我来帮你。</p>
+<p><strong>Carvalho:</strong> 谢了，真的非常感激。</p>
+<hr/>
+<div style="text-align: center;">
+<p><em>7月18日，05:37</em></p>
+</div>
+<p><strong>Aldrich:</strong> 所以是呼吸道感染？</p>
+<p><strong>Carvalho:</strong> 就目前观察，是的。也可能有其他传播途径，只是我们还没发现。</p>
+<p><strong>Aldrich:</strong> 明白。那就把数据发来吧，看看我能施展什么魔法。</p>
+<p><strong>Carvalho:</strong> 发了。查收邮件。</p>
+<p><strong>Aldrich:</strong> 你确定发对文件了吗？</p>
+<p><strong>Carvalho:</strong> 我当然确定。我的实验室也许很乱，但文件还是会整理的。</p>
+<p><strong>Aldrich:</strong> 那你需要的可不只多一双眼睛。这些显微图像乱成一团。照片是谁拍的？</p>
+<p><strong>Carvalho:</strong> 我拍的。信不信由你，这其实还是其中<em>比较好</em>的一张。</p>
+<p><strong>Aldrich:</strong> 唔。看来你的显微镜可能坏了。应该让Kieran申请几台新的。</p>
+<p><strong>Carvalho:</strong> 他已经下单了。不过新设备到货前，别想拍出新图像。</p>
+<p><strong>Aldrich:</strong> 好吧，我现在拿这些图也做不了什么。还有别的东西能给我看看吗？</p>
+<p><strong>Carvalho:</strong> 我们<em>确实</em>做了几次PCR，想确认有没有标志性序列。但我没把结果放进文件。</p>
+<p><strong>Aldrich:</strong> 为什么？</p>
+<p><strong>Carvalho:</strong> 得到的大多是不完整片段，检测范围又太宽，没法据此得出结论。</p>
+<p><strong>Aldrich:</strong> 你可真没让我的工作轻松多少。</p>
+<p><strong>Carvalho:</strong> 我知道，对不起。可我的诊断工具箱快见底了，而且我不想为了排查鉴别诊断就胡乱试药。如果这太难处理，我能理解。</p>
+<p><strong>Aldrich:</strong> 不不，我能处理。只是需要些时间。</p>
+<p><strong>Carvalho:</strong> 多久？</p>
+<p><strong>Aldrich:</strong> 看情况。我在671有个联系人能帮忙处理图像，但那些片段还要花些工夫。</p>
+<p><strong>Carvalho:</strong> 所以你<em>想要</em>PCR结果？哪怕它们烂透了？</p>
+<p><strong>Aldrich:</strong> 有总比没有好。谁知道呢，也许能加快进度。</p>
+<p><strong>Carvalho:</strong> 好吧。那在结果出来前有什么建议吗？至少先压住它，你懂吧？</p>
+<p><strong>Aldrich:</strong> 也许可以让Kieran恢复之前的COVID政策。无论是否为呼吸道感染，都该采取类似限制。</p>
+<p><strong>Carvalho:</strong> 听起来不错。那我不打扰你了。</p>
+<hr/>
+<div style="text-align: center;">
+<p><em>7月23日，11:25</em></p>
+</div>
+<p><strong>Carvalho:</strong> 有进展吗？</p>
+<p><strong>Aldrich:</strong> 还在处理。HIPPOC<sup class="footnoteref"><a class="footnoteref" href="javascript:;" id="footnoteref-11" onclick="WIKIDOT.page.utils.scrollToReference('footnote-11')">11</a></sup>还在渲染那些图像。</p>
+<p><strong>Carvalho:</strong> 我以为那东西还处于实验阶段？</p>
+<p><strong>Aldrich:</strong> HIPPOC的功能已经完整了。只是临床试验之外的经验还不多。</p>
+<p><strong>Carvalho:</strong> 换我未必敢用，不过各有所好。你知道还要多久吗？</p>
+<p><strong>Aldrich:</strong> 一天？也许两天？听着，我知道你很着急，可这种事需要时间。</p>
+<p><strong>Carvalho:</strong> 哦，我明白。一直坐立不安的是主管。他几乎每小时都在追问最新情况。</p>
+<p><strong>Aldrich:</strong> 你愿意的话可以把他拉进这个群。别再我们两边来回跑，日子会好过些。</p>
+<p><strong>Carvalho:</strong> 好。等我一下。</p>
+<div style="text-align: center;">
+<p><em>K. McIntyre已加入聊天</em></p>
+</div>
+<p><strong>McIntyre:</strong> Ethan，你好。</p>
+<p><strong>Aldrich:</strong> 好久不见。最近怎么样？</p>
+<p><strong>McIntyre:</strong> 压力很大，不过我想这也不是什么新鲜事。</p>
+<p><strong>Aldrich:</strong> 嗯，你们这场疫情肯定也没帮上忙。</p>
+<p><strong>McIntyre:</strong> 可不是。403那边生活怎么样？</p>
+<p><strong>Aldrich:</strong> 大部分时间挺清闲。我这辈子都没想过自己会和化石打交道，可现在确实如此。</p>
+<p><strong>Carvalho:</strong> 你什么时候有古生物学学位了？</p>
+<p><strong>Aldrich:</strong> 我有经验，只是不是职业经验。他们最近成立了古病理学单元，需要我对化石微生物的专业知识。我猜他们是想看看恐龙会不会感冒之类的。</p>
+<p><strong>McIntyre:</strong> 那替我向Grant主管问好。说到微生物，你知道我们现在面对的可能是什么吗？</p>
+<p><strong>Aldrich:</strong> 还没有实质结论。图像回来之前，我不想贸然下判断。</p>
+<p><strong>McIntyre:</strong> 明白。那你至少能不能推荐某种<em>疗法</em>？</p>
+<p><strong>Aldrich:</strong> 如果可以，先着重缓解症状，并继续执行COVID规程。甚至可以把医疗区内外的通行限制为仅必要人员。除此之外，我也没多少建议。抱歉。</p>
+<p><strong>McIntyre:</strong> 没关系。抱歉，我可能有点……咄咄逼人。这整件事快把我逼疯了。</p>
+<p><strong>Aldrich:</strong> 不，我理解。换成我可能也一样。一旦得到明确鉴定，我马上通知你。</p>
+<p><strong>McIntyre:</strong> 谢谢你，Ethan。感激不尽。</p>
+<hr/>
+<div style="text-align: center;">
+<p><em>7月24日，13:17</em></p>
+</div>
+<p><strong>Aldrich:</strong> 结果出来了。看来有一例格外凶猛的MR-AB正在你们那里横行。</p>
+<p><strong>McIntyre:</strong> MR-AB？和MRSA之类的差不多吗？</p>
+<p><strong>Aldrich:</strong> 多重耐药<em>A. baumannii</em>，所以差不多。</p>
+<p><strong>Carvalho:</strong> 你确定？</p>
+<p><strong>Aldrich:</strong> 不确定的话我不会联系你。HIPPOC给出了94%的匹配度，基因组片段补齐了余下部分。唯一不确定的是具体变体。</p>
+<p><strong>McIntyre:</strong> 这很糟吗？</p>
+<p><strong>Aldrich:</strong> 这会略微缩小治疗选择，不过仍有几种可以尝试。</p>
+<p><strong>McIntyre:</strong> 你有什么我都要。</p>
+<p><strong>Aldrich:</strong> 首先是常规抗生素方案。鉴于目前情况，多黏菌素是最佳选择。</p>
+<p><strong>Carvalho:</strong> 这是不是有点用力过猛？</p>
+<p><strong>Aldrich:</strong> 是，但它是少数能覆盖所有变体的药物类别之一。面对如此凶猛的菌株，我们不能打偏。</p>
+<p><strong>McIntyre:</strong> 真有那么严重？</p>
+<p><strong>Aldrich:</strong> 所谓‘英雄剂量’可不是白叫的。</p>
+<p><strong>Carvalho:</strong> 把它想成一种焦土方案。</p>
+<p><strong>McIntyre:</strong> 老天。有没有稍微……温和一点的办法？</p>
+<p><strong>Aldrich:</strong> 有，但我不想赌它会不会对某种药物耐药。更麻烦的是，它<em>可能</em>还会发展出耐药性。</p>
+<p><strong>McIntyre:</strong> 好吧，那还有什么？</p>
+<p><strong>Aldrich:</strong> 还有GRA。</p>
+<p><strong>McIntyre:</strong> 你在开玩笑吧？</p>
+<p><strong>Aldrich:</strong> 我百分之百认真。</p>
+<p><strong>McIntyre:</strong> 我知道你很想用它们，但现在还太早了。</p>
+<p><strong>Carvalho:</strong> 正常情况下确实太早。但现在可称不上‘正常’。</p>
+<p><strong>McIntyre:</strong> 没错，可我们还完全没有摸清它的长期影响。</p>
+<p><strong>Carvalho:</strong> 长期影响？它又不会诱发突变。</p>
+<p><strong>McIntyre:</strong> 你现在还不知道，这正是我不愿意使用它的原因。</p>
+<p><strong>Carvalho:</strong> 这是定向本体动力学操纵。任何副作用<em>几乎肯定</em>会立刻出现。</p>
+<p><strong>McIntyre:</strong> 真的吗？你考虑过亚细胞损伤，以及它可能致癌吗？</p>
+<p><strong>Aldrich:</strong> 放松，我只是提个建议。</p>
+<p><strong>McIntyre:</strong> 噬菌体疗法呢？它不就是为这类细菌准备的吗？</p>
+<p><strong>Aldrich:</strong> 它们确实最有效，但使用前我们必须完整表征这个菌株。噬菌体的特异性太强，也绝非普通疗法。</p>
+<p><strong>McIntyre:</strong> 就这些了，是吗？还有<em>任何</em>别的办法吗？</p>
+<p><strong>Carvalho:</strong> 没有了。</p>
+<p><strong>Aldrich:</strong> 除了那两种，没有值得一试的。</p>
+<p><strong>McIntyre:</strong> 老天。好吧，我宁愿先试经过验证的常规方案。无意冒犯。</p>
+<p><strong>Aldrich:</strong> 没关系。无论结果如何，随时告诉我。</p>
+<p><strong>McIntyre:</strong> 会的。</p>
+<p><strong>Aldrich:</strong> 与此同时，Ric，如果你能继续对手头样本做PCR并把结果发来，我会非常感激。</p>
+<p><strong>Carvalho:</strong> 可那些……会不完整。你确定要吗？</p>
+<p><strong>Aldrich:</strong> 我知道。我想验证一件事。</p>
+<p><strong>Carvalho:</strong> 好吧。那我现在就开始。</p>
+<hr/>
+<div style="text-align: center;">
+<p><em>7月28日，19:47</em></p>
+</div>
+<p><strong>Aldrich:</strong> 有进展吗？</p>
+<p><strong>Carvalho:</strong> 没什么进展。头几天，抗生素似乎大幅减轻了病情。现在基本又回到了治疗前的水平。</p>
+<p><strong>McIntyre:</strong> 更别提这东西已经突破隔离区了。我收到报告，后勤部门有好几个人请病假。</p>
+<p><strong>Carvalho:</strong> 嗯，他们就在医疗区旁边，也不算完全出乎意料。</p>
+<p><strong>McIntyre:</strong> 没错，而诊断科就在后勤部门旁边，安保中心又在诊断科旁边。还要我继续说吗？</p>
+<p><strong>Aldrich:</strong> 抗生素显然解决不了眼下的问题，是时候换方案了。</p>
+<p><strong>Carvalho:</strong> 联合用药呢？我见过一些团队用它治疗耐药结核病。</p>
+<p><strong>Aldrich:</strong> 太危险。我们必须使用的几类药物，仅副作用就可能致命。</p>
+<p><strong>McIntyre:</strong> 比正在这里蔓延的东西更致命吗？</p>
+<p><strong>Aldrich:</strong> 这么说吧：就算感染没有先杀死他们，联合用药也会。况且那样还可能让它发展成全耐药。</p>
+<p><strong>McIntyre:</strong> 噬菌体还是不行？</p>
+<p><strong>Aldrich:</strong> 你<em>明白</em>那要花多少时间吗？我可不是你<em>以为</em>的奇迹创造者。</p>
+<p><strong>McIntyre:</strong> 看来我没有别的选择了，对吧？</p>
+<p><strong>Carvalho:</strong> 除非你还有更好的主意，否则我认为GRA现在是最有希望的方案。</p>
+<p><strong>McIntyre:</strong> 先说明白，如果情况没这么严重，我绝不会这么急着使用它们。</p>
+<p><strong>Aldrich:</strong> 可以理解。我会继续标定这个变体，看看能不能找到可利用的弱点。谁知道呢，如果发现有希望的东西，也许还能回头使用另一类抗生素。</p>
+<p><strong>Carvalho:</strong> Ethan，为此需要我继续检测样本吗？</p>
+<p><strong>Aldrich:</strong> 暂时不用。我还有些文件没处理，你先别做。</p>
+<p><strong>Carvalho:</strong> 好。</p>
+<hr/>
+<div style="text-align: center;">
+<p><em>8月3日，19:47</em></p>
+</div>
+<p><strong>Carvalho:</strong> Ethan，出问题了。</p>
+<p><strong>Aldrich:</strong> 这次又是什么？</p>
+<p><strong>Carvalho:</strong> 我不知道确切原因，但GRA不起作用。</p>
+<p><strong>Aldrich:</strong> 是机械故障？</p>
+<p><strong>Carvalho:</strong> 也许？我的意思是，我们让患者接受了好几次治疗，但病情似乎反而更糟了。</p>
+<p><strong>Aldrich:</strong> 你……确定操作正确吗？</p>
+<p><strong>Carvalho:</strong> Hasashi一直在操作，所以我相当肯定，如果哪里不对，她会发现。</p>
+<p><strong>McIntyre:</strong> 该死，我<em>告诉过</em>你们两个，这不是个好主意。</p>
+<p><strong>Aldrich:</strong> 让我和她谈谈，看看能不能排查故障。</p>
+<p><strong>McIntyre:</strong> 你可以试，但恐怕我们的资源已经捉襟见肘。与此同时，还有<em>任何</em>别的办法吗？</p>
+<p><strong>Aldrich:</strong> 治疗方面？没有。至少目前没有。你们得把工作重点转向收容。</p>
+<p><strong>McIntyre:</strong> 你还想让我怎么做？能用的我全用了：宵禁、限制区域、消毒站，一样不少。我还能做什么？</p>
+<p><strong>Aldrich:</strong> 你知道自己必须做什么。在源头扩散前将它掐灭。</p>
+<p><strong>McIntyre:</strong> 天啊Ethan，我们谈的是人的<em>生命</em>。我不能就这样签下他们的死刑令。</p>
+<p><strong>Aldrich:</strong> 你不这么做，就得签下更多。听着，我知道这不是理想方案，但眼下别无选择。</p>
+<p><strong>McIntyre:</strong> <em>不理想</em>？！这一切根本没有任何<em>理想</em>可言！永远都有其他选择。</p>
+<p><strong>Aldrich:</strong> 在我们的能力范围内，没有。现实地说，这是你唯一的选择。</p>
+<p><strong>McIntyre:</strong> 你觉得最高指挥部会乐意看我直接消灭大多数员工吗？</p>
+<p><strong>Aldrich:</strong> 我相信，比起一片墓地，他们还是宁愿保住一座站点。这不是最优解，但他们会理解。</p>
+<p><strong>McIntyre:</strong> 那他们的同事呢？他们的<em>家人</em>呢？你觉得<em>他们</em>会理解吗？</p>
+<p><strong>Aldrich:</strong> 你说得好像他们不是我的朋友。这就是我们报名承担的工作，Kieran。我们所有人来到这里时，都清楚这种工作的风险。</p>
+<p><strong>McIntyre:</strong> 站不到决定的另一边，说起来当然容易。</p>
+<p><strong>Aldrich:</strong> 我知道。但如果拯救他人的生命意味着牺牲自己，我不会犹豫。</p>
+<p><strong>Carvalho:</strong> 我不愿这么说……但Ethan是对的。我们越是浪费时间乱试一通，它就扩散得越远。</p>
+<p><strong>McIntyre:</strong> 我……得想想这一切。</p>
+<hr/>
+<div style="text-align: center;">
+<p><em>9月14日，11:13</em></p>
+</div>
+<p><strong>Aldrich:</strong> 嘿，你们那里怎么样？我知道上次谈话收场不太愉快，但还是想来问问。</p>
+<p><strong>McIntyre:</strong> 不太好，但我们还撑着。站点仍在宵禁，不过病例数量正在下降，算是好消息。</p>
+<p><strong>Aldrich:</strong> 那就让人放心了。我知道这不是你想选的方案，但你做了正确的事。</p>
+<p><strong>McIntyre:</strong> 感觉一点也不像。我辜负了他们，Ethan。</p>
+<p><strong>Aldrich:</strong> 什么意思？</p>
+<p><strong>McIntyre:</strong> 我曾宣誓，不仅要以基金会的最大利益管理这座站点，也要为这里的人着想。</p>
+<p><strong>Aldrich:</strong> 你做到了。危机之中，你作出了最好的选择，Kieran。</p>
+<p><strong>McIntyre:</strong> 真的吗？批准的死亡通知越多，我就越不愿相信这一点。</p>
+<p><strong>Aldrich:</strong> 即使我们在最早时发现它，结果也不可能完美。这是不幸的现实，你必须接受。</p>
+<p><strong>McIntyre:</strong> 我觉得自己永远也接受不了。我会继续向前走，可这件事会一直纠缠我，直到生命尽头。</p>
+<p><strong>Aldrich:</strong> 尽量别让它遮蔽你的未来。站点要从这场烂摊子里恢复，还需要你的领导。如果想找人倾诉，我的门永远为你敞开。</p>
+<p><strong>McIntyre:</strong> 谢谢你，Ethan。</p>
+<hr/></div>
+</div>
+</div>
+</div>
+<p><span style="white-space: pre-wrap;"> </span><br/>
+<span style="white-space: pre-wrap;"> </span><br/>
+<span style="white-space: pre-wrap;"> </span></p>
+<div style="text-align: center;">
+<div style='background: url("https://scp-wiki.wdfiles.com/local--files/the-great-hippo/scp_trans.png") center no-repeat; float: center; border: solid 2px #000; padding: 1px 15px; box-shadow: 0 1px 3px rgba(0,0,0,.2);'>
+<h1 id="toc0"><span>警告：以下文件为4/7875级机密</span></h1>
+<hr/>
+<h3 id="toc1"><span>任何未经4/7875级授权访问此文件的尝试都将被记录，并将导致立即受到纪律处分。</span></h3>
+</div>
+</div>
+<div class="collapsible-block">
+<div class="collapsible-block-folded"><a class="collapsible-block-link" href="javascript:;">访问 文件？</a></div>
+<div class="collapsible-block-unfolded" style="display:none">
+<div class="collapsible-block-unfolded-link"><a class="collapsible-block-link" href="javascript:;">已授权</a></div>
+<div class="collapsible-block-content">
+<div class="blockquote" style="border-radius: 8px; margin: 8px">
+<p><strong>音频记录</strong></p>
+<p><strong>人员</strong>:</p>
+<ul>
+<li>Kieran McIntyre，理学博士；Site-92主管</li>
+<li>██████ Adebayo，理学博士；区域主管</li>
+</ul>
+<hr/>
+<p><strong>McIntyre:</strong> 我们面对的损失有多大？</p>
+<p><strong>Adebayo:</strong> 委婉地说，417和509都已经一团糟。Toivonen甚至已经在考虑核方案。</p>
+<p><strong>McIntyre:</strong> 我理解必须不择手段，但直接彻底摧毁是不是太过头了？</p>
+<p><strong>Adebayo:</strong> 我觉得你还没明白情况有多严重，Kieran。携带者不只是人员。</p>
+<p><strong>McIntyre:</strong> 什么意思？</p>
+<p><strong>Adebayo:</strong> 据说……509的死者中有几名绿型。</p>
+<p><strong>McIntyre:</strong> (<em>叹气</em>）该死。只有他们会感染，还是其他异常也会？</p>
+<p><strong>Adebayo:</strong> 很难说，不过我想任何有机体都会相当脆弱。只是绿型似乎特别容易受它影响。</p>
+<p><strong>McIntyre:</strong> 我们这里从未见过这种情况，但它确实没机会扩散到我们的收容区。</p>
+<p><strong>Adebayo:</strong> 把其他站点的外勤单位重新安置过来，就得承担这种风险。</p>
+<p><strong>McIntyre:</strong> 你现在是在说这是<em>我的</em>错？你到底<em>明不明白</em>，为了收容这场该死的噩梦，我牺牲了什么？！你<em>胆敢</em>把这副重担压在<em>我的</em>肩上！</p>
+<p><strong>Adebayo:</strong> 注意你的语气，McIntyre。这场灾难已经把我的耐心耗得所剩无几，我不需要你再添一把火。</p>
+<p><strong>McIntyre:</strong> (<em>叹气</em>）好吧，<em>除了</em>弹头，你们还在考虑什么？</p>
+<p><strong>Adebayo:</strong> 这正是我希望<em>你</em>能帮忙的地方。417和509的设计根本不适合人员宵禁。那里的工作需要更持续、更直接的人工参与。</p>
+<p><strong>McIntyre:</strong> 嗯，我<em>本人</em>帮不了你，不过我的几名员工一直在为这东西制定收容协议。好像涉及改造隔离单元和休谟缓解措施。</p>
+<p><strong>Adebayo:</strong> 你觉得在这里能奏效吗？</p>
+<p><strong>McIntyre:</strong> 也许？他们说这是为小规模疫情准备的，不过或许能扩展到大规模行动。你愿意的话，我可以让他们和你联系。</p>
+<p><strong>Adebayo:</strong> 请务必这样做。谢谢。</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="licensebox">
+<div class="collapsible-block">
+<div class="collapsible-block-folded"><a class="collapsible-block-link" href="javascript:;">‡ 许可 / 引用</a></div>
+<div class="collapsible-block-unfolded" style="display:none">
+<div class="collapsible-block-unfolded-link"><a class="collapsible-block-link" href="javascript:;">‡ 隐藏许可 / 引用</a></div>
+<div class="collapsible-block-content">
+<p>引用本页时请写作：</p>
+<div class="list-pages-box"> <div class="list-pages-item">
+<blockquote>
+<p>"<a href="/scp-7875">SCP-7875</a>”，作者DrRevan，发表于<a href="https://scpwiki.com">SCP维基</a>。来源：<a href="https://scpwiki.com/scp-7875">https://scpwiki.com/scp-7875</a>。采用<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA</a>许可。</p>
+</blockquote>
+</div>
+</div>
+<p>关于如何使用此组件，请参阅<a href="/component:license-box">许可信息框组件</a>。关于许可政策，请参阅<a href="/licensing-guide">许可指南</a>.</p>
+<div class="content-separator" style="display: none:"></div>
+<blockquote>
+<p><strong>文件名：</strong> [1q3s EBI.jpg|PDB_1q3s_EBI]<br/>
+<strong>名称：</strong> PDB 1q3s EBI<br/>
+<strong>作者：</strong> Jawahar Swaminathan<br/>
+<strong>许可：</strong> 公有领域<br/>
+**来源链接：*<a href="https://www.ebi.ac.uk/pdbe/entry/pdb/1q3s" target="_blank">https://www.ebi.ac.uk/pdbe/entry/pdb/1q3s</a></p>
+</blockquote>
+<div class="content-separator" style="display: none:"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="footnotes-footer">
+<div class="title">脚注</div>
+<div class="footnote-footer" id="footnote-1"><a href="javascript:;" onclick="WIKIDOT.page.utils.scrollToReference('footnoteref-1')">1</a>。一种温控储存装置，用于在−40至−80 °C的温度范围内保存样本</div>
+<div class="footnote-footer" id="footnote-2"><a href="javascript:;" onclick="WIKIDOT.page.utils.scrollToReference('footnoteref-2')">2</a>。下文称为SCP-7875-a</div>
+<div class="footnote-footer" id="footnote-3"><a href="javascript:;" onclick="WIKIDOT.page.utils.scrollToReference('footnoteref-3')">3</a>。这些单元经过特别改装，各配有2台SRA，用于抵消SCP-7875-1的影响</div>
+<div class="footnote-footer" id="footnote-4"><a href="javascript:;" onclick="WIKIDOT.page.utils.scrollToReference('footnoteref-4')">4</a>。一种主要由过氧化氢、过氧乙酸和微量多种抗微生物剂组成的溶液</div>
+<div class="footnote-footer" id="footnote-5"><a href="javascript:;" onclick="WIKIDOT.page.utils.scrollToReference('footnoteref-5')">5</a>。源自医疗设施的感染</div>
+<div class="footnote-footer" id="footnote-6"><a href="javascript:;" onclick="WIKIDOT.page.utils.scrollToReference('footnoteref-6')">6</a>。此前称为休谟吸收伴侣蛋白复合物1（HACC1）</div>
+<div class="footnote-footer" id="footnote-7"><a href="javascript:;" onclick="WIKIDOT.page.utils.scrollToReference('footnoteref-7')">7</a>。视觉表现类似坏死性筋膜炎</div>
+<div class="footnote-footer" id="footnote-8"><a href="javascript:;" onclick="WIKIDOT.page.utils.scrollToReference('footnoteref-8')">8</a>。主要负责众多细菌物种的DNA修复与重组，通常用于应对各种外部应激源</div>
+<div class="footnote-footer" id="footnote-9"><a href="javascript:;" onclick="WIKIDOT.page.utils.scrollToReference('footnoteref-9')">9</a>。本实验预定的目标</div>
+<div class="footnote-footer" id="footnote-10"><a href="javascript:;" onclick="WIKIDOT.page.utils.scrollToReference('footnoteref-10')">10</a>。V149是本实验的目标变体</div>
+<div class="footnote-footer" id="footnote-11"><a href="javascript:;" onclick="WIKIDOT.page.utils.scrollToReference('footnoteref-11')">11</a>。由Xenia Galanis博士创建的.aic，主要用于增强显微图像的清晰度</div>
+</div>
+</div>
+

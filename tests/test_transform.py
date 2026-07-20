@@ -22,6 +22,7 @@ FEATURED_TRANSLATIONS = Path(__file__).parents[1] / "translations" / "featured"
         "image_count",
         "table_count",
         "collapsible_count",
+        "tabview_count",
         "layout_signature",
     ),
     [
@@ -32,6 +33,7 @@ FEATURED_TRANSLATIONS = Path(__file__).parents[1] / "translations" / "featured"
             10,
             0,
             1,
+            0,
             "ab2df0fa2b02c15b4756d308047108ef838e1e17b7287b0054588c8438601f88",
         ),
         (
@@ -41,7 +43,34 @@ FEATURED_TRANSLATIONS = Path(__file__).parents[1] / "translations" / "featured"
             0,
             1,
             1,
+            0,
             "d2f7ea2ba00e16bc329e1805f7589e64762c7bdd5f64bd7f2b26508565cb4217",
+        ),
+        (
+            "scp-8274",
+            ("SCP-8274 - 帝王蝶", "欢迎回来，Talum博士", "全站警报", "特殊收容措施", "描述"),
+            13,
+            11,
+            0,
+            1,
+            0,
+            "023e89cdb5a768055662bce8c0728bad8171d13fb8334abfd221b5edc82984e7",
+        ),
+        (
+            "scp-7875",
+            (
+                "SCP-7875 - 患上正常症",
+                "警告：以下文件为4/7875级机密",
+                "任何未经4/7875级授权访问此文件的尝试都将被记录",
+                "特殊收容措施",
+                "描述",
+            ),
+            11,
+            1,
+            2,
+            5,
+            2,
+            "e2471652af86c3e190b8213655af55dff949ce2141c13c231d094e8c9ee27b17",
         ),
     ],
 )
@@ -52,6 +81,7 @@ def test_featured_translation_snapshots_preserve_source_layout_without_site_chro
     image_count: int,
     table_count: int,
     collapsible_count: int,
+    tabview_count: int,
     layout_signature: str,
 ):
     html = (FEATURED_TRANSLATIONS / f"{slug}.zh-CN.html").read_text(encoding="utf-8")
@@ -68,6 +98,7 @@ def test_featured_translation_snapshots_preserve_source_layout_without_site_chro
     assert len(page_content.find_all("img")) == image_count
     assert len(page_content.find_all("table")) == table_count
     assert len(page_content.select(".collapsible-block")) == collapsible_count
+    assert len(page_content.select(".yui-navset")) == tabview_count
     assert page_content.find("script") is None
     assert soup.find(id="header") is None
     assert soup.find(id="side-bar") is None
