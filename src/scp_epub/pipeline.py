@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from argparse import Namespace
+from dataclasses import replace
 from pathlib import Path
 from html import escape
 from typing import Callable, Protocol
@@ -42,7 +43,16 @@ from .linked_appendices import (
     write_linked_appendix_report,
 )
 from .manifest import read_manifest, merge_manifest, supplement_missing_scp_entries, write_manifest
-from .models import AppConfig, FetchResult, InlineDocumentSpec, PageRef, ProcessedPage, VolumeSpec
+from .models import (
+    AppConfig,
+    FallbackPageRecord,
+    FetchResult,
+    InlineDocumentSpec,
+    PageRef,
+    ProcessedPage,
+    VolumeSpec,
+)
+from .page_fallbacks import load_fallback_fetch_result
 from .transform import PageTransformOptions, insert_inline_fragments, transform_page
 from .urls import safe_filename, slug_from_url
 
@@ -221,7 +231,7 @@ def build_volume(
         active_fetcher,
         force=force,
     )
-    available_manifest, fetch_results, missing_pages = fetch_build_pages(
+    available_manifest, fetch_results, missing_pages, fallback_pages = fetch_build_pages(
         config,
         manifest,
         active_fetcher,
@@ -467,10 +477,16 @@ def fetch_build_pages(
     *,
     force: bool = False,
     appendix_fetch_results: dict[tuple[str, str], FetchResult] | None = None,
-) -> tuple[list[PageRef], list[FetchResult], list[dict[str, str]]]:
+) -> tuple[
+    list[PageRef],
+    list[FetchResult],
+    list[dict[str, str]],
+    list[FallbackPageRecord],
+]:
     available_manifest: list[PageRef] = []
     fetch_results: list[FetchResult] = []
     missing_pages: list[dict[str, str]] = []
+    fallback_pages: list[FallbackPageRecord] = []
 
     tab_fetch_results: dict[tuple[str, str], FetchResult] = {}
     cache = CacheStore(config.cache_dir)
@@ -496,19 +512,46 @@ def fetch_build_pages(
                 if result is None:
                     result = fetcher.fetch_page(*source_key, force=force)
         except Exception as exc:
-            missing_pages.append(
-                {
-                    "slug": entry.slug,
-                    "title": entry.title,
-                    "url": entry.url,
-                    "reason": str(exc),
-                }
-            )
-            continue
+            fallback = config.page_fallbacks.get(entry.slug)
+            if fallback is not None:
+                try:
+                    result = load_fallback_fetch_result(entry.slug, fallback)
+                except Exception as fallback_exc:
+                    missing_pages.append(
+                        {
+                            "slug": entry.slug,
+                            "title": entry.title,
+                            "url": entry.url,
+                            "reason": f"{exc}; fallback failed: {fallback_exc}",
+                        }
+                    )
+                    continue
+                entry = replace(entry, title=fallback.translated_title)
+                fallback_pages.append(
+                    FallbackPageRecord(
+                        slug=entry.slug,
+                        title=entry.title,
+                        source_url=fallback.source_url,
+                        source_language=fallback.source_language,
+                        snapshot_path=fallback.snapshot_path.relative_to(
+                            config.workspace
+                        ).as_posix(),
+                    )
+                )
+            else:
+                missing_pages.append(
+                    {
+                        "slug": entry.slug,
+                        "title": entry.title,
+                        "url": entry.url,
+                        "reason": str(exc),
+                    }
+                )
+                continue
         available_manifest.append(entry)
         fetch_results.append(result)
 
-    return available_manifest, fetch_results, missing_pages
+    return available_manifest, fetch_results, missing_pages, fallback_pages
 
 
 def _fetch_manifest_entries(
@@ -1054,7 +1097,7 @@ def _process_pages(
         page = transform_page(
             entry,
             result.path.read_text(encoding="utf-8"),
-            entry.url,
+            result.url,
             manifest_slugs,
             include_tab_titles=include_tab_titles,
             unwrap_single_included_tab=unwrap_single_included_tab,
@@ -1078,7 +1121,7 @@ def _process_pages(
                     transform_page(
                         inline_entry,
                         inline_result.path.read_text(encoding="utf-8"),
-                        inline_entry.url,
+                        inline_result.url,
                         manifest_slugs,
                         page_options=_page_transform_options(config, inline_entry),
                     ),

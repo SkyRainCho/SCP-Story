@@ -18,6 +18,7 @@ from scp_epub.models import (
     AppendixSpec,
     ConfiguredLink,
     ConfiguredPage,
+    FallbackPageRecord,
     FetchResult,
     InlineDocumentSpec,
     PageFallback,
@@ -37,6 +38,7 @@ from scp_epub.pipeline import (
     scan_linked_appendices_for_volume,
 )
 from scp_epub.inline_documents import fetch_inline_document_results
+from scp_epub.page_fallbacks import snapshot_layout_signature
 
 
 BASE_URL = "https://scp-wiki-cn.wikidot.com"
@@ -954,15 +956,133 @@ def test_fetch_paths_preserve_normal_duplicate_fetches_and_reuse_appendix_tab_so
     ]
     fetcher.calls.clear()
 
-    available_manifest, _results, missing_pages = fetch_build_pages(config, manifest, fetcher)
+    available_manifest, _results, missing_pages, fallback_pages = fetch_build_pages(
+        config, manifest, fetcher
+    )
 
     assert available_manifest == manifest
     assert missing_pages == []
+    assert fallback_pages == []
     assert [slug for slug, _url, _force in fetcher.calls] == [
         "scp-001",
         "scp-001",
         "personnel-and-character-dossier",
     ]
+
+
+def test_fetch_build_pages_keeps_primary_chinese_page_without_fallback_record(
+    tmp_path: Path,
+):
+    snapshot = tmp_path / "snapshots" / "scp-001-en.html"
+    snapshot.parent.mkdir(parents=True)
+    snapshot.write_text(simple_page("English fallback"), encoding="utf-8")
+    fallback = PageFallback(
+        source_url="https://scp-wiki.wikidot.com/scp-001",
+        source_language="en",
+        translated_title="SCP-001 - 中文译名",
+        snapshot_path=snapshot,
+        layout_signature=snapshot_layout_signature(snapshot.read_text(encoding="utf-8")),
+    )
+    config = app_config(tmp_path, page_fallbacks={"scp-001": fallback})
+    manifest = [PageRef("SCP-001", f"{BASE_URL}/scp-001", "scp-001", 1, "scp", order=1)]
+    fetcher = FakeFetcher(tmp_path / "cache", {"scp-001": simple_page("SCP-001")})
+
+    available_manifest, results, missing_pages, fallback_pages = fetch_build_pages(
+        config, manifest, fetcher
+    )
+
+    assert available_manifest == manifest
+    assert results[0].url == manifest[0].url
+    assert missing_pages == []
+    assert fallback_pages == []
+
+
+def test_fetch_build_pages_uses_validated_fallback_and_localizes_relative_images(
+    tmp_path: Path,
+):
+    snapshot = tmp_path / "snapshots" / "scp-001-en.html"
+    snapshot.parent.mkdir(parents=True)
+    snapshot.write_text(
+        simple_page("English fallback", '<img src="images/fallback.png"/>'),
+        encoding="utf-8",
+    )
+    source_url = "https://scp-wiki.wikidot.com/scp-001"
+    fallback = PageFallback(
+        source_url=source_url,
+        source_language="en",
+        translated_title="SCP-001 - 中文译名",
+        snapshot_path=snapshot,
+        layout_signature=snapshot_layout_signature(snapshot.read_text(encoding="utf-8")),
+    )
+    config = app_config(tmp_path, page_fallbacks={"scp-001": fallback})
+    manifest = [PageRef("SCP-001", f"{BASE_URL}/scp-001", "scp-001", 1, "scp", order=7)]
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {},
+        failed_pages={"scp-001"},
+        assets={
+            "https://scp-wiki.wikidot.com/images/fallback.png": (
+                "fallback.png",
+                b"png data",
+                "image/png",
+            )
+        },
+    )
+
+    available_manifest, results, missing_pages, fallback_pages = fetch_build_pages(
+        config, manifest, fetcher
+    )
+
+    assert available_manifest == [
+        PageRef("SCP-001 - 中文译名", f"{BASE_URL}/scp-001", "scp-001", 1, "scp", order=7)
+    ]
+    assert results[0].url == source_url
+    assert missing_pages == []
+    assert fallback_pages == [
+        FallbackPageRecord(
+            slug="scp-001",
+            title="SCP-001 - 中文译名",
+            source_url=source_url,
+            source_language="en",
+            snapshot_path="snapshots/scp-001-en.html",
+        )
+    ]
+
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    build_volume(config, "001-099", fetcher=fetcher)
+
+    assert fetcher.asset_calls == [
+        ("https://scp-wiki.wikidot.com/images/fallback.png", False)
+    ]
+
+
+def test_fetch_build_pages_records_primary_and_fallback_failures(tmp_path: Path):
+    snapshot = tmp_path / "snapshots" / "scp-001-en.html"
+    snapshot.parent.mkdir(parents=True)
+    snapshot.write_text(simple_page("English fallback"), encoding="utf-8")
+    fallback = PageFallback(
+        source_url="https://scp-wiki.wikidot.com/scp-001",
+        source_language="en",
+        translated_title="SCP-001 - 中文译名",
+        snapshot_path=snapshot,
+        layout_signature="0" * 64,
+    )
+    config = app_config(tmp_path, page_fallbacks={"scp-001": fallback})
+    manifest = [PageRef("SCP-001", f"{BASE_URL}/scp-001", "scp-001", 1, "scp", order=1)]
+    fetcher = FakeFetcher(tmp_path / "cache", {}, failed_pages={"scp-001"})
+
+    available_manifest, results, missing_pages, fallback_pages = fetch_build_pages(
+        config, manifest, fetcher
+    )
+
+    assert available_manifest == []
+    assert results == []
+    assert fallback_pages == []
+    assert len(missing_pages) == 1
+    assert "failed fake page for scp-001" in missing_pages[0]["reason"]
+    assert "fallback snapshot layout signature mismatch for scp-001" in missing_pages[0]["reason"]
 
 
 def test_fetching_generated_appendix_groups_does_not_replace_cached_facility_source(
