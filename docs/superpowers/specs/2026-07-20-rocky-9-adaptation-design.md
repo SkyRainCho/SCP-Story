@@ -195,6 +195,19 @@ bash 脚本不纳入 pytest 体系，采用以下手段保障质量：
 - 端到端验证流程（脚本 → pytest → 两卷构建）作为整体验收。
 - 如验证中发现并修复代码层平台问题，按项目惯例补 pytest（`tests/test_*.py`），命名 `test_<行为>`。
 
+## 验证结果
+
+在 Rocky Linux 9.7（WSL2）上，通过 uv 提供的 python3.11（CPython 3.11.15）运行 `bash scripts/setup-rocky.sh --skip-system-deps` 完成环境搭建，并实跑 `pytest` 与两卷 EPUB 构建。
+
+- **Python 依赖安装**：`lxml-6.1.1`、`Pillow-12.3.0`、`resvg-py-0.3.3`、`PyYAML-6.0.3` 全部命中 manylinux wheel，无源码编译；纯 Python 包（beautifulsoup4、ebooklib、httpx、tinycss2）无系统依赖。系统包仅需 `(python3.11 python3.11-pip gcc redhat-rpm-config)`，未追加任何 `-devel` 包。
+- **`pytest -q`**：411 passed, 0 failed（1.96s）。
+- **series-1 `001-099`**：EPUB 生成（538 页，210 MB），退出码 0。`missing_pages=12`（全部为 `scp-wiki-cn.wikidot.com` 的 404 或 fetch 失败，源站问题），`missing_assets=18`（全部外站：`upload.wikimedia.org` 8、`scp-wiki.wdfiles.com` 4、`scp-wiki.wikidot.com` 4、`www.wikidot.com` 1、`i.pinimg.com` 1）。0 平台异常。说明：12 个 missing_pages 略高于预期的个位数，但均为中文站页面缺失或抓取失败，与平台适配无关。
+- **`featured`**：EPUB 生成（368 页，347 MB），退出码 0。`missing_pages=1`（`yamizushi-file-no233` 中文站 404），`missing_assets=18`（全部外站：`upload.wikimedia.org` 12、`www.scp-wiki.net` 2、`gss2.bdstatic.com`/`i.imgur.com`/`fc04.deviantart.net`/`example.com` 各 1），`fallback_pages=4`（翻译回退生效）。0 平台异常。
+- **系统依赖结论**：最终 `SYSTEM_PACKAGES` 维持 `(python3.11 python3.11-pip gcc redhat-rpm-config)`，无需追加 `-devel`。
+- **代码改动**：Task 2 验证中发现并修复一处脚本缺陷——自检段误用 `import resvg`（正确为 `resvg_py`，与 `src/scp_epub/kindle.py:22` 一致），且原 `&& ok` 形式在 `set -e` 下会吞掉导入失败；改为 `|| fail` + `ok`，使缺失模块能友好退出。脚本、plan、design 三处同步（commit bc0d2b4）。`src/` 业务代码无任何改动。
+
+已知局限（验证环境无 sudo）：脚本 dnf 段（`sudo dnf install python3.11 …`）未在 sudo 下实跑；`python3.11` 模块属 RHEL 9 AppStream 官方支持，命令依据 Rocky 官方文档。功能层结论基于 uv python3.11，与 dnf python3.11 ABI 等价，可迁移。
+
 ## 非目标
 
 - 不容器化（不产出 Dockerfile / Podmanfile）。
