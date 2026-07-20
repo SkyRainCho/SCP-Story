@@ -1071,6 +1071,19 @@ def test_normalizes_malformed_wikidot_image_width_markup_before_recording_asset(
     assert result.asset_urls == (image_url,)
 
 
+def test_normalizes_embedded_wikidot_image_width_markup_before_recording_asset():
+    image_url = "https://upload.wikimedia.org/example.jpg?20090322065751"
+    html = f'''<html><body><div id="page-content">
+      <img src='{image_url}="width:100%"' alt="embedded example"/>
+    </div></body></html>'''
+
+    result = transform_page(page_ref("scp-999"), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find("img", alt="embedded example")["src"] == image_url
+    assert result.asset_urls == (image_url,)
+
+
 def test_materializes_pending_anomaly_icon_for_chinese_alias():
     html = """
     <html><body><div id="page-content">

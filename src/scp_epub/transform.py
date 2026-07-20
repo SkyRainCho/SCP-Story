@@ -103,6 +103,10 @@ MALFORMED_WIKIDOT_IMG_WIDTH_ATTRIBUTE_RE = re.compile(
     r'''width:(?:\d+(?:\.\d+)?(?:%|px|em|rem|vw|vh)?)?["']*''',
     re.IGNORECASE,
 )
+MALFORMED_WIKIDOT_IMG_WIDTH_SUFFIX_RE = re.compile(
+    r'''=(?P<quote>["'])width:\s*\d+(?:\.\d+)?(?:%|px|em|rem|vw|vh)(?P=quote)$''',
+    re.IGNORECASE,
+)
 CSS_ESCAPED_CHAR_RE = re.compile(r"\\(?P<escape>[0-9a-fA-F]{1,6}\s?|.)", re.DOTALL)
 CSS_PSEUDO_RE = re.compile(r"::?[a-zA-Z-]+(?:\([^)]*\))?")
 CSS_CLASS_SELECTOR_RE = re.compile(r"\.([_a-zA-Z][-_a-zA-Z0-9]*)")
@@ -779,9 +783,15 @@ def _normalize_assets(page_content: Tag, base_url: str, asset_urls: list[str], s
 
 
 def _normalize_malformed_wikidot_img_src(tag: Tag, raw_url: str) -> str:
-    if tag.name != "img" or not raw_url.endswith("="):
+    if tag.name != "img":
         return raw_url
 
+    embedded_width_markup = MALFORMED_WIKIDOT_IMG_WIDTH_SUFFIX_RE.search(raw_url)
+    if embedded_width_markup is not None:
+        return raw_url[: embedded_width_markup.start()]
+
+    if not raw_url.endswith("="):
+        return raw_url
     malformed_attributes = [
         name
         for name in tag.attrs
