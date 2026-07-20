@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from bs4 import BeautifulSoup, Comment
 
+from scp_epub.config import load_config
 from scp_epub.models import InlineDocumentSpec, PageRef, ProcessedPage
 from scp_epub.page_fallbacks import snapshot_layout_signature
 from scp_epub.transform import PageTransformOptions, insert_inline_fragments, transform_page
@@ -12,6 +13,13 @@ FIXTURE = Path(__file__).parent / "fixtures" / "page_sample.html"
 FEATURED_LAYOUT_FIXTURES = Path(__file__).parent / "fixtures" / "featured-layout"
 BASE_URL = "https://scp-wiki-cn.wikidot.com/scp-999"
 FEATURED_TRANSLATIONS = Path(__file__).parents[1] / "translations" / "featured"
+FEATURED_FALLBACK_SLUGS = (
+    "scp-4846",
+    "scp-8304",
+    "scp-8274",
+    "scp-7875",
+    "yamizushi-file-no233",
+)
 
 
 @pytest.mark.parametrize(
@@ -130,6 +138,38 @@ def test_featured_translation_snapshots_preserve_source_layout_without_site_chro
         assert "作者：" in credit.get_text(" ", strip=True)
         assert "创作年份：" in credit.get_text(" ", strip=True)
     assert snapshot_layout_signature(html) == layout_signature
+
+
+def test_featured_fallback_snapshots_match_configured_layout_signatures():
+    config = load_config(Path("config/featured-scp.yaml"))
+
+    assert tuple(config.page_fallbacks) == FEATURED_FALLBACK_SLUGS
+    for fallback in config.page_fallbacks.values():
+        html = fallback.snapshot_path.read_text(encoding="utf-8")
+        assert snapshot_layout_signature(html) == fallback.layout_signature
+
+
+def test_featured_fallback_snapshots_transform_with_foreign_source_urls():
+    config = load_config(Path("config/featured-scp.yaml"))
+
+    assert tuple(config.page_fallbacks) == FEATURED_FALLBACK_SLUGS
+    for slug, fallback in config.page_fallbacks.items():
+        entry = PageRef(
+            title=fallback.translated_title,
+            url=f"https://scp-wiki-cn.wikidot.com/{slug}",
+            slug=slug,
+            level=1,
+            role="scp",
+        )
+        page = transform_page(
+            entry,
+            fallback.snapshot_path.read_text(encoding="utf-8"),
+            fallback.source_url,
+            set(config.page_fallbacks),
+        )
+
+        assert page.xhtml
+        assert "page-options-bottom" not in page.xhtml
 
 
 def page_ref(slug: str = "scp-999") -> PageRef:

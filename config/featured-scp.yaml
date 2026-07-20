@@ -24,6 +24,37 @@ explicit_linked_appendices:
 page_tab_includes:
   about-the-scp-foundation:
     - 简介
+page_fallbacks:
+  scp-4846:
+    source_url: https://scp-wiki.wikidot.com/scp-4846
+    source_language: en
+    translated_title: SCP-4846 - 友善化石
+    snapshot_path: translations/featured/scp-4846.zh-CN.html
+    layout_signature: ab2df0fa2b02c15b4756d308047108ef838e1e17b7287b0054588c8438601f88
+  scp-8304:
+    source_url: https://scp-wiki.wikidot.com/scp-8304
+    source_language: en
+    translated_title: SCP-8304 - 现代安慰
+    snapshot_path: translations/featured/scp-8304.zh-CN.html
+    layout_signature: d2f7ea2ba00e16bc329e1805f7589e64762c7bdd5f64bd7f2b26508565cb4217
+  scp-8274:
+    source_url: https://scp-wiki.wikidot.com/scp-8274
+    source_language: en
+    translated_title: SCP-8274 - 帝王蝶
+    snapshot_path: translations/featured/scp-8274.zh-CN.html
+    layout_signature: 023e89cdb5a768055662bce8c0728bad8171d13fb8334abfd221b5edc82984e7
+  scp-7875:
+    source_url: https://scp-wiki.wikidot.com/scp-7875
+    source_language: en
+    translated_title: SCP-7875 - 患上正常症
+    snapshot_path: translations/featured/scp-7875.zh-CN.html
+    layout_signature: e2471652af86c3e190b8213655af55dff949ce2141c13c231d094e8c9ee27b17
+  yamizushi-file-no233:
+    source_url: http://scp-jp.wikidot.com/yamizushi-file-no233
+    source_language: ja
+    translated_title: 暗寿司档案 No.233「简体字卷」
+    snapshot_path: translations/featured/yamizushi-file-no233.zh-CN.html
+    layout_signature: 4864120fb8918478e7d032eb1df32b8153dd845c6ff47b11f375102165ece18d
 page_overrides:
   scp-9928:
     remove_terminal_navigation: true

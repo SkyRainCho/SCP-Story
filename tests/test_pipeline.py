@@ -4,12 +4,14 @@ import io
 import json
 import zipfile
 from argparse import Namespace
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 from PIL import Image
 
 from scp_epub.cache import CacheStore
+from scp_epub.config import load_config
 from scp_epub.fetcher import Fetcher
 from scp_epub.manifest import read_manifest
 from scp_epub.models import (
@@ -1067,6 +1069,41 @@ def test_fetch_build_pages_uses_validated_fallback_and_localizes_relative_images
             "source_language": "en",
             "snapshot_path": "snapshots/scp-001-en.html",
         }
+    ]
+
+
+def test_featured_translated_fallbacks_use_configured_titles_sources_and_report_paths(
+    tmp_path: Path,
+):
+    featured_config = load_config(Path("config/featured-scp.yaml"))
+    config = replace(featured_config, cache_dir=tmp_path / "cache")
+    manifest = [
+        PageRef(
+            title=f"Original {slug}",
+            url=f"{BASE_URL}/{slug}",
+            slug=slug,
+            level=1,
+            role="scp",
+            order=index,
+        )
+        for index, slug in enumerate(featured_config.page_fallbacks, start=1)
+    ]
+    fetcher = FakeFetcher(tmp_path / "fetcher", {}, failed_pages=set(featured_config.page_fallbacks))
+
+    available_manifest, results, missing_pages, fallback_pages = fetch_build_pages(
+        config, manifest, fetcher
+    )
+
+    assert missing_pages == []
+    assert [entry.title for entry in available_manifest] == [
+        fallback.translated_title for fallback in featured_config.page_fallbacks.values()
+    ]
+    assert [result.url for result in results] == [
+        fallback.source_url for fallback in featured_config.page_fallbacks.values()
+    ]
+    assert [record.snapshot_path for record in fallback_pages] == [
+        fallback.snapshot_path.relative_to(featured_config.workspace).as_posix()
+        for fallback in featured_config.page_fallbacks.values()
     ]
 
 

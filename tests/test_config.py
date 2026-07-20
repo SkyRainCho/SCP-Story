@@ -281,6 +281,57 @@ def test_featured_scp_config_uses_archive_mode_and_title_indexes():
     assert list(config.volumes) == ["featured"]
 
 
+def test_featured_scp_config_declares_translated_page_fallbacks():
+    config = load_config(Path("config/featured-scp.yaml"))
+
+    assert [
+        (
+            slug,
+            fallback.source_url,
+            fallback.source_language,
+            fallback.translated_title,
+            fallback.snapshot_path.relative_to(config.workspace).as_posix(),
+        )
+        for slug, fallback in config.page_fallbacks.items()
+    ] == [
+        (
+            "scp-4846",
+            "https://scp-wiki.wikidot.com/scp-4846",
+            "en",
+            "SCP-4846 - 友善化石",
+            "translations/featured/scp-4846.zh-CN.html",
+        ),
+        (
+            "scp-8304",
+            "https://scp-wiki.wikidot.com/scp-8304",
+            "en",
+            "SCP-8304 - 现代安慰",
+            "translations/featured/scp-8304.zh-CN.html",
+        ),
+        (
+            "scp-8274",
+            "https://scp-wiki.wikidot.com/scp-8274",
+            "en",
+            "SCP-8274 - 帝王蝶",
+            "translations/featured/scp-8274.zh-CN.html",
+        ),
+        (
+            "scp-7875",
+            "https://scp-wiki.wikidot.com/scp-7875",
+            "en",
+            "SCP-7875 - 患上正常症",
+            "translations/featured/scp-7875.zh-CN.html",
+        ),
+        (
+            "yamizushi-file-no233",
+            "http://scp-jp.wikidot.com/yamizushi-file-no233",
+            "ja",
+            "暗寿司档案 No.233「简体字卷」",
+            "translations/featured/yamizushi-file-no233.zh-CN.html",
+        ),
+    ]
+
+
 def test_load_config_parses_page_overrides_and_inline_documents(tmp_path: Path):
     config_path = tmp_path / "series.yaml"
     write_config_with_page_overrides(
