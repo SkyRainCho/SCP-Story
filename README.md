@@ -19,10 +19,34 @@
 ## 环境要求
 
 - Python 3.11 或更高版本
-- Windows PowerShell、PowerShell Core 或其他可运行 Python 的终端
+- Windows PowerShell、PowerShell Core，或 Linux（含 Rocky 9.x）/ macOS 上任意能运行 Python 的终端
 - 可选：Calibre（使用 `build --kindle` 生成 AZW3 时需要，命令 `ebook-convert` 必须可用）
 
-建议在虚拟环境中安装依赖：
+## 在 Rocky 9.x 上搭建
+
+仓库提供一键搭建脚本，自动安装系统依赖、Python 3.11、虚拟环境和项目依赖，并完成自检：
+
+```bash
+bash scripts/setup-rocky.sh
+```
+
+该命令需要 `sudo`（用于 `dnf install`）。无 `sudo` 时可跳过系统依赖安装，改用已有的 Python 3.11（如通过 uv 安装）：
+
+```bash
+bash scripts/setup-rocky.sh --skip-system-deps
+```
+
+可选安装 Calibre 以启用 Kindle 构建：
+
+```bash
+sudo dnf install calibre   # EPEL 仓库
+```
+
+脚本完成后按提示激活虚拟环境即可开始构建。以下章节同时给出 Windows (PowerShell) 与 Linux / Rocky (bash) 两套命令示例。
+
+建议在虚拟环境中安装依赖。
+
+**Windows (PowerShell)：**
 
 ```powershell
 python -m venv .venv
@@ -30,9 +54,25 @@ python -m venv .venv
 pip install -e ".[dev]"
 ```
 
-只运行构建、不运行测试时，也可以安装基础依赖：
+**Linux / Rocky (bash)：**
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+只运行构建、不运行测试时，也可以安装基础依赖。
+
+**Windows (PowerShell)：**
 
 ```powershell
+pip install -e .
+```
+
+**Linux / Rocky (bash)：**
+
+```bash
 pip install -e .
 ```
 
@@ -57,13 +97,23 @@ output/epub/SCP基金会档案-故事系列-第1卷-第1册.epub
 output/reports/SCP基金会档案-故事系列-第1卷-第1册-report.json
 ```
 
-构建 Series 1 的全部分卷：
+构建 Series 1 的全部分卷。
+
+**Windows (PowerShell)：**
 
 ```powershell
 $volumes = @("001-099","100-199","200-299","300-399","400-499","500-599","600-699","700-799","800-899","900-999")
 foreach ($volume in $volumes) {
   python -m scp_epub --config config/series-1.yaml build --volume $volume
 }
+```
+
+**Linux / Rocky (bash)：**
+
+```bash
+for v in 001-099 100-199 200-299 300-399 400-499 500-599 600-699 700-799 800-899 900-999; do
+  python -m scp_epub --config config/series-1.yaml build --volume "$v"
+done
 ```
 
 构建 Featured SCP Archive 精选 EPUB：
