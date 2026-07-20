@@ -77,6 +77,150 @@ def write_config_with_page_overrides(config_path: Path, overrides_yaml: str) -> 
     )
 
 
+def write_config_with_page_fallbacks(config_path: Path, fallbacks_yaml: str) -> None:
+    write_config(config_path)
+    config_path.write_text(
+        f"{config_path.read_text(encoding='utf-8')}\npage_fallbacks:\n{fallbacks_yaml}",
+        encoding="utf-8",
+    )
+
+
+def test_load_config_parses_page_fallbacks(tmp_path: Path):
+    snapshot = tmp_path / "translations" / "featured" / "scp-4846.zh-CN.html"
+    snapshot.parent.mkdir(parents=True)
+    snapshot.write_text('<div id="page-content"><p>友善化石</p></div>', encoding="utf-8")
+    config_path = tmp_path / "series.yaml"
+    write_config_with_page_fallbacks(
+        config_path,
+        """  scp-4846:
+    source_url: https://scp-wiki.wikidot.com/scp-4846
+    source_language: en
+    translated_title: SCP-4846 - 友善化石
+    snapshot_path: translations/featured/scp-4846.zh-CN.html
+    layout_signature: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+""",
+    )
+
+    fallback = load_config(config_path).page_fallbacks["scp-4846"]
+
+    assert fallback.source_url == "https://scp-wiki.wikidot.com/scp-4846"
+    assert fallback.source_language == "en"
+    assert fallback.translated_title == "SCP-4846 - 友善化石"
+    assert fallback.snapshot_path == snapshot
+    assert fallback.layout_signature == (
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    )
+
+
+@pytest.mark.parametrize(
+    ("fallback_yaml", "message"),
+    [
+        ("  scp-4846: invalid\n", "page_fallbacks.scp-4846 must be a mapping"),
+        (
+            """  scp-4846:
+    source_url: ftp://scp-wiki.wikidot.com/scp-4846
+    source_language: en
+    translated_title: SCP-4846 - 友善化石
+    snapshot_path: translations/featured/scp-4846.zh-CN.html
+    layout_signature: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+""",
+            "page_fallbacks.scp-4846.source_url must be an absolute HTTP(S) URL",
+        ),
+        (
+            """  scp-4846:
+    source_url: https://scp-wiki.wikidot.com/scp-4846
+    source_language: en
+    translated_title: SCP-4846 - 友善化石
+    snapshot_path: ../outside.html
+    layout_signature: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+""",
+            "page_fallbacks.scp-4846.snapshot_path must stay inside the workspace",
+        ),
+        (
+            """  scp-4846:
+    source_url: https://scp-wiki.wikidot.com/scp-4846
+    source_language: en
+    translated_title: SCP-4846 - 友善化石
+    snapshot_path: translations/featured/scp-4846.zh-CN.html
+    layout_signature: bad
+""",
+            "page_fallbacks.scp-4846.layout_signature must be a 64-character hexadecimal SHA-256",
+        ),
+        (
+            """  scp-4846:
+    source_url: https://scp-wiki.wikidot.com/scp-4846
+    source_language: en
+    translated_title: SCP-4846 - 友善化石
+    snapshot_path: translations/featured/missing.zh-CN.html
+    layout_signature: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+""",
+            "page_fallbacks.scp-4846.snapshot_path does not exist",
+        ),
+        (
+            """  scp-4846:
+    source_url: https://scp-wiki.wikidot.com/scp-4846
+    source_language: en
+    translated_title: SCP-4846 - 友善化石
+    snapshot_path: translations/featured/scp-4846.zh-CN.html
+    layout_signature: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    translate_at_build_time: true
+""",
+            "page_fallbacks.scp-4846 contains unknown keys: translate_at_build_time",
+        ),
+        (
+            """  SCP-4846:
+    source_url: https://scp-wiki.wikidot.com/scp-4846
+    source_language: en
+    translated_title: SCP-4846 - 友善化石
+    snapshot_path: translations/featured/scp-4846.zh-CN.html
+    layout_signature: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+  scp-4846:
+    source_url: https://scp-wiki.wikidot.com/scp-4846
+    source_language: en
+    translated_title: SCP-4846 - 友善化石
+    snapshot_path: translations/featured/scp-4846.zh-CN.html
+    layout_signature: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+""",
+            "page_fallbacks contains duplicate key after normalization: scp-4846",
+        ),
+    ],
+)
+def test_load_config_rejects_invalid_page_fallbacks(
+    tmp_path: Path, fallback_yaml: str, message: str
+):
+    snapshot = tmp_path / "translations" / "featured" / "scp-4846.zh-CN.html"
+    snapshot.parent.mkdir(parents=True)
+    snapshot.write_text('<div id="page-content"></div>', encoding="utf-8")
+    config_path = tmp_path / "series.yaml"
+    write_config_with_page_fallbacks(config_path, fallback_yaml)
+
+    with pytest.raises(ValueError, match=re.escape(message)):
+        load_config(config_path)
+
+
+def test_load_config_rejects_absolute_page_fallback_snapshot_path(tmp_path: Path):
+    snapshot = tmp_path / "translations" / "featured" / "scp-4846.zh-CN.html"
+    snapshot.parent.mkdir(parents=True)
+    snapshot.write_text('<div id="page-content"></div>', encoding="utf-8")
+    config_path = tmp_path / "series.yaml"
+    write_config_with_page_fallbacks(
+        config_path,
+        f"""  scp-4846:
+    source_url: https://scp-wiki.wikidot.com/scp-4846
+    source_language: en
+    translated_title: SCP-4846 - 友善化石
+    snapshot_path: {snapshot.as_posix()}
+    layout_signature: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+""",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="page_fallbacks.scp-4846.snapshot_path must be a relative path inside the workspace",
+    ):
+        load_config(config_path)
+
+
 def test_load_config_builds_absolute_urls_and_paths(tmp_path: Path):
     config_path = tmp_path / "series.yaml"
     write_config(config_path)

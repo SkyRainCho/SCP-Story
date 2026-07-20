@@ -50,6 +50,24 @@ class PageOverride:
 
 
 @dataclass(frozen=True)
+class PageFallback:
+    source_url: str
+    source_language: str
+    translated_title: str
+    snapshot_path: Path
+    layout_signature: str
+
+
+@dataclass(frozen=True)
+class FallbackPageRecord:
+    slug: str
+    title: str
+    source_url: str
+    source_language: str
+    snapshot_path: str
+
+
+@dataclass(frozen=True)
 class AppendixSection:
     title: str
     url: str
@@ -96,6 +114,7 @@ class AppConfig:
     explicit_linked_appendices: dict[str, tuple[ConfiguredLink, ...]] = field(default_factory=dict)
     page_tab_includes: dict[str, tuple[str, ...]] = field(default_factory=dict)
     page_overrides: dict[str, PageOverride] = field(default_factory=dict)
+    page_fallbacks: dict[str, PageFallback] = field(default_factory=dict)
     appendix: AppendixSpec | None = None
 
     @property

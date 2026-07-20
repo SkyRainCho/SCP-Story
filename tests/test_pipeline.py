@@ -20,6 +20,7 @@ from scp_epub.models import (
     ConfiguredPage,
     FetchResult,
     InlineDocumentSpec,
+    PageFallback,
     PageOverride,
     PageRef,
     VolumeSpec,
@@ -54,6 +55,7 @@ def app_config(
     explicit_linked_appendices: dict[str, tuple[ConfiguredLink, ...]] | None = None,
     page_tab_includes: dict[str, tuple[str, ...]] | None = None,
     page_overrides: dict[str, PageOverride] | None = None,
+    page_fallbacks: dict[str, PageFallback] | None = None,
     appendix: AppendixSpec | None = None,
 ) -> AppConfig:
     volume = VolumeSpec(
@@ -92,6 +94,7 @@ def app_config(
         explicit_linked_appendices=explicit_linked_appendices or {},
         page_tab_includes=page_tab_includes or {},
         page_overrides=page_overrides or {},
+        page_fallbacks=page_fallbacks or {},
         appendix=appendix,
     )
 

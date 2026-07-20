@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import math
+import re
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import yaml
 
@@ -13,6 +15,7 @@ from .models import (
     ConfiguredLink,
     ConfiguredPage,
     InlineDocumentSpec,
+    PageFallback,
     PageOverride,
     VolumeSpec,
 )
@@ -39,6 +42,7 @@ REQUIRED_TOP_LEVEL = {
 
 
 REQUIRED_VOLUME_KEYS = {"start", "end", "title", "output_slug"}
+_SHA256_RE = re.compile(r"[0-9a-fA-F]{64}\Z")
 
 
 def load_config(path: str | Path) -> AppConfig:
@@ -119,6 +123,11 @@ def load_config(path: str | Path) -> AppConfig:
             data.get("page_overrides", {}),
             "page_overrides",
             _required_string(data["base_url"], "base_url").rstrip("/"),
+        ),
+        page_fallbacks=_load_page_fallbacks(
+            data.get("page_fallbacks", {}),
+            "page_fallbacks",
+            workspace,
         ),
         appendix=_load_appendix(
             data.get("appendix"),
@@ -285,6 +294,75 @@ def _load_page_overrides(
             ),
         )
     return overrides
+
+
+def _absolute_http_url(value: Any, name: str) -> str:
+    url = _required_string(value, name).strip()
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError(f"{name} must be an absolute HTTP(S) URL")
+    return url
+
+
+def _layout_signature(value: Any, name: str) -> str:
+    signature = _required_string(value, name).strip().lower()
+    if _SHA256_RE.fullmatch(signature) is None:
+        raise ValueError(f"{name} must be a 64-character hexadecimal SHA-256")
+    return signature
+
+
+def _load_page_fallbacks(
+    value: Any,
+    name: str,
+    workspace: Path,
+) -> dict[str, PageFallback]:
+    if value is None:
+        return {}
+    fallbacks: dict[str, PageFallback] = {}
+    for raw_slug, raw_fallback in _mapping(value, name).items():
+        slug = _required_string(raw_slug, f"{name} key").strip().lower()
+        if slug in fallbacks:
+            raise ValueError(f"{name} contains duplicate key after normalization: {slug}")
+        fallback_name = f"{name}.{slug}"
+        fallback = _mapping(raw_fallback, fallback_name)
+        _reject_unknown_keys(
+            fallback,
+            {
+                "source_url",
+                "source_language",
+                "translated_title",
+                "snapshot_path",
+                "layout_signature",
+            },
+            fallback_name,
+        )
+        snapshot_path = _workspace_path(
+            workspace,
+            f"{fallback_name}.snapshot_path",
+            fallback.get("snapshot_path"),
+        )
+        if not snapshot_path.is_file():
+            raise ValueError(f"{fallback_name}.snapshot_path does not exist: {snapshot_path}")
+        fallbacks[slug] = PageFallback(
+            source_url=_absolute_http_url(
+                fallback.get("source_url"),
+                f"{fallback_name}.source_url",
+            ),
+            source_language=_required_string(
+                fallback.get("source_language"),
+                f"{fallback_name}.source_language",
+            ).strip(),
+            translated_title=_required_string(
+                fallback.get("translated_title"),
+                f"{fallback_name}.translated_title",
+            ).strip(),
+            snapshot_path=snapshot_path,
+            layout_signature=_layout_signature(
+                fallback.get("layout_signature"),
+                f"{fallback_name}.layout_signature",
+            ),
+        )
+    return fallbacks
 
 
 def _load_inline_documents(
