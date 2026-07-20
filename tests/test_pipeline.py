@@ -36,6 +36,7 @@ from scp_epub.pipeline import (
     build_volume,
     fetch_build_pages,
     fetch_manifest_pages,
+    include_linked_appendices,
     run_command,
     scan_linked_appendices_for_volume,
 )
@@ -1489,6 +1490,85 @@ def test_build_volume_includes_high_confidence_linked_appendices_under_group(tmp
         "原文附属文档",
         "SCP-093“蓝色”测试",
         "SCP-093 Story",
+    ]
+
+
+def test_build_volume_uses_fallback_for_failed_linked_appendix_candidate(tmp_path: Path):
+    snapshot = tmp_path / "translations" / "yamizushi-file-no233.zh-CN.html"
+    snapshot.parent.mkdir(parents=True)
+    snapshot.write_text(simple_page("暗寿司档案", "回退附属文档正文"), encoding="utf-8")
+    source_url = "http://scp-jp.wikidot.com/yamizushi-file-no233"
+    fallback = PageFallback(
+        source_url=source_url,
+        source_language="ja",
+        translated_title="暗寿司档案 No.233「简体字卷」",
+        snapshot_path=snapshot,
+        layout_signature=snapshot_layout_signature(snapshot.read_text(encoding="utf-8")),
+    )
+    config = app_config(tmp_path, page_fallbacks={"yamizushi-file-no233": fallback})
+    manifest = [
+        PageRef("SCP-093", f"{BASE_URL}/scp-093", "scp-093", 1, "scp", order=1),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-093": simple_page(
+                "SCP-093",
+                '<a href="/yamizushi-file-no233">附属文件</a>',
+            ),
+        },
+        failed_pages={"yamizushi-file-no233"},
+    )
+
+    available_manifest, fetch_results, missing_pages, fallback_pages = fetch_build_pages(
+        config, manifest, fetcher
+    )
+    (
+        expanded_manifest,
+        expanded_results,
+        documents,
+        linked_missing_pages,
+        linked_fallback_pages,
+    ) = include_linked_appendices(config, available_manifest, fetch_results, fetcher)
+
+    assert [entry.slug for entry in expanded_manifest] == [
+        "scp-093",
+        "scp-093--linked-appendices",
+        "yamizushi-file-no233",
+    ]
+    assert expanded_manifest[-1].title == "暗寿司档案 No.233「简体字卷」"
+    assert expanded_results[-1].url == source_url
+    assert documents[0].candidates[0].slug == "yamizushi-file-no233"
+    assert missing_pages == []
+    assert fallback_pages == []
+    assert linked_missing_pages == []
+    assert linked_fallback_pages == [
+        FallbackPageRecord(
+            slug="yamizushi-file-no233",
+            title="暗寿司档案 No.233「简体字卷」",
+            source_url=source_url,
+            source_language="ja",
+            snapshot_path="translations/yamizushi-file-no233.zh-CN.html",
+        )
+    ]
+
+    build_volume(config, "001-099", fetcher=fetcher)
+
+    report = json.loads(
+        (config.output_dir / "reports" / "test-volume-report.json").read_text(encoding="utf-8")
+    )
+    assert report["missing_pages"] == []
+    assert report["fallback_pages"] == [
+        {
+            "slug": "yamizushi-file-no233",
+            "title": "暗寿司档案 No.233「简体字卷」",
+            "source_url": source_url,
+            "source_language": "ja",
+            "snapshot_path": "translations/yamizushi-file-no233.zh-CN.html",
+        }
     ]
 
 

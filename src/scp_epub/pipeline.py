@@ -238,7 +238,13 @@ def build_volume(
         force=force,
         appendix_fetch_results=appendix_fetch_results,
     )
-    available_manifest, fetch_results, linked_appendix_documents, linked_missing_pages = (
+    (
+        available_manifest,
+        fetch_results,
+        linked_appendix_documents,
+        linked_missing_pages,
+        linked_fallback_pages,
+    ) = (
         (
             include_linked_appendices(
                 config,
@@ -248,10 +254,11 @@ def build_volume(
                 force=force,
             )
             if config.include_linked_appendices
-            else (available_manifest, fetch_results, [], [])
+            else (available_manifest, fetch_results, [], [], [])
         )
     )
     missing_pages.extend(linked_missing_pages)
+    fallback_pages.extend(linked_fallback_pages)
     if linked_appendix_documents:
         write_linked_appendix_report(
             linked_appendix_documents,
@@ -324,7 +331,13 @@ def include_linked_appendices(
     fetcher: PageFetcher,
     *,
     force: bool = False,
-) -> tuple[list[PageRef], list[FetchResult], list[LinkedAppendixDocument], list[dict[str, str]]]:
+) -> tuple[
+    list[PageRef],
+    list[FetchResult],
+    list[LinkedAppendixDocument],
+    list[dict[str, str]],
+    list[FallbackPageRecord],
+]:
     documents = _exclude_configured_inline_documents(
         config,
         scan_linked_appendices_from_fetch_results(
@@ -339,7 +352,7 @@ def include_linked_appendices(
         _configured_linked_appendix_documents(config, manifest),
     )
     if not documents:
-        return manifest, fetch_results, [], []
+        return manifest, fetch_results, [], [], []
 
     manifest_slugs = {entry.slug for entry in manifest}
     fetched_results_by_slug = {
@@ -348,6 +361,7 @@ def include_linked_appendices(
     }
     successful_documents: list[LinkedAppendixDocument] = []
     missing_pages: list[dict[str, str]] = []
+    fallback_pages: list[FallbackPageRecord] = []
 
     for document in documents:
         successful_candidates: list[LinkedAppendixCandidate] = []
@@ -361,15 +375,44 @@ def include_linked_appendices(
                     force=force,
                 )
             except Exception as exc:
-                missing_pages.append(
-                    {
-                        "slug": candidate.slug,
-                        "title": candidate.title,
-                        "url": candidate.url,
-                        "reason": str(exc),
-                    }
+                fallback = config.page_fallbacks.get(candidate.slug)
+                if fallback is None:
+                    missing_pages.append(
+                        {
+                            "slug": candidate.slug,
+                            "title": candidate.title,
+                            "url": candidate.url,
+                            "reason": str(exc),
+                        }
+                    )
+                    continue
+                try:
+                    fetched_results_by_slug[candidate.slug] = load_fallback_fetch_result(
+                        candidate.slug,
+                        fallback,
+                    )
+                except Exception as fallback_exc:
+                    missing_pages.append(
+                        {
+                            "slug": candidate.slug,
+                            "title": candidate.title,
+                            "url": candidate.url,
+                            "reason": f"{exc}; fallback failed: {fallback_exc}",
+                        }
+                    )
+                    continue
+                candidate = replace(candidate, title=fallback.translated_title)
+                fallback_pages.append(
+                    FallbackPageRecord(
+                        slug=candidate.slug,
+                        title=candidate.title,
+                        source_url=fallback.source_url,
+                        source_language=fallback.source_language,
+                        snapshot_path=fallback.snapshot_path.relative_to(
+                            config.workspace
+                        ).as_posix(),
+                    )
                 )
-                continue
             successful_candidates.append(candidate)
 
         if successful_candidates:
@@ -381,7 +424,7 @@ def include_linked_appendices(
             )
 
     if not successful_documents:
-        return manifest, fetch_results, [], missing_pages
+        return manifest, fetch_results, [], missing_pages, fallback_pages
 
     expanded_manifest = expand_manifest_with_linked_appendices(
         manifest,
@@ -405,7 +448,13 @@ def include_linked_appendices(
             continue
         ordered_results.append(fetched_results_by_slug[entry.slug])
 
-    return expanded_manifest, ordered_results, successful_documents, missing_pages
+    return (
+        expanded_manifest,
+        ordered_results,
+        successful_documents,
+        missing_pages,
+        fallback_pages,
+    )
 
 
 def scan_linked_appendices_for_volume(
