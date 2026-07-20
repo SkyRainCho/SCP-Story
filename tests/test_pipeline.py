@@ -1056,6 +1056,18 @@ def test_fetch_build_pages_uses_validated_fallback_and_localizes_relative_images
     assert fetcher.asset_calls == [
         ("https://scp-wiki.wikidot.com/images/fallback.png", False)
     ]
+    report = json.loads(
+        (config.output_dir / "reports" / "test-volume-report.json").read_text(encoding="utf-8")
+    )
+    assert report["fallback_pages"] == [
+        {
+            "slug": "scp-001",
+            "title": "SCP-001 - 中文译名",
+            "source_url": source_url,
+            "source_language": "en",
+            "snapshot_path": "snapshots/scp-001-en.html",
+        }
+    ]
 
 
 def test_fetch_build_pages_records_primary_and_fallback_failures(tmp_path: Path):

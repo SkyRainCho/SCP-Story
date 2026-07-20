@@ -8,10 +8,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from html import escape
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Sequence
 
 from scp_epub.assets import AssetRef
-from scp_epub.models import ProcessedPage
+from scp_epub.models import FallbackPageRecord, ProcessedPage
 from scp_epub.urls import safe_filename
 
 MIMETYPE = "application/epub+zip"
@@ -714,6 +714,7 @@ def write_build_report(
     external_links: list[str] | tuple[str, ...] = (),
     missing_assets: list[str] | tuple[str, ...] = (),
     missing_pages: list[dict[str, str]] | tuple[dict[str, str], ...] = (),
+    fallback_pages: Sequence[FallbackPageRecord] = (),
 ) -> Path:
     ordered_pages = _ordered_pages(pages)
     page_summaries = [{"slug": page.entry.slug, "title": page.entry.title} for page in ordered_pages]
@@ -731,6 +732,17 @@ def write_build_report(
         "missing_pages": list(missing_pages),
         "missing_assets": list(missing_assets),
     }
+    if fallback_pages:
+        report["fallback_pages"] = [
+            {
+                "slug": page.slug,
+                "title": page.title,
+                "source_url": page.source_url,
+                "source_language": page.source_language,
+                "snapshot_path": page.snapshot_path,
+            }
+            for page in fallback_pages
+        ]
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

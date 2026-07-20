@@ -6,7 +6,7 @@ import pytest
 
 from scp_epub.assets import AssetRef
 from scp_epub.epub import BOOK_CSS, write_build_report, write_epub
-from scp_epub.models import PageRef, ProcessedPage
+from scp_epub.models import FallbackPageRecord, PageRef, ProcessedPage
 
 
 def _page(
@@ -650,3 +650,49 @@ def test_write_build_report_writes_utf8_json_with_page_assets_and_links(tmp_path
         "https://manual.example/external",
     ]
     assert report["missing_assets"] == ["https://example.test/missing.png"]
+    assert "fallback_pages" not in report
+
+
+def test_write_build_report_includes_fallback_pages_in_supplied_order(tmp_path: Path):
+    fallback_pages = [
+        FallbackPageRecord(
+            slug="scp-002",
+            title="SCP-002 - 中文译名",
+            source_url="https://scp-wiki.wikidot.com/scp-002",
+            source_language="en",
+            snapshot_path="snapshots/scp-002-en.html",
+        ),
+        FallbackPageRecord(
+            slug="scp-001",
+            title="SCP-001 - 中文译名",
+            source_url="https://scp-wiki.wikidot.com/scp-001",
+            source_language="en",
+            snapshot_path="snapshots/scp-001-en.html",
+        ),
+    ]
+    report_path = tmp_path / "reports" / "build.json"
+
+    write_build_report(
+        report_path,
+        pages=[_page("scp-001", "SCP-001", 1)],
+        output_path=tmp_path / "series.epub",
+        fallback_pages=fallback_pages,
+    )
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["fallback_pages"] == [
+        {
+            "slug": "scp-002",
+            "title": "SCP-002 - 中文译名",
+            "source_url": "https://scp-wiki.wikidot.com/scp-002",
+            "source_language": "en",
+            "snapshot_path": "snapshots/scp-002-en.html",
+        },
+        {
+            "slug": "scp-001",
+            "title": "SCP-001 - 中文译名",
+            "source_url": "https://scp-wiki.wikidot.com/scp-001",
+            "source_language": "en",
+            "snapshot_path": "snapshots/scp-001-en.html",
+        },
+    ]

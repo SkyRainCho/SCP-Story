@@ -309,6 +309,7 @@ def build_volume(
         output_path=output_path,
         missing_assets=missing_assets,
         missing_pages=missing_pages,
+        fallback_pages=fallback_pages,
     )
     if kindle:
         converter = kindle_converter or convert_epub_to_azw3
