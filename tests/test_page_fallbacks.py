@@ -50,6 +50,19 @@ def test_snapshot_layout_signature_changes_when_page_content_tag_changes():
     assert snapshot_layout_signature(SOURCE_HTML) != snapshot_layout_signature(changed)
 
 
+def test_snapshot_layout_signature_preserves_custom_content_property_values():
+    red = '<style>.badge { --content: "red"; }</style><div id="page-content"></div>'
+    blue = '<style>.badge { --content: "blue"; }</style><div id="page-content"></div>'
+
+    assert snapshot_layout_signature(red) != snapshot_layout_signature(blue)
+
+
+def test_snapshot_layout_signature_ignores_html_comments():
+    with_comment = SOURCE_HTML.replace("<h1", "<!-- translator note --><h1")
+
+    assert snapshot_layout_signature(SOURCE_HTML) == snapshot_layout_signature(with_comment)
+
+
 @pytest.mark.parametrize(
     ("html", "message"),
     [

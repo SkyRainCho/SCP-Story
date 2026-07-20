@@ -4,14 +4,14 @@ import hashlib
 import json
 import re
 
-from bs4 import BeautifulSoup, NavigableString, Tag
+from bs4 import BeautifulSoup, Comment, NavigableString, Tag
 
 from .models import FetchResult, PageFallback
 
 
 TRANSLATABLE_ATTRIBUTES = frozenset({"alt", "title", "aria-label"})
 _CSS_CONTENT_RE = re.compile(
-    r"(\bcontent\s*:\s*)(['\"])(.*?)(?<!\\)\2",
+    r"(?<![-\w])(\bcontent\s*:\s*)(['\"])(.*?)(?<!\\)\2",
     flags=re.IGNORECASE | re.DOTALL,
 )
 
@@ -82,7 +82,11 @@ def _append_structure_tokens(node: Tag, tokens: list[object]) -> None:
     for child in node.children:
         if isinstance(child, Tag):
             _append_structure_tokens(child, tokens)
-        elif isinstance(child, NavigableString) and child.strip():
+        elif (
+            isinstance(child, NavigableString)
+            and not isinstance(child, Comment)
+            and child.strip()
+        ):
             tokens.append(["text"])
 
     tokens.append(["close", node.name])
