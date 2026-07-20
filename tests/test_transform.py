@@ -72,6 +72,22 @@ FEATURED_TRANSLATIONS = Path(__file__).parents[1] / "translations" / "featured"
             2,
             "e2471652af86c3e190b8213655af55dff949ce2141c13c231d094e8c9ee27b17",
         ),
+        (
+            "yamizushi-file-no233",
+            (
+                "暗寿司档案 No.233「简体字卷」",
+                "永生寿司选别、利用、维护及活化委员会",
+                "寿司陀螺运用",
+                "相关资料",
+                "致谢",
+            ),
+            8,
+            6,
+            0,
+            0,
+            0,
+            "4864120fb8918478e7d032eb1df32b8153dd845c6ff47b11f375102165ece18d",
+        ),
     ],
 )
 def test_featured_translation_snapshots_preserve_source_layout_without_site_chrome(
@@ -87,8 +103,10 @@ def test_featured_translation_snapshots_preserve_source_layout_without_site_chro
     html = (FEATURED_TRANSLATIONS / f"{slug}.zh-CN.html").read_text(encoding="utf-8")
     soup = BeautifulSoup(html, "html.parser")
 
+    source_language = "ja" if slug == "yamizushi-file-no233" else "en"
     assert soup.find(
-        string=lambda text: isinstance(text, Comment) and "source-language: en" in text
+        string=lambda text: isinstance(text, Comment)
+        and f"source-language: {source_language}" in text
     ) is not None
     assert all(marker in html for marker in markers)
     assert len(soup.find_all("style")) == style_count
@@ -104,6 +122,13 @@ def test_featured_translation_snapshots_preserve_source_layout_without_site_chro
     assert soup.find(id="side-bar") is None
     assert soup.find(id="footer") is None
     assert soup.find(id="page-options-container") is None
+    if slug == "yamizushi-file-no233":
+        assert len(page_content.select(".footnotes-footer .footnote-footer")) == 4
+        credit = page_content.select_one(".modalbox .credit")
+        assert credit is not None
+        assert "标题：" in credit.get_text(" ", strip=True)
+        assert "作者：" in credit.get_text(" ", strip=True)
+        assert "创作年份：" in credit.get_text(" ", strip=True)
     assert snapshot_layout_signature(html) == layout_signature
 
 
