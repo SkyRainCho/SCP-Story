@@ -238,11 +238,11 @@ table.wiki-content-table th {
 }
 
 .anom-bar-container {
-  max-width: 100%;
+  width: 100%;
   margin: 1.2em 0;
-  padding: 0.65em 0.8em;
-  border: 1px solid #777;
-  background: #f4f4f4;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: #111;
   box-sizing: border-box;
   font-family: Arial, Helvetica, sans-serif;
@@ -258,8 +258,7 @@ table.wiki-content-table th {
   gap: 0.75em;
   align-items: center;
   padding: 0.55em 0;
-  border-top: 0.45em solid #111;
-  border-bottom: 0.45em solid #111;
+  border: 0;
 }
 
 .anom-bar-container .top-left-box .item {
@@ -373,14 +372,20 @@ table.wiki-content-table th {
   grid-template-columns: 1fr;
 }
 
+.anom-bar-container .anomaly-lower-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.3em;
+}
+
 .anom-bar-container .contain-class,
 .anom-bar-container .second-class,
 .anom-bar-container .disrupt-class,
 .anom-bar-container .risk-class {
   min-height: 2em;
   padding: 0.35em 0.55em;
-  border-left: 0.55em solid #c40233;
-  background: rgba(196, 2, 51, 0.14);
+  border-left: 0.55em solid #777;
+  background: #ececec;
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -536,6 +541,22 @@ table.wiki-content-table th {
   box-sizing: border-box;
 }
 
+.anom-bar-container .anomaly-diamond-layout {
+  width: 100%;
+  height: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.anom-bar-container .anomaly-diamond-layout td {
+  width: 33.333%;
+  height: 33.333%;
+  padding: 0;
+  border: 0;
+  text-align: center;
+  vertical-align: middle;
+}
+
 .anom-bar-container .danger-diamond a,
 .anom-bar-container .danger-diamond br,
 .anom-bar-container .danger-diamond .arrows,
@@ -586,6 +607,113 @@ table.wiki-content-table th {
   box-sizing: border-box;
 }
 
+.scale[data-epub-classification-family="woed"] {
+  display: grid;
+  grid-template-columns: minmax(9em, 1.1fr) auto minmax(13em, 1.8fr);
+  gap: 0.7em;
+  align-items: center;
+  max-width: 100%;
+  margin: 1em auto;
+  padding: 0.75em 0;
+  color: #111;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.scale[data-epub-classification-family="woed"] .class1 {
+  font-weight: 800;
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
+.scale[data-epub-classification-family="woed"] .level-text {
+  font-size: 2em;
+}
+
+.scale[data-epub-classification-family="woed"] .class-text {
+  font-size: 1.65em;
+}
+
+.scale[data-epub-classification-family="woed"] .woed-level-segments {
+  white-space: nowrap;
+}
+
+.scale[data-epub-classification-family="woed"] .woed-level-segment {
+  display: block;
+  float: left;
+  width: 1.05em;
+  height: 4.6em;
+  margin-right: 0.16em;
+  background: #111;
+}
+
+.scale[data-epub-classification-family="woed"] .woed-level-segment-1 {
+  background: #d9d9d9;
+}
+
+.scale[data-epub-classification-family="woed"] .woed-level-segment-2 {
+  background: #b5b5b5;
+}
+
+.scale[data-epub-classification-family="woed"] .woed-level-segment-3 {
+  background: #858585;
+}
+
+.scale[data-epub-classification-family="woed"] .woed-level-segment-4 {
+  background: #555;
+}
+
+.scale[data-epub-classification-family="woed"] .woed-level-segment-5 {
+  background: #111;
+}
+
+.scale[data-epub-classification-family="woed"] .woed-level-segment-6 {
+  background: #8c191a;
+}
+
+.scale[data-epub-classification-family="woed"] .item1 {
+  text-align: right;
+}
+
+.scale[data-epub-classification-family="woed"] .itemnum {
+  font-size: 1.7em;
+}
+
+.scale[data-epub-classification-family="woed"] .obj {
+  margin-top: 0.2em;
+  padding: 0.12em 1em;
+  border-radius: 2em;
+  background: rgb(127, 127, 127);
+  color: #fff;
+  text-align: center;
+}
+
+.scale[data-epub-classification-family="woed"] .obj-text {
+  font-size: 2em;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.scale.woed-class-safe .obj {
+  background: rgb(35, 145, 70);
+}
+
+.scale.woed-class-euclid .obj {
+  background: rgb(225, 205, 35);
+  color: #111;
+}
+
+.scale.woed-class-keter .obj {
+  background: rgb(180, 30, 35);
+}
+
+.scale.woed-class-thaumiel .obj {
+  background: rgb(40, 60, 150);
+}
+
+.scale.woed-class-neutralized .obj {
+  background: rgb(127, 127, 127);
+}
+
 @media (max-width: 480px) {
   .scp-image-block,
   .scp-image-block.block-left,
@@ -597,7 +725,9 @@ table.wiki-content-table th {
 
   .anom-bar-container .top-box,
   .anom-bar-container .bottom-box,
-  .anom-bar-container .main-class {
+  .anom-bar-container .main-class,
+  .anom-bar-container .anomaly-lower-row,
+  .scale[data-epub-classification-family="woed"] {
     grid-template-columns: 1fr;
   }
 
@@ -608,6 +738,10 @@ table.wiki-content-table th {
   .anom-bar-container .danger-diamond {
     width: 6.5em;
     min-height: 6.5em;
+  }
+
+  .scale[data-epub-classification-family="woed"] .item1 {
+    text-align: left;
   }
 }
 """

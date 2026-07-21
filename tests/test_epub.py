@@ -1,4 +1,5 @@
 import json
+import re
 import zipfile
 from pathlib import Path
 
@@ -299,6 +300,53 @@ def test_write_epub_includes_book_styles_for_anomaly_classification_bar(tmp_path
     assert ".anom-bar-container.clear-4 .top-center-box > div" in css
     assert ".anom-bar-container.keter .contain-class" in css
     assert ".anom-bar-container.keter .contain-class .anomaly-field-icon" in css
+    container_rule = re.search(r"\.anom-bar-container\s*\{(?P<body>[^}]*)\}", css)
+    assert container_rule is not None
+    assert "padding: 0;" in container_rule.group("body")
+    assert "border: 0;" in container_rule.group("body")
+    assert "background: transparent;" in container_rule.group("body")
+    top_box_rule = re.search(r"\.anom-bar-container \.top-box\s*\{(?P<body>[^}]*)\}", css)
+    assert top_box_rule is not None
+    assert "border: 0;" in top_box_rule.group("body")
+    assert ".anomaly-lower-row" in css
+    assert ".anomaly-diamond-layout" in css
+    assert "border-left: 0.55em solid #777;" in css
+    assert "background: #ececec;" in css
+
+
+def test_write_epub_includes_book_styles_for_woed_classified_bar(tmp_path: Path):
+    page = _page(
+        "scp-1297",
+        "SCP-1297",
+        1,
+        xhtml=(
+            '<div class="scale woed-level-2 woed-class-keter" '
+            'data-epub-classification-family="woed" '
+            'data-epub-classification-status="normalized">'
+            '<div class="class1"><div class="level-text">LEVEL 2/1297</div>'
+            '<div class="class-text">CLASSIFIED</div></div>'
+            '<div class="class1image woed-level-segments">'
+            '<span class="woed-level-segment woed-level-segment-1"></span>'
+            '<span class="woed-level-segment woed-level-segment-2"></span></div>'
+            '<div class="item1"><div class="itemnum">项目编号：SCP-1297</div>'
+            '<div class="objclass"><div class="obj"><div class="obj-text">Keter</div>'
+            "</div></div></div></div>"
+        ),
+    )
+    output_path = tmp_path / "woed.epub"
+
+    write_epub([page], output_path, title="SCP", language="zh-CN", creator="SCP")
+
+    with zipfile.ZipFile(output_path) as archive:
+        css = archive.read("OEBPS/styles/book.css").decode("utf-8")
+
+    assert '.scale[data-epub-classification-family="woed"]' in css
+    assert ".woed-level-segment-1" in css
+    assert ".woed-class-keter .obj" in css
+    assert ".woed-class-safe .obj" in css
+    assert ".woed-class-euclid .obj" in css
+    assert ".woed-class-thaumiel .obj" in css
+    assert ".woed-class-neutralized .obj" in css
 
 
 def test_write_epub_includes_book_styles_for_wikidot_tabbed_series_lists(tmp_path: Path):
