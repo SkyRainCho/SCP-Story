@@ -22,9 +22,21 @@
 pip install -e ".[dev]"
 ```
 
+**Linux / Rocky (bash)：**
+
+```bash
+pip install -e ".[dev]"
+```
+
 运行完整测试：
 
 ```powershell
+pytest -q
+```
+
+**Linux / Rocky (bash)：**
+
+```bash
 pytest -q
 ```
 
@@ -34,15 +46,33 @@ pytest -q
 python -m scp_epub --config config/series-1.yaml build --volume 001-099
 ```
 
+**Linux / Rocky (bash)：**
+
+```bash
+python -m scp_epub --config config/series-1.yaml build --volume 001-099
+```
+
 构建 Featured SCP Archive 精选 EPUB：
 
 ```powershell
 python -m scp_epub --config config/featured-scp.yaml build --volume featured
 ```
 
+**Linux / Rocky (bash)：**
+
+```bash
+python -m scp_epub --config config/featured-scp.yaml build --volume featured
+```
+
 构建 Kindle Scribe 优化版精选样书：
 
 ```powershell
+python -m scp_epub --config config/featured-scp.yaml build --volume featured --kindle
+```
+
+**Linux / Rocky (bash)：**
+
+```bash
 python -m scp_epub --config config/featured-scp.yaml build --volume featured --kindle
 ```
 
@@ -61,6 +91,12 @@ Calibre `ebook-convert`。Kindle 构建会按真实内容校验图片，把 WebP
 python -m scp_epub --config config/series-1.yaml scan-linked-appendices --volume 001-099
 ```
 
+**Linux / Rocky (bash)：**
+
+```bash
+python -m scp_epub --config config/series-1.yaml scan-linked-appendices --volume 001-099
+```
+
 该命令只读取已有 manifest 和 `data/raw/pages/` 页面缓存，输出 `output/reports/*-linked-appendices.json`，不会修改 EPUB、manifest 或下载页面。正常 `build` 会使用同一套保守规则自动抓取并打包高置信附属文档。
 
 当前 EPUB 书名和输出文件名使用中文卷册命名：主标题为 `SCP基金会档案`，副标题为 `故事系列`，作者为 `SCP基金会`。`第X卷-第Y册` 中 `X` 是 Series 编号，`Y` 是该 Series 内册序号；例如 Series 1 的 `001-099` 输出为 `SCP基金会档案-故事系列-第1卷-第1册.epub`。
@@ -76,9 +112,23 @@ foreach ($volume in $volumes) {
 }
 ```
 
+**Linux / Rocky (bash)：**
+
+```bash
+for v in 001-099 100-199 200-299 300-399 400-499 500-599 600-699 700-799 800-899 900-999; do
+  python -m scp_epub --config config/series-1.yaml build --volume "$v"
+done
+```
+
 安装后也可使用控制台命令：
 
 ```powershell
+scp-epub --config config/series-1.yaml build --volume 001-099
+```
+
+**Linux / Rocky (bash)：**
+
+```bash
 scp-epub --config config/series-1.yaml build --volume 001-099
 ```
 
