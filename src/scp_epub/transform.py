@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from html import escape
 from urllib.parse import urlparse
 
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup, NavigableString, Tag
 
 from scp_epub.models import InlineDocumentSpec, PageRef, ProcessedPage
 from scp_epub.urls import normalize_url, slug_from_url
@@ -1338,6 +1338,7 @@ def _normalize_woed_classified_bars(
             if object_text is not None
             else None
         )
+        _materialize_woed_level_text(scale)
         _add_class_token(scale, f"woed-level-{level}")
         _add_class_token(scale, f"woed-class-{object_class or 'other'}")
         level_region.clear()
@@ -1355,6 +1356,26 @@ def _normalize_woed_classified_bars(
             )
             level_region.append(segment)
         _mark_classification_component(scale, "woed", "normalized")
+
+
+def _materialize_woed_level_text(scale: Tag) -> None:
+    level_text = scale.select_one(".level-text")
+    if level_text is None:
+        return
+    base_spans = level_text.find_all("span", class_="base", recursive=False)
+    if len(base_spans) < 2:
+        return
+    label = " ".join(
+        str(child).strip()
+        for child in level_text.children
+        if isinstance(child, NavigableString) and str(child).strip()
+    )
+    false_variant = "false" in _class_tokens(base_spans[0])
+    value_span = base_spans[1] if false_variant else base_spans[0]
+    value = value_span.get_text(" ", strip=True)
+    visible_text = f"{label} {value}" if false_variant else f"{value} {label}"
+    level_text.clear()
+    level_text.string = visible_text.strip()
 
 
 def _anomaly_icon_urls_from_styles(

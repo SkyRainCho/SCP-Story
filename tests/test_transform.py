@@ -1267,6 +1267,41 @@ def test_woed_classified_bar_preserves_unknown_level_as_unrecognized():
     assert "SCP-999" in scale.get_text(" ", strip=True)
 
 
+@pytest.mark.parametrize(
+    ("span_class", "middle_text", "expected"),
+    (
+        ("base false CN", "LEVEL", "LEVEL 2/1297"),
+        ("base 级 CN", "级", "2/1297 级"),
+    ),
+)
+def test_woed_classified_bar_materializes_the_visible_level_text(
+    span_class: str,
+    middle_text: str,
+    expected: str,
+):
+    html = f"""
+    <html><body><div id="page-content">
+      <div class="scale CN-base Keter">
+        <div class="class1"><div class="level-text">
+          <span class="{span_class}">2/1297</span> {middle_text}
+          <span class="{span_class}">2/1297</span>
+        </div><div class="class-text">CLASSIFIED</div></div>
+        <div class="class1image" data-level="lv2"><div class="classified-bar"></div></div>
+        <div class="item1"><div class="itemnum">SCP-1297</div>
+          <div class="objclass"><div class="obj-text">Keter</div></div></div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-1297"), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+    level_text = soup.select_one(".scale .level-text")
+
+    assert level_text is not None
+    assert level_text.get_text(" ", strip=True) == expected
+    assert level_text.select_one(".base") is None
+
+
 def test_ignores_anomaly_field_background_texture_when_extracting_custom_icons():
     html = """
     <html><head><style>
