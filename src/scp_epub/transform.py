@@ -156,6 +156,23 @@ ACS_REQUIRED_SELECTORS = (
     ".diamond-part",
     ".danger-diamond",
 )
+WOED_LEVEL_RE = re.compile(r"lv([0-6])", re.IGNORECASE)
+WOED_REQUIRED_SELECTORS = (
+    ".class1",
+    ".class1image",
+    ".item1",
+    ".itemnum",
+    ".objclass",
+    ".obj-text",
+)
+WOED_OBJECT_CLASS_NAMES = {
+    "safe": "safe",
+    "euclid": "euclid",
+    "keter": "keter",
+    "thaumiel": "thaumiel",
+    "neutralized": "neutralized",
+    "neutralised": "neutralized",
+}
 ANOMALY_ICON_BASE_URL = (
     "https://scp-wiki.wdfiles.com/local--files/component%3Aanomaly-class-bar"
 )
@@ -368,6 +385,7 @@ def transform_page(
         page_content,
         anomaly_icon_urls,
     )
+    _normalize_woed_classified_bars(soup, page_content)
 
     profile_style_rules = _apply_page_cleanup_options(
         entry,
@@ -1292,6 +1310,51 @@ def _normalize_anomaly_classification_bars(
         _wrap_anomaly_lower_fields(soup, container)
         _build_anomaly_diamond_layout(soup, container)
         _mark_classification_component(container, "acs", "normalized")
+
+
+def _normalize_woed_classified_bars(
+    soup: BeautifulSoup,
+    page_content: Tag,
+) -> None:
+    for scale in list(page_content.select(".scale")):
+        level_region = scale.select_one(":scope > .class1image")
+        if level_region is None or level_region.select_one(".classified-bar") is None:
+            continue
+        level_match = WOED_LEVEL_RE.fullmatch(
+            str(level_region.get("data-level", ""))
+        )
+        if (
+            not _has_required_descendants(scale, WOED_REQUIRED_SELECTORS)
+            or level_match is None
+        ):
+            _mark_classification_component(scale, "woed", "unrecognized")
+            continue
+        level = int(level_match.group(1))
+        object_text = scale.select_one(".obj-text")
+        object_class = (
+            WOED_OBJECT_CLASS_NAMES.get(
+                object_text.get_text(" ", strip=True).casefold()
+            )
+            if object_text is not None
+            else None
+        )
+        _add_class_token(scale, f"woed-level-{level}")
+        _add_class_token(scale, f"woed-class-{object_class or 'other'}")
+        level_region.clear()
+        _add_class_token(level_region, "woed-level-segments")
+        for segment_number in range(1, level + 1):
+            segment = soup.new_tag(
+                "span",
+                attrs={
+                    "class": [
+                        "woed-level-segment",
+                        f"woed-level-segment-{segment_number}",
+                    ],
+                    "aria-hidden": "true",
+                },
+            )
+            level_region.append(segment)
+        _mark_classification_component(scale, "woed", "normalized")
 
 
 def _anomaly_icon_urls_from_styles(

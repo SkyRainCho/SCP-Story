@@ -1213,6 +1213,60 @@ def test_anomaly_bar_materializes_clearance_levels_zero_through_six(
     assert (label.get_text(strip=True) if label else None) == expected_label
 
 
+@pytest.mark.parametrize("level", range(7))
+def test_woed_classified_bar_materializes_real_level_segments(level: int):
+    bars = "".join(
+        '<div class="classified-bar"><img src="/classified-bar.svg" alt=""/></div>'
+        '<div class="image-space"></div>'
+        for _ in range(6)
+    )
+    html = f"""
+    <html><body><div id="page-content">
+      <div class="scale CN-base Keter">
+        <div class="class1"><div class="level-text">LEVEL {level}/1297</div><div class="class-text">CLASSIFIED</div></div>
+        <div class="class1image" data-level="lv{level}">{bars}</div>
+        <div class="item1 CN"><div class="itemnum CN">项目编号：SCP-1297</div>
+          <div class="objclass CN"><div class="obj Keter"><div class="obj-text">Keter</div></div></div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-1297"), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+    scale = soup.select_one(".scale")
+
+    assert scale is not None
+    assert scale["data-epub-classification-family"] == "woed"
+    assert scale["data-epub-classification-status"] == "normalized"
+    assert f"woed-level-{level}" in str(scale.get("class", "")).split()
+    assert "woed-class-keter" in str(scale.get("class", "")).split()
+    assert len(scale.select(".woed-level-segment")) == level
+    assert scale.select_one(".classified-bar") is None
+    assert not any("classified-bar.svg" in url for url in result.asset_urls)
+
+
+def test_woed_classified_bar_preserves_unknown_level_as_unrecognized():
+    html = """
+    <html><body><div id="page-content">
+      <div class="scale Keter"><div class="class1">CLASSIFIED</div>
+        <div class="class1image" data-level="lv9"><div class="classified-bar">bar</div></div>
+        <div class="item1"><div class="itemnum">SCP-999</div><div class="objclass"><div class="obj-text">Keter</div></div></div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-999"), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+    scale = soup.select_one(".scale")
+
+    assert scale is not None
+    assert scale["data-epub-classification-family"] == "woed"
+    assert scale["data-epub-classification-status"] == "unrecognized"
+    assert "CLASSIFIED" in scale.get_text(" ", strip=True)
+    assert "SCP-999" in scale.get_text(" ", strip=True)
+
+
 def test_ignores_anomaly_field_background_texture_when_extracting_custom_icons():
     html = """
     <html><head><style>
