@@ -24,7 +24,7 @@ import tinycss2
 
 from .assets import AssetRef
 from .models import ProcessedPage
-from .transform import ASSET_ATTRIBUTES
+from .transform import ANOMALY_DIAMOND_FRAME_PATH, ASSET_ATTRIBUTES
 
 
 CLEARANCE_LABELS = {
@@ -141,6 +141,8 @@ _SCP_6183_SYMBOL_MAX_PIXELS = 2048 * 2048
 _SCP_6183_SYMBOL_VARIANT = "scp6183-symbol"
 _SVG_LANDSCAPE_WIDTH = 1400
 _SVG_PORTRAIT_HEIGHT = 1600
+_ANOMALY_DIAMOND_FRAME_SOURCE_URL = "builtin://anomaly-diamond-frame.svg"
+_ANOMALY_DIAMOND_FRAME_HREF = "assets/anomaly-diamond-frame.svg"
 
 
 def prepare_kindle_assets(
@@ -160,7 +162,11 @@ def prepare_kindle_assets(
     expected_image_hrefs = _expected_image_hrefs(pages)
     opaque_rotated_hrefs = _scp6183_symbol_hrefs(pages)
 
-    for asset in assets:
+    source_assets = list(assets)
+    if _ANOMALY_DIAMOND_FRAME_HREF in expected_image_hrefs:
+        source_assets.append(_write_anomaly_diamond_frame_svg(output_dir))
+
+    for asset in source_assets:
         prepared = _prepare_kindle_asset(
             asset,
             output_dir,
@@ -204,6 +210,26 @@ def prepare_kindle_assets(
         for page in pages
     ]
     return prepared_pages, prepared_assets, merged_missing
+
+
+def _write_anomaly_diamond_frame_svg(output_dir: Path) -> AssetRef:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "anomaly-diamond-frame.svg"
+    output_path.write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" '
+        'preserveAspectRatio="xMidYMid meet">'
+        f'<path d="{ANOMALY_DIAMOND_FRAME_PATH}" fill="none" '
+        'stroke="#111111" stroke-width="3" stroke-linecap="square" '
+        'stroke-linejoin="miter" />'
+        "</svg>",
+        encoding="utf-8",
+    )
+    return AssetRef(
+        source_url=_ANOMALY_DIAMOND_FRAME_SOURCE_URL,
+        path=output_path,
+        href=_ANOMALY_DIAMOND_FRAME_HREF,
+        content_type="image/svg+xml",
+    )
 
 
 def _prepare_kindle_asset(
@@ -1179,10 +1205,30 @@ def _prepare_kindle_xhtml(xhtml: str, *, page_slug: str) -> str:
                     )
                 )
 
-    result = xhtml
-    for start, end, replacement in sorted(edits, reverse=True):
-        result = result[:start] + replacement + result[end:]
-    return result
+    return _replace_anomaly_diamond_frame_svg(_apply_text_edits(xhtml, edits))
+
+
+def _replace_anomaly_diamond_frame_svg(xhtml: str) -> str:
+    parser = _parse_asset_references(xhtml)
+    if parser is None:
+        return xhtml
+    edits: list[tuple[int, int, str]] = []
+    for element in parser.elements:
+        if element.tag != "svg" or element.end_end is None:
+            continue
+        attrs = dict(element.attrs)
+        classes = set(str(attrs.get("class") or "").split())
+        if "anomaly-diamond-frame" not in classes:
+            continue
+        edits.append(
+            (
+                element.start,
+                element.end_end,
+                '<img class="anomaly-diamond-frame" '
+                'src="../assets/anomaly-diamond-frame.svg" alt="" />',
+            )
+        )
+    return _apply_text_edits(xhtml, edits)
 
 
 def _kindle_component_width_mode(element: _HtmlElement) -> str | None:

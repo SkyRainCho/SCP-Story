@@ -2141,12 +2141,16 @@ def test_build_volume_kindles_pages_css_report_and_azw3_without_mutating_process
     with zipfile.ZipFile(output_path) as archive:
         css = archive.read("OEBPS/styles/book.css").decode("utf-8")
         chapter = archive.read("OEBPS/text/0001-scp-001.xhtml").decode("utf-8")
+        opf = archive.read("OEBPS/content.opf").decode("utf-8")
     assert ".kindle-clearance-label" in css
     assert '<span class="kindle-clearance-label">SECRET</span>' in chapter
     assert '<span class="kindle-danger-label">自定义风险</span>' in chapter
     assert 'data-epub-classification-family="acs"' in chapter
     assert 'data-epub-classification-status="normalized"' in chapter
     assert 'class="anomaly-lower-row"' in chapter
+    assert '<img class="anomaly-diamond-frame"' in chapter
+    assert '<svg class="anomaly-diamond-frame"' not in chapter
+    assert 'media-type="image/png"' in opf
     assert "575px" not in chapter
     assert "width:28%;" in chapter.replace(" ", "")
 

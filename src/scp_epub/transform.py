@@ -142,6 +142,15 @@ ANOMALY_CLEARANCE_LABELS = {
     "clear-5": "最高机密",
     "clear-6": "宇宙绝密",
 }
+ANOMALY_DIAMOND_FRAME_PATH = (
+    "M3 15 V3 H15 "
+    "M85 3 H97 V15 "
+    "M3 85 V97 H15 "
+    "M85 97 H97 V85 "
+    "M3 3 L97 97 "
+    "M97 3 L3 97 "
+    "M28 8 H72 L92 28 V72 L72 92 H28 L8 72 V28 Z"
+)
 CLASSIFICATION_FAMILY_ATTRIBUTE = "data-epub-classification-family"
 CLASSIFICATION_STATUS_ATTRIBUTE = "data-epub-classification-status"
 ACS_REQUIRED_SELECTORS = (
@@ -1210,15 +1219,7 @@ def _build_anomaly_diamond_layout(soup: BeautifulSoup, container: Tag) -> None:
         frame_path = soup.new_tag(
             "path",
             attrs={
-                "d": (
-                    "M3 15 V3 H15 "
-                    "M85 3 H97 V15 "
-                    "M3 85 V97 H15 "
-                    "M85 97 H97 V85 "
-                    "M3 3 L97 97 "
-                    "M97 3 L3 97 "
-                    "M28 8 H72 L92 28 V72 L72 92 H28 L8 72 V28 Z"
-                ),
+                "d": ANOMALY_DIAMOND_FRAME_PATH,
                 "fill": "none",
                 "stroke": "#111111",
                 "stroke-width": "3",

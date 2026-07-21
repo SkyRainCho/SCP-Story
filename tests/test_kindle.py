@@ -1316,6 +1316,51 @@ def test_prepare_kindle_pages_preserves_canonical_classification_markup():
     assert 'class="woed-level-segment woed-level-segment-2"' in prepared.xhtml
 
 
+def test_prepare_kindle_pages_replaces_anomaly_frame_svg_with_builtin_image():
+    source = _page(
+        '<div class="danger-diamond">'
+        '<svg class="anomaly-diamond-frame" viewBox="0 0 100 100">'
+        '<path d="M3 3 L97 97"></path></svg>'
+        '<table class="anomaly-diamond-layout"></table></div>'
+    )
+
+    [prepared] = prepare_kindle_pages([source])
+
+    assert '<svg class="anomaly-diamond-frame"' not in prepared.xhtml
+    assert (
+        '<img class="anomaly-diamond-frame" '
+        'src="../assets/anomaly-diamond-frame.svg" alt="" />'
+    ) in prepared.xhtml
+    assert source.xhtml != prepared.xhtml
+
+
+def test_prepare_kindle_assets_renders_builtin_anomaly_frame_as_png(tmp_path: Path):
+    [prepared_page] = prepare_kindle_pages(
+        [
+            _page(
+                '<svg class="anomaly-diamond-frame" viewBox="0 0 100 100">'
+                '<path d="M3 3 L97 97"></path></svg>'
+            )
+        ]
+    )
+
+    [output_page], prepared_assets, missing = kindle_module.prepare_kindle_assets(
+        [prepared_page],
+        [],
+        tmp_path / "kindle-assets",
+        [],
+    )
+
+    assert missing == []
+    assert len(prepared_assets) == 1
+    [frame_asset] = prepared_assets
+    assert frame_asset.content_type == "image/png"
+    assert frame_asset.path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    assert frame_asset.href.endswith(".png")
+    assert f'../{frame_asset.href}' in output_page.xhtml
+    assert "anomaly-diamond-frame.svg" not in output_page.xhtml
+
+
 def test_kindle_css_uses_kf8_fallbacks_and_preserves_scp_components():
     css = load_kindle_css()
     lowered = css.lower()
