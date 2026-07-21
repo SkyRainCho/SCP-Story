@@ -696,3 +696,41 @@ def test_write_build_report_includes_fallback_pages_in_supplied_order(tmp_path: 
             "snapshot_path": "snapshots/scp-001-en.html",
         },
     ]
+
+
+def test_write_build_report_includes_classification_component_inventory(tmp_path: Path):
+    report_path = tmp_path / "reports" / "build.json"
+    component = (
+        '<div data-epub-classification-family="acs" '
+        'data-epub-classification-status="normalized"></div>'
+    )
+
+    write_build_report(
+        report_path,
+        pages=[_page("scp-001", "SCP-001", 1, xhtml=component)],
+        output_path=tmp_path / "book.epub",
+    )
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["classification_components"] == [
+        {
+            "slug": "scp-001",
+            "title": "SCP-001",
+            "family": "acs",
+            "component_count": 1,
+            "status": "normalized",
+        }
+    ]
+
+
+def test_write_build_report_omits_empty_classification_inventory(tmp_path: Path):
+    report_path = tmp_path / "reports" / "build.json"
+
+    write_build_report(
+        report_path,
+        pages=[_page("scp-001", "SCP-001", 1)],
+        output_path=tmp_path / "book.epub",
+    )
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert "classification_components" not in report

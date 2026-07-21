@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 from scp_epub.assets import AssetRef
+from scp_epub.classification import classification_component_inventory
 from scp_epub.models import FallbackPageRecord, ProcessedPage
 from scp_epub.urls import safe_filename
 
@@ -732,6 +733,11 @@ def write_build_report(
         "missing_pages": list(missing_pages),
         "missing_assets": list(missing_assets),
     }
+    classification_components = classification_component_inventory(ordered_pages)
+    if classification_components:
+        report["classification_components"] = [
+            component.as_dict() for component in classification_components
+        ]
     if fallback_pages:
         report["fallback_pages"] = [
             {
