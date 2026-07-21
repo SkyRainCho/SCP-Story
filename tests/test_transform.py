@@ -1156,6 +1156,14 @@ def test_anomaly_bar_builds_canonical_lower_row_and_diamond_table():
     ]
     table = container.select_one("table.anomaly-diamond-layout")
     assert table is not None
+    frame = container.select_one("svg.anomaly-diamond-frame")
+    assert frame is not None
+    assert frame["viewBox"] == "0 0 100 100"
+    frame_path = frame.select_one("path")
+    assert frame_path is not None
+    assert "M3 15 V3 H15" in frame_path["d"]
+    assert "M3 3 L97 97" in frame_path["d"]
+    assert "M28 8 H72" in frame_path["d"]
     assert table.select_one("td.anomaly-diamond-top .top-icon .anomaly-diamond-icon")
     assert table.select_one("td.anomaly-diamond-left .left-icon .anomaly-diamond-icon")
     assert table.select_one("td.anomaly-diamond-right .right-icon .anomaly-diamond-icon")

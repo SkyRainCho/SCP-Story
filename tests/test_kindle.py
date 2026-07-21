@@ -1350,6 +1350,7 @@ def test_kindle_css_uses_kf8_fallbacks_and_preserves_scp_components():
     assert ".anom-bar-container.keter .contain-class .anomaly-field-icon" in css
     assert ".anomaly-lower-row" in css
     assert ".anomaly-diamond-layout" in css
+    assert ".anomaly-diamond-frame" in css
     assert '.scale[data-epub-classification-family="woed"]' in css
     assert ".woed-level-segment-6" in css
     assert ".woed-class-keter .obj" in css
@@ -1362,6 +1363,14 @@ def test_kindle_css_uses_kf8_fallbacks_and_preserves_scp_components():
     assert "padding: 0;" in container_rule.group("body")
     assert "border: 0;" in container_rule.group("body")
     assert "background: transparent;" in container_rule.group("body")
+    diamond_rule = re.search(
+        r"\.anom-bar-container \.danger-diamond\s*\{(?P<body>[^}]*)\}",
+        css,
+    )
+    assert diamond_rule is not None
+    assert "border: 0;" in diamond_rule.group("body")
+    assert "background: transparent;" in diamond_rule.group("body")
+    assert "position: absolute;" in css
     assert ".anom-bar-container.clear-2 .top-center-box .bar-two" in css
     assert "border-left: 0.45em solid #777;" in css
     assert "background: #ececec;" in css

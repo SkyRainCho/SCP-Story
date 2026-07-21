@@ -533,15 +533,28 @@ table.wiki-content-table th {
 .anom-bar-container .danger-diamond {
   position: relative;
   width: 7.5em;
+  height: 7.5em;
   min-height: 7.5em;
-  padding: 0.25em;
-  border: 0.25em double #111;
-  background: #fff;
-  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
   box-sizing: border-box;
 }
 
+.anom-bar-container .anomaly-diamond-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
 .anom-bar-container .anomaly-diamond-layout {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
   border-collapse: collapse;
@@ -737,6 +750,7 @@ table.wiki-content-table th {
 
   .anom-bar-container .danger-diamond {
     width: 6.5em;
+    height: 6.5em;
     min-height: 6.5em;
   }
 

@@ -1194,10 +1194,41 @@ def _wrap_anomaly_lower_fields(soup: BeautifulSoup, container: Tag) -> None:
 
 def _build_anomaly_diamond_layout(soup: BeautifulSoup, container: Tag) -> None:
     diamond = container.select_one(".danger-diamond")
-    if (
-        diamond is None
-        or diamond.select_one(":scope > .anomaly-diamond-layout") is not None
-    ):
+    if diamond is None:
+        return
+    if diamond.select_one(":scope > .anomaly-diamond-frame") is None:
+        frame = soup.new_tag(
+            "svg",
+            attrs={
+                "class": "anomaly-diamond-frame",
+                "viewBox": "0 0 100 100",
+                "preserveAspectRatio": "xMidYMid meet",
+                "aria-hidden": "true",
+                "focusable": "false",
+            },
+        )
+        frame_path = soup.new_tag(
+            "path",
+            attrs={
+                "d": (
+                    "M3 15 V3 H15 "
+                    "M85 3 H97 V15 "
+                    "M3 85 V97 H15 "
+                    "M85 97 H97 V85 "
+                    "M3 3 L97 97 "
+                    "M97 3 L3 97 "
+                    "M28 8 H72 L92 28 V72 L72 92 H28 L8 72 V28 Z"
+                ),
+                "fill": "none",
+                "stroke": "#111111",
+                "stroke-width": "3",
+                "stroke-linecap": "square",
+                "stroke-linejoin": "miter",
+            },
+        )
+        frame.append(frame_path)
+        diamond.insert(0, frame)
+    if diamond.select_one(":scope > .anomaly-diamond-layout") is not None:
         return
     slots = {
         name: diamond.select_one(f":scope > .{name}-icon")

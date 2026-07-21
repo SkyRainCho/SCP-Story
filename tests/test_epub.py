@@ -310,6 +310,15 @@ def test_write_epub_includes_book_styles_for_anomaly_classification_bar(tmp_path
     assert "border: 0;" in top_box_rule.group("body")
     assert ".anomaly-lower-row" in css
     assert ".anomaly-diamond-layout" in css
+    assert ".anomaly-diamond-frame" in css
+    diamond_rule = re.search(
+        r"\.anom-bar-container \.danger-diamond\s*\{(?P<body>[^}]*)\}",
+        css,
+    )
+    assert diamond_rule is not None
+    assert "border: 0;" in diamond_rule.group("body")
+    assert "background: transparent;" in diamond_rule.group("body")
+    assert "position: absolute;" in css
     assert "border-left: 0.55em solid #777;" in css
     assert "background: #ececec;" in css
 
