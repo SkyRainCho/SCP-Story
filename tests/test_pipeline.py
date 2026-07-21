@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 import zipfile
 from argparse import Namespace
 from dataclasses import replace
@@ -2148,7 +2149,7 @@ def test_build_volume_kindles_pages_css_report_and_azw3_without_mutating_process
     assert 'data-epub-classification-family="acs"' in chapter
     assert 'data-epub-classification-status="normalized"' in chapter
     assert 'class="anomaly-lower-row"' in chapter
-    assert '<img class="anomaly-diamond-frame"' in chapter
+    assert 'class="anomaly-diamond-frame"' in chapter
     assert '<svg class="anomaly-diamond-frame"' not in chapter
     assert 'media-type="image/png"' in opf
     assert "575px" not in chapter
@@ -2173,6 +2174,60 @@ def test_build_volume_kindles_pages_css_report_and_azw3_without_mutating_process
             "status": "normalized",
         }
     ]
+
+
+def test_build_volume_materializes_anomaly_diamond_for_standard_epub(tmp_path: Path):
+    config = app_config(tmp_path)
+    manifest = [
+        PageRef("SCP-6764", f"{BASE_URL}/scp-6764", "scp-6764", 1, "scp", order=1),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-6764": simple_page(
+                "SCP-6764",
+                '<div class="anom-bar-container item-6764 clear-1 safe none vlam notice">'
+                '<div class="anom-bar"><div class="top-box">'
+                '<div class="top-left-box"><span class="number">6764</span></div>'
+                '<div class="top-center-box"><div class="bar-one"></div></div>'
+                '<div class="top-right-box"><div class="clearance"></div></div></div>'
+                '<div class="bottom-box"><div class="text-part">'
+                '<div class="main-class"><div class="contain-class">'
+                '<div class="class-text">safe</div></div>'
+                '<div class="second-class"><div class="class-text">none</div></div></div>'
+                '<div class="disrupt-class"><div class="class-text">vlam</div></div>'
+                '<div class="risk-class"><div class="class-text">notice</div></div>'
+                '</div><div class="diamond-part"><div class="danger-diamond">'
+                '<div class="top-icon"></div><div class="right-icon"></div>'
+                '<div class="left-icon"></div><div class="bottom-icon"></div>'
+                '</div></div></div></div></div>',
+            ),
+        },
+    )
+
+    output_path = build_volume(config, "001-099", fetcher=fetcher)
+
+    with zipfile.ZipFile(output_path) as archive:
+        chapter = archive.read("OEBPS/text/0001-scp-6764.xhtml").decode("utf-8")
+        opf = archive.read("OEBPS/content.opf").decode("utf-8")
+        names = set(archive.namelist())
+    assert 'class="anomaly-diamond-frame"' in chapter
+    assert '<svg class="anomaly-diamond-frame"' not in chapter
+    frame_href = re.search(
+        r'<img[^>]+class="anomaly-diamond-frame"[^>]+src="\.\./(?P<href>assets/[^"]+\.png)"',
+        chapter,
+    )
+    assert frame_href is not None
+    assert f'OEBPS/{frame_href.group("href")}' in names
+    assert 'media-type="image/png"' in opf
+
+    processed_path = config.processed_dir / "test-volume" / "0001-scp-6764.xhtml"
+    processed_xhtml = processed_path.read_text(encoding="utf-8")
+    assert "<svg" in processed_xhtml
+    assert 'class="anomaly-diamond-frame"' in processed_xhtml
 
 
 def test_build_volume_prepares_only_kindle_assets_and_reports_invalid_images(

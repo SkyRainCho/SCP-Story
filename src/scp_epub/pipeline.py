@@ -13,7 +13,11 @@ from .appendix import (
     extract_facility_children,
     extract_tab_children,
 )
-from .assets import localize_assets, remote_resource_page_slugs
+from .assets import (
+    localize_assets,
+    materialize_anomaly_diamond_assets,
+    remote_resource_page_slugs,
+)
 from .cache import CacheStore
 from .config import load_config
 from .epub import BOOK_CSS, write_build_report, write_epub
@@ -281,6 +285,11 @@ def build_volume(
         processed_pages,
         active_fetcher,
         force=force,
+    )
+    localized_pages, localized_assets = materialize_anomaly_diamond_assets(
+        localized_pages,
+        localized_assets,
+        config.processed_dir / volume.output_slug / "generated-assets",
     )
     remote_slugs = remote_resource_page_slugs(localized_pages, missing_assets)
 

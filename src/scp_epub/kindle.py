@@ -216,7 +216,7 @@ def _write_anomaly_diamond_frame_svg(output_dir: Path) -> AssetRef:
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "anomaly-diamond-frame.svg"
     output_path.write_text(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" '
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" '
         'preserveAspectRatio="xMidYMid meet">'
         f'<path d="{ANOMALY_DIAMOND_FRAME_PATH}" fill="none" '
         'stroke="#111111" stroke-width="3" stroke-linecap="square" '

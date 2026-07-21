@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scp_epub.assets import localize_assets, remote_resource_page_slugs
+import scp_epub.assets as assets_module
+from scp_epub.assets import (
+    localize_assets,
+    remote_resource_page_slugs,
+)
 from scp_epub.models import FetchResult, PageRef, ProcessedPage
 
 
@@ -160,3 +164,36 @@ def test_remote_resource_page_slugs_returns_only_pages_with_missing_asset_refs()
     ]
 
     assert remote_resource_page_slugs(pages, [missing_url]) == {"scp-001"}
+
+
+def test_materialize_anomaly_diamond_assets_renders_png_and_rewrites_page(tmp_path: Path):
+    page = _page(
+        "scp-6764",
+        1,
+        (
+            '<div class="danger-diamond">'
+            '<svg class="anomaly-diamond-frame" viewBox="0 0 160 160">'
+            '<polygon points="51.226,3.456 108.250,3.456 132.096,27.264 '
+            '80.256,80.256 28.416,27.264" fill="#009f6b" '
+            'fill-opacity="0.25"></polygon>'
+            '<path fill="#010101" d="M136.1,133.3l23.9-23.9V51.2"></path>'
+            '</svg><table class="anomaly-diamond-layout"></table></div>'
+        ),
+        (),
+    )
+
+    [prepared_page], assets = assets_module.materialize_anomaly_diamond_assets(
+        [page],
+        [],
+        tmp_path / "generated-assets",
+    )
+
+    assert "<svg" not in prepared_page.xhtml
+    assert 'class="anomaly-diamond-frame"' in prepared_page.xhtml
+    assert len(assets) == 1
+    [frame_asset] = assets
+    assert frame_asset.source_url.startswith("builtin://anomaly-diamond/")
+    assert frame_asset.href.endswith(".png")
+    assert frame_asset.content_type == "image/png"
+    assert frame_asset.path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    assert f'../{frame_asset.href}' in prepared_page.xhtml

@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, Sequence
 
 from bs4 import BeautifulSoup, Tag
+import resvg_py
 
 from .models import FetchResult, ProcessedPage
 from .transform import ASSET_ATTRIBUTES
 
 
 EPUB_BACKGROUND_ASSET_ATTRIBUTE = "data-epub-background-url"
+_PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
 @dataclass(frozen=True)
@@ -58,6 +61,80 @@ def localize_assets(
 
     localized_pages = [_rewrite_page_assets(page, localized_by_url) for page in pages]
     return localized_pages, list(localized_by_url.values()), missing_assets
+
+
+def materialize_anomaly_diamond_assets(
+    pages: Sequence[ProcessedPage],
+    assets: Sequence[AssetRef],
+    output_dir: Path,
+) -> tuple[list[ProcessedPage], list[AssetRef]]:
+    """Render generated ACS diamond SVGs to reader-compatible PNG assets."""
+    prepared_assets = list(assets)
+    generated_by_digest: dict[str, AssetRef] = {}
+    prepared_pages: list[ProcessedPage] = []
+
+    for page in pages:
+        soup = BeautifulSoup(f"<root>{page.xhtml}</root>", "html.parser")
+        root = soup.find("root")
+        if root is None:
+            prepared_pages.append(page)
+            continue
+        changed = False
+        for frame in list(root.select("svg.anomaly-diamond-frame")):
+            svg_markup = str(frame)
+            svg_markup = re.sub(r"\bviewbox=", "viewBox=", svg_markup, count=1)
+            if "xmlns=" not in svg_markup[: svg_markup.find(">")]:
+                svg_markup = svg_markup.replace(
+                    "<svg ",
+                    '<svg xmlns="http://www.w3.org/2000/svg" ',
+                    1,
+                )
+            digest = hashlib.sha256(svg_markup.encode("utf-8")).hexdigest()[:16]
+            asset = generated_by_digest.get(digest)
+            if asset is None:
+                try:
+                    rendered = resvg_py.svg_to_bytes(
+                        svg_string=svg_markup,
+                        width=640,
+                        dpi=96,
+                    )
+                except Exception as exc:
+                    raise RuntimeError(
+                        f"Could not render generated anomaly diamond for {page.entry.slug}"
+                    ) from exc
+                if not rendered.startswith(_PNG_SIGNATURE):
+                    raise RuntimeError(
+                        f"Generated anomaly diamond is not PNG for {page.entry.slug}"
+                    )
+                filename = f"anomaly-diamond-{digest}.png"
+                output_dir.mkdir(parents=True, exist_ok=True)
+                output_path = output_dir / filename
+                output_path.write_bytes(rendered)
+                asset = AssetRef(
+                    source_url=f"builtin://anomaly-diamond/{digest}.svg",
+                    path=output_path,
+                    href=f"assets/{filename}",
+                    content_type="image/png",
+                )
+                generated_by_digest[digest] = asset
+                prepared_assets.append(asset)
+            image = soup.new_tag(
+                "img",
+                attrs={
+                    "class": "anomaly-diamond-frame",
+                    "src": f"../{asset.href}",
+                    "alt": "",
+                },
+            )
+            frame.replace_with(image)
+            changed = True
+        if not changed:
+            prepared_pages.append(page)
+            continue
+        xhtml = "".join(str(child) for child in root.contents).strip()
+        prepared_pages.append(replace(page, xhtml=xhtml))
+
+    return prepared_pages, prepared_assets
 
 
 def remote_resource_page_slugs(pages: list[ProcessedPage], missing_asset_urls: list[str] | tuple[str, ...]) -> set[str]:

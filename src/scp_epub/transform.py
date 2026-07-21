@@ -84,6 +84,14 @@ CSS_CODE_MARKERS = (
     "--logo-img",
 )
 CSS_CUSTOM_PROPERTY_RE = re.compile(r"--\s*[a-z0-9_-]+\s*:", re.IGNORECASE)
+CSS_CUSTOM_PROPERTY_VALUE_RE = re.compile(
+    r"(?P<name>--[a-z0-9_-]+)\s*:\s*(?P<value>[^;{}]+)",
+    re.IGNORECASE,
+)
+CSS_VAR_FUNCTION_RE = re.compile(
+    r"var\(\s*(?P<name>--[a-z0-9_-]+)\s*(?:,\s*(?P<fallback>[^()]+))?\)",
+    re.IGNORECASE,
+)
 WIKIDOT_TEMPLATE_PLACEHOLDER_RE = re.compile(
     r"(?:\{\$[A-Za-z0-9_-]+\}|\\\{\\\$[A-Za-z0-9_-]+\\\})"
 )
@@ -97,6 +105,10 @@ CSS_CONTENT_PROPERTY_RE = re.compile(
 )
 CSS_BACKGROUND_IMAGE_URL_RE = re.compile(
     r"""background-image\s*:\s*url\(\s*(?:"(?P<double>[^"]+)"|'(?P<single>[^']+)'|(?P<bare>[^)\s]+))\s*\)""",
+    re.IGNORECASE,
+)
+CSS_BACKGROUND_COLOR_RE = re.compile(
+    r"background-color\s*:\s*(?P<value>[^;]+)",
     re.IGNORECASE,
 )
 MALFORMED_WIKIDOT_IMG_WIDTH_ATTRIBUTE_RE = re.compile(
@@ -143,14 +155,59 @@ ANOMALY_CLEARANCE_LABELS = {
     "clear-6": "宇宙绝密",
 }
 ANOMALY_DIAMOND_FRAME_PATH = (
-    "M3 15 V3 H15 "
-    "M85 3 H97 V15 "
-    "M3 85 V97 H15 "
-    "M85 97 H97 V85 "
-    "M3 3 L97 97 "
-    "M97 3 L3 97 "
-    "M28 8 H72 L92 28 V72 L72 92 H28 L8 72 V28 Z"
+    "M136.1,133.3l23.9-23.9V51.2l-24-24l19.1-19.1l4.9,4.9l0-12.9"
+    "l-12.9,0l4.9,4.9L133,24.2l-24-24H51l-24,24L8,5.2l4.9-4.9"
+    "L0,0.2l0,12.9l4.9-4.9L24,27.3l-24,24v58.2l23.9,23.9l-19,19"
+    "L0,147.3l0,12.9l12.9,0L8,155.3l19-19l23.9,23.9h58.4l23.9-23.9"
+    "l19,19l-4.9,4.9l12.9,0l0-12.9l-4.9,4.9L136.1,133.3z"
+    "M155.7,53v54.6l-22.6,22.6l-50-50L133,30.3L155.7,53z"
+    "M52.8,4.5h54.4l22.7,22.7L80,77.2L30.1,27.3L52.8,4.5z"
+    "M4.3,107.6V53L27,30.3L77,80.2l-50,50L4.3,107.6z"
+    "M107.4,155.9H52.6L30,133.3l50-50l50,50L107.4,155.9z"
 )
+ANOMALY_DIAMOND_QUADRANT_POINTS = (
+    "51.226,3.456 108.250,3.456 132.096,27.264 "
+    "80.256,80.256 28.416,27.264"
+)
+ANOMALY_DIAMOND_QUADRANT_TRANSFORMS = {
+    "top": None,
+    "right": "rotate(90 80.256 80.256)",
+    "left": "rotate(270 80.256 80.256)",
+    "bottom": "rotate(180 80.256 80.256)",
+}
+ANOMALY_QUADRANT_FALLBACK_COLORS = {
+    ("contain-class", "safe"): ("#009f6b", "0.25"),
+    ("contain-class", "euclid"): ("#ffd300", "0.25"),
+    ("contain-class", "keter"): ("#c40233", "0.25"),
+    ("contain-class", "esoteric"): ("#424248", "0.15"),
+    ("contain-class", "机密"): ("#424248", "0.15"),
+    ("contain-class", "機密"): ("#424248", "0.15"),
+    ("contain-class", "neutralized"): ("#424248", "0.25"),
+    ("contain-class", "neutralised"): ("#424248", "0.25"),
+    ("contain-class", "无效化"): ("#424248", "0.25"),
+    ("contain-class", "無效化"): ("#424248", "0.25"),
+    ("contain-class", "pending"): ("#0c0c0c", "0.25"),
+    ("contain-class", "等待分级"): ("#0c0c0c", "0.25"),
+    ("contain-class", "等待分級"): ("#0c0c0c", "0.25"),
+    ("disrupt-class", "dark"): ("#009f6b", "0.25"),
+    ("disrupt-class", "vlam"): ("#0087bd", "0.25"),
+    ("disrupt-class", "keneq"): ("#ffd300", "0.25"),
+    ("disrupt-class", "ekhi"): ("#ff6d00", "0.25"),
+    ("disrupt-class", "amida"): ("#c40233", "0.25"),
+    ("risk-class", "notice"): ("#009f6b", "0.25"),
+    ("risk-class", "待观察"): ("#009f6b", "0.25"),
+    ("risk-class", "待觀察"): ("#009f6b", "0.25"),
+    ("risk-class", "caution"): ("#0087bd", "0.25"),
+    ("risk-class", "需谨慎"): ("#0087bd", "0.25"),
+    ("risk-class", "需謹慎"): ("#0087bd", "0.25"),
+    ("risk-class", "warning"): ("#ffd300", "0.25"),
+    ("risk-class", "警告"): ("#ffd300", "0.25"),
+    ("risk-class", "danger"): ("#ff6d00", "0.25"),
+    ("risk-class", "危险"): ("#ff6d00", "0.25"),
+    ("risk-class", "危險"): ("#ff6d00", "0.25"),
+    ("risk-class", "critical"): ("#c40233", "0.25"),
+    ("risk-class", "危急"): ("#c40233", "0.25"),
+}
 CLASSIFICATION_FAMILY_ATTRIBUTE = "data-epub-classification-family"
 CLASSIFICATION_STATUS_ATTRIBUTE = "data-epub-classification-status"
 ACS_REQUIRED_SELECTORS = (
@@ -382,6 +439,11 @@ def transform_page(
         if page_content.select_one(".anom-bar-container") is not None
         else {}
     )
+    anomaly_quadrant_colors = (
+        _anomaly_quadrant_colors_from_styles(soup)
+        if page_content.select_one(".anom-bar-container") is not None
+        else {}
+    )
     page_styles = _applicable_page_styles(soup, page_content)
 
     _remove_creator_information_blocks(page_content)
@@ -393,6 +455,7 @@ def transform_page(
         soup,
         page_content,
         anomaly_icon_urls,
+        anomaly_quadrant_colors,
     )
     _normalize_woed_classified_bars(soup, page_content)
 
@@ -1201,7 +1264,13 @@ def _wrap_anomaly_lower_fields(soup: BeautifulSoup, container: Tag) -> None:
     text_part.append(lower)
 
 
-def _build_anomaly_diamond_layout(soup: BeautifulSoup, container: Tag) -> None:
+def _build_anomaly_diamond_layout(
+    soup: BeautifulSoup,
+    container: Tag,
+    field_values: dict[str, str],
+    ordered_classes: tuple[str, ...],
+    page_quadrant_colors: dict[tuple[str, str], tuple[str, str]],
+) -> None:
     diamond = container.select_one(".danger-diamond")
     if diamond is None:
         return
@@ -1210,21 +1279,42 @@ def _build_anomaly_diamond_layout(soup: BeautifulSoup, container: Tag) -> None:
             "svg",
             attrs={
                 "class": "anomaly-diamond-frame",
-                "viewBox": "0 0 100 100",
+                "viewBox": "0 0 160 160",
                 "preserveAspectRatio": "xMidYMid meet",
                 "aria-hidden": "true",
                 "focusable": "false",
             },
         )
+        quadrant_fields = {
+            "top": "contain-class",
+            "right": "risk-class",
+            "left": "disrupt-class",
+            "bottom": "second-class",
+        }
+        for quadrant, field_class in quadrant_fields.items():
+            fill, opacity = _anomaly_quadrant_color(
+                quadrant,
+                field_class,
+                field_values.get(field_class, ""),
+                ordered_classes,
+                page_quadrant_colors,
+            )
+            attrs = {
+                "class": "anomaly-diamond-quadrant",
+                "data-quadrant": quadrant,
+                "points": ANOMALY_DIAMOND_QUADRANT_POINTS,
+                "fill": fill,
+                "fill-opacity": opacity,
+            }
+            transform = ANOMALY_DIAMOND_QUADRANT_TRANSFORMS[quadrant]
+            if transform is not None:
+                attrs["transform"] = transform
+            frame.append(soup.new_tag("polygon", attrs=attrs))
         frame_path = soup.new_tag(
             "path",
             attrs={
                 "d": ANOMALY_DIAMOND_FRAME_PATH,
-                "fill": "none",
-                "stroke": "#111111",
-                "stroke-width": "3",
-                "stroke-linecap": "square",
-                "stroke-linejoin": "miter",
+                "fill": "#010101",
             },
         )
         frame.append(frame_path)
@@ -1263,6 +1353,7 @@ def _normalize_anomaly_classification_bars(
     soup: BeautifulSoup,
     page_content: Tag,
     page_icon_urls: dict[tuple[str, str], str],
+    page_quadrant_colors: dict[tuple[str, str], tuple[str, str]],
 ) -> None:
     _remove_hidden_unexpanded_anomaly_templates(page_content)
     for container in list(page_content.select(".anom-bar-container")):
@@ -1298,12 +1389,14 @@ def _normalize_anomaly_classification_bars(
             ("disrupt-class", "left-icon"),
             ("risk-class", "right-icon"),
         )
+        field_values: dict[str, str] = {}
         for field_class, diamond_class in field_specs:
             field = container.select_one(f".{field_class}")
             if field is None:
                 continue
             class_text = field.select_one(".class-text")
             value = class_text.get_text(" ", strip=True) if class_text else ""
+            field_values[field_class] = value
             if field_class != "contain-class" and _is_missing_anomaly_value(value):
                 field.decompose()
                 continue
@@ -1340,7 +1433,13 @@ def _normalize_anomaly_classification_bars(
             _mark_classification_component(container, "acs", "unrecognized")
             continue
         _wrap_anomaly_lower_fields(soup, container)
-        _build_anomaly_diamond_layout(soup, container)
+        _build_anomaly_diamond_layout(
+            soup,
+            container,
+            field_values,
+            ordered_classes,
+            page_quadrant_colors,
+        )
         _mark_classification_component(container, "acs", "normalized")
 
 
@@ -1465,6 +1564,132 @@ def _anomaly_icon_urls_from_styles(
                 ):
                     icon_urls[(class_name.casefold(), field_class)] = normalized_url
     return icon_urls
+
+
+def _anomaly_quadrant_colors_from_styles(
+    soup: BeautifulSoup,
+) -> dict[tuple[str, str], tuple[str, str]]:
+    colors: dict[tuple[str, str], tuple[str, str]] = {}
+    custom_properties = _numeric_css_custom_properties(soup)
+    for style in soup.find_all("style"):
+        for rule in CSS_RULE_RE.finditer(style.get_text("\n", strip=True)):
+            color = _last_resolved_background_color(
+                rule.group("body"), custom_properties
+            )
+            if color is None:
+                continue
+            for selector in rule.group("selectors").split(","):
+                quadrants = set(
+                    re.findall(
+                        r"\.(top|right|left|bottom)-quad\b",
+                        selector,
+                        re.IGNORECASE,
+                    )
+                )
+                if not quadrants and re.search(
+                    r"\.quadrants\s*>\s*div\b", selector, re.IGNORECASE
+                ):
+                    quadrants = {"top", "right", "left", "bottom"}
+                if not quadrants:
+                    continue
+                class_names = re.findall(
+                    r"\.anom-bar-container\.([^\s.:#>+~,\[\](){}]+)",
+                    selector,
+                )
+                for quadrant in quadrants:
+                    modifier_names = re.findall(
+                        rf"\.{quadrant}-quad\.([^\s.:#>+~,\[\](){{}}]+)",
+                        selector,
+                        re.IGNORECASE,
+                    )
+                    names = class_names or modifier_names or ["*"]
+                    for class_name in names:
+                        colors[(class_name.replace("\\", "").casefold(), quadrant)] = color
+    return colors
+
+
+def _numeric_css_custom_properties(soup: BeautifulSoup) -> dict[str, str]:
+    properties: dict[str, str] = {}
+    for style in soup.find_all("style"):
+        for match in CSS_CUSTOM_PROPERTY_VALUE_RE.finditer(style.get_text("\n", strip=True)):
+            value = match.group("value").strip()
+            if re.fullmatch(
+                r"\d+(?:\.\d+)?\s*,\s*\d+(?:\.\d+)?\s*,\s*\d+(?:\.\d+)?",
+                value,
+            ):
+                properties[match.group("name").casefold()] = value
+    return properties
+
+
+def _last_resolved_background_color(
+    style_body: str,
+    custom_properties: dict[str, str],
+) -> tuple[str, str] | None:
+    result: tuple[str, str] | None = None
+    for match in CSS_BACKGROUND_COLOR_RE.finditer(style_body):
+        value = match.group("value").strip()
+        value = CSS_VAR_FUNCTION_RE.sub(
+            lambda variable: custom_properties.get(
+                variable.group("name").casefold(),
+                (variable.group("fallback") or "").strip(),
+            ),
+            value,
+        )
+        if "var(" in value.casefold():
+            continue
+        parsed = _parse_numeric_css_color(value)
+        if parsed is not None:
+            result = parsed
+    return result
+
+
+def _parse_numeric_css_color(value: str) -> tuple[str, str] | None:
+    hex_match = re.fullmatch(r"#(?P<value>[0-9a-fA-F]{3}|[0-9a-fA-F]{6})", value)
+    if hex_match is not None:
+        hex_value = hex_match.group("value")
+        if len(hex_value) == 3:
+            hex_value = "".join(character * 2 for character in hex_value)
+        return f"#{hex_value.lower()}", "1"
+
+    function_match = re.fullmatch(
+        r"rgba?\(\s*(?P<red>\d+(?:\.\d+)?)\s*,\s*"
+        r"(?P<green>\d+(?:\.\d+)?)\s*,\s*"
+        r"(?P<blue>\d+(?:\.\d+)?)"
+        r"(?:\s*,\s*(?P<alpha>\d+(?:\.\d+)?))?\s*\)",
+        value,
+        re.IGNORECASE,
+    )
+    if function_match is None:
+        return None
+    channels = [
+        max(0, min(255, round(float(function_match.group(name)))))
+        for name in ("red", "green", "blue")
+    ]
+    alpha = max(0.0, min(1.0, float(function_match.group("alpha") or "1")))
+    return "#" + "".join(f"{channel:02x}" for channel in channels), f"{alpha:g}"
+
+
+def _anomaly_quadrant_color(
+    quadrant: str,
+    field_class: str,
+    field_value: str,
+    ordered_classes: tuple[str, ...],
+    page_colors: dict[tuple[str, str], tuple[str, str]],
+) -> tuple[str, str]:
+    normalized_value = field_value.casefold()
+    for class_name in (normalized_value, *ordered_classes):
+        color = page_colors.get((class_name.casefold(), quadrant))
+        if color is not None:
+            return color
+    fallback = ANOMALY_QUADRANT_FALLBACK_COLORS.get(
+        (field_class, normalized_value)
+    )
+    if fallback is not None:
+        return fallback
+    wildcard = page_colors.get(("*", quadrant))
+    if wildcard is not None:
+        return wildcard
+    return "#fcfcfc", "1"
 
 
 def _anomaly_field_class_for_selector(selector: str) -> str | None:

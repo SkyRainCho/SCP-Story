@@ -1158,15 +1158,60 @@ def test_anomaly_bar_builds_canonical_lower_row_and_diamond_table():
     assert table is not None
     frame = container.select_one("svg.anomaly-diamond-frame")
     assert frame is not None
-    assert frame["viewBox"] == "0 0 100 100"
+    assert frame["viewBox"] == "0 0 160 160"
     frame_path = frame.select_one("path")
     assert frame_path is not None
-    assert "M3 15 V3 H15" in frame_path["d"]
-    assert "M3 3 L97 97" in frame_path["d"]
-    assert "M28 8 H72" in frame_path["d"]
+    assert frame_path["d"].startswith("M136.1,133.3l23.9-23.9V51.2")
+    assert frame_path["fill"] == "#010101"
+    quadrants = {
+        polygon["data-quadrant"]: polygon
+        for polygon in frame.select("polygon.anomaly-diamond-quadrant")
+    }
+    assert set(quadrants) == {"top", "right", "left", "bottom"}
+    assert quadrants["top"]["fill"] == "#009f6b"
+    assert quadrants["top"]["fill-opacity"] == "0.25"
+    assert quadrants["left"]["fill"] == "#009f6b"
+    assert quadrants["right"]["fill"] == "#009f6b"
+    assert quadrants["bottom"]["fill"] == "#fcfcfc"
     assert table.select_one("td.anomaly-diamond-top .top-icon .anomaly-diamond-icon")
     assert table.select_one("td.anomaly-diamond-left .left-icon .anomaly-diamond-icon")
     assert table.select_one("td.anomaly-diamond-right .right-icon .anomaly-diamond-icon")
+
+
+def test_anomaly_diamond_uses_last_resolved_css_variable_quadrant_color():
+    html = """
+    <html><head><style>
+      :root { --five-color: 196,2,51; }
+      .anom-bar-container.danger .danger-diamond > .quadrants > .right-quad {
+        background-color: rgba(255,109,0,0.25);
+        background-color: rgb(var(--five-color),0.25);
+      }
+    </style></head><body><div id="page-content">
+      <div class="anom-bar-container item-999 clear-2 safe none vlam danger">
+        <div class="top-box"><div class="top-left-box"></div><div class="top-center-box"></div>
+          <div class="top-right-box"><div class="clearance"></div></div></div>
+        <div class="bottom-box"><div class="text-part"><div class="main-class">
+          <div class="contain-class"><div class="class-text">safe</div></div>
+          <div class="second-class"><div class="class-text">none</div></div></div>
+          <div class="disrupt-class"><div class="class-text">vlam</div></div>
+          <div class="risk-class"><div class="class-text">danger</div></div></div>
+          <div class="diamond-part"><div class="danger-diamond">
+            <div class="top-icon"></div><div class="right-icon"></div>
+            <div class="left-icon"></div><div class="bottom-icon"></div>
+          </div></div></div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-999"), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+    right = soup.select_one(
+        'svg.anomaly-diamond-frame polygon[data-quadrant="right"]'
+    )
+
+    assert right is not None
+    assert right["fill"] == "#c40233"
+    assert right["fill-opacity"] == "0.25"
 
 
 def test_anomaly_bar_marks_unrecognized_shape_without_dropping_text():
