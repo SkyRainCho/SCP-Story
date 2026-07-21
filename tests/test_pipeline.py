@@ -2093,11 +2093,21 @@ def test_build_volume_kindles_pages_css_report_and_azw3_without_mutating_process
         {
             "scp-001": simple_page(
                 "SCP-001",
-                '<div class="anom-bar-container clear-4">'
-                '<div class="top-right-box"><div class="clearance"></div></div>'
-                '<div class="risk-class"><div class="class-text">危急</div></div>'
-                '<div class="danger-diamond"></div>'
-                "</div>"
+                '<div class="anom-bar-container clear-4 mystery">'
+                '<div class="anom-bar"><div class="top-box">'
+                '<div class="top-left-box"><span class="number">001</span></div>'
+                '<div class="top-center-box"><div class="bar-one"></div>'
+                '<div class="bar-two"></div><div class="bar-three"></div>'
+                '<div class="bar-four"></div></div>'
+                '<div class="top-right-box"><div class="clearance"></div></div></div>'
+                '<div class="bottom-box"><div class="text-part">'
+                '<div class="main-class"><div class="contain-class">'
+                '<div class="class-text">mystery</div></div></div>'
+                '<div class="risk-class"><div class="class-text">自定义风险</div></div>'
+                '</div><div class="diamond-part"><div class="danger-diamond">'
+                '<div class="top-icon"></div><div class="right-icon"></div>'
+                '<div class="left-icon"></div><div class="bottom-icon"></div>'
+                "</div></div></div></div></div>"
                 '<div class="content-panel standalone" '
                 'style="width: 575px; padding: 10px 30px">前言</div>'
                 '<div class="scp-image-block block-right" style="width: 200px">'
@@ -2133,18 +2143,32 @@ def test_build_volume_kindles_pages_css_report_and_azw3_without_mutating_process
         chapter = archive.read("OEBPS/text/0001-scp-001.xhtml").decode("utf-8")
     assert ".kindle-clearance-label" in css
     assert '<span class="kindle-clearance-label">SECRET</span>' in chapter
-    assert '<span class="kindle-danger-label">危急</span>' in chapter
+    assert '<span class="kindle-danger-label">自定义风险</span>' in chapter
+    assert 'data-epub-classification-family="acs"' in chapter
+    assert 'data-epub-classification-status="normalized"' in chapter
+    assert 'class="anomaly-lower-row"' in chapter
     assert "575px" not in chapter
     assert "width:28%;" in chapter.replace(" ", "")
 
     processed_path = config.processed_dir / "test-volume" / "0001-scp-001.xhtml"
     processed_xhtml = processed_path.read_text(encoding="utf-8")
+    assert 'data-epub-classification-family="acs"' in processed_xhtml
+    assert 'class="anomaly-lower-row"' in processed_xhtml
     assert "kindle-clearance-label" not in processed_xhtml
     assert "width: 575px" in processed_xhtml
     assert "width: 200px" in processed_xhtml
     report_path = config.output_dir / "reports" / "test-volume-Kindle-report.json"
     report = json.loads(report_path.read_text(encoding="utf-8"))
     assert report["output_path"] == str(output_path)
+    assert report["classification_components"] == [
+        {
+            "slug": "scp-001",
+            "title": "SCP-001",
+            "family": "acs",
+            "component_count": 1,
+            "status": "normalized",
+        }
+    ]
 
 
 def test_build_volume_prepares_only_kindle_assets_and_reports_invalid_images(
