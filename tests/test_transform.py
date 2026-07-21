@@ -1115,6 +1115,104 @@ def test_materializes_pending_anomaly_icon_for_chinese_alias():
     assert container.select_one(".risk-class") is None
 
 
+def test_anomaly_bar_builds_canonical_lower_row_and_diamond_table():
+    html = """
+    <html><body><div id="page-content">
+      <div class="anom-bar-container item-713 clear-2 safe none dark notice lang-cn">
+        <div class="anom-bar">
+          <div class="top-box">
+            <div class="top-left-box"><span class="number">713</span></div>
+            <div class="top-center-box"><div class="bar-one"></div><div class="bar-two"></div></div>
+            <div class="top-right-box"><div class="level">等级2</div><div class="clearance"></div></div>
+          </div>
+          <div class="bottom-box">
+            <div class="text-part">
+              <div class="main-class"><div class="contain-class"><div class="class-text">Safe</div></div></div>
+              <div class="disrupt-class"><div class="class-text">Dark</div></div>
+              <div class="risk-class"><div class="class-text">待观察</div></div>
+            </div>
+            <div class="diamond-part"><div class="danger-diamond">
+              <div class="top-icon"></div><div class="right-icon"></div>
+              <div class="left-icon"></div><div class="bottom-icon"></div>
+            </div></div>
+          </div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-713"), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+    container = soup.select_one(".anom-bar-container")
+
+    assert container is not None
+    assert container["data-epub-classification-family"] == "acs"
+    assert container["data-epub-classification-status"] == "normalized"
+    lower = container.select_one(".text-part > .anomaly-lower-row")
+    assert lower is not None
+    assert [str(tag.get("class", "")).split()[0] for tag in lower.find_all(recursive=False)] == [
+        "disrupt-class",
+        "risk-class",
+    ]
+    table = container.select_one("table.anomaly-diamond-layout")
+    assert table is not None
+    assert table.select_one("td.anomaly-diamond-top .top-icon .anomaly-diamond-icon")
+    assert table.select_one("td.anomaly-diamond-left .left-icon .anomaly-diamond-icon")
+    assert table.select_one("td.anomaly-diamond-right .right-icon .anomaly-diamond-icon")
+
+
+def test_anomaly_bar_marks_unrecognized_shape_without_dropping_text():
+    html = """
+    <html><body><div id="page-content">
+      <div class="anom-bar-container clear-2 safe">
+        <div class="contain-class"><div class="class-text">Safe</div></div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-999"), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+    container = soup.select_one(".anom-bar-container")
+
+    assert container is not None
+    assert container["data-epub-classification-family"] == "acs"
+    assert container["data-epub-classification-status"] == "unrecognized"
+    assert container.get_text(" ", strip=True) == "Safe"
+
+
+@pytest.mark.parametrize(
+    ("level", "expected_label"),
+    (
+        (0, None),
+        (1, "公开"),
+        (2, "受限"),
+        (3, "保密"),
+        (4, "机密"),
+        (5, "最高机密"),
+        (6, "宇宙绝密"),
+    ),
+)
+def test_anomaly_bar_materializes_clearance_levels_zero_through_six(
+    level: int,
+    expected_label: str | None,
+):
+    html = f"""
+    <html><body><div id="page-content"><div class="anom-bar-container clear-{level}">
+      <div class="top-box"><div class="top-left-box"></div><div class="top-center-box"></div>
+        <div class="top-right-box"><div class="clearance"></div></div></div>
+      <div class="bottom-box"><div class="text-part"><div class="main-class">
+        <div class="contain-class"><div class="class-text">Safe</div></div></div></div>
+        <div class="diamond-part"><div class="danger-diamond"></div></div></div>
+    </div></div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+    label = soup.select_one(".anomaly-clearance-label")
+
+    assert (label.get_text(strip=True) if label else None) == expected_label
+
+
 def test_ignores_anomaly_field_background_texture_when_extracting_custom_icons():
     html = """
     <html><head><style>

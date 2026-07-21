@@ -142,6 +142,20 @@ ANOMALY_CLEARANCE_LABELS = {
     "clear-5": "最高机密",
     "clear-6": "宇宙绝密",
 }
+CLASSIFICATION_FAMILY_ATTRIBUTE = "data-epub-classification-family"
+CLASSIFICATION_STATUS_ATTRIBUTE = "data-epub-classification-status"
+ACS_REQUIRED_SELECTORS = (
+    ".top-box",
+    ".top-left-box",
+    ".top-center-box",
+    ".top-right-box",
+    ".bottom-box",
+    ".text-part",
+    ".main-class",
+    ".contain-class",
+    ".diamond-part",
+    ".danger-diamond",
+)
 ANOMALY_ICON_BASE_URL = (
     "https://scp-wiki.wdfiles.com/local--files/component%3Aanomaly-class-bar"
 )
@@ -1131,6 +1145,70 @@ def _normalized_text(tag: Tag) -> str:
     return re.sub(r"\s+", "", tag.get_text(" ", strip=True))
 
 
+def _mark_classification_component(tag: Tag, family: str, status: str) -> None:
+    tag[CLASSIFICATION_FAMILY_ATTRIBUTE] = family
+    tag[CLASSIFICATION_STATUS_ATTRIBUTE] = status
+
+
+def _has_required_descendants(component: Tag, selectors: tuple[str, ...]) -> bool:
+    return all(component.select_one(selector) is not None for selector in selectors)
+
+
+def _wrap_anomaly_lower_fields(soup: BeautifulSoup, container: Tag) -> None:
+    text_part = container.select_one(".text-part")
+    if (
+        text_part is None
+        or text_part.select_one(":scope > .anomaly-lower-row") is not None
+    ):
+        return
+    fields = [
+        field
+        for selector in (":scope > .disrupt-class", ":scope > .risk-class")
+        if (field := text_part.select_one(selector)) is not None
+    ]
+    if not fields:
+        return
+    lower = soup.new_tag("div", attrs={"class": "anomaly-lower-row"})
+    for field in fields:
+        lower.append(field.extract())
+    text_part.append(lower)
+
+
+def _build_anomaly_diamond_layout(soup: BeautifulSoup, container: Tag) -> None:
+    diamond = container.select_one(".danger-diamond")
+    if (
+        diamond is None
+        or diamond.select_one(":scope > .anomaly-diamond-layout") is not None
+    ):
+        return
+    slots = {
+        name: diamond.select_one(f":scope > .{name}-icon")
+        for name in ("top", "left", "right", "bottom")
+    }
+    table = soup.new_tag(
+        "table",
+        attrs={"class": "anomaly-diamond-layout", "role": "presentation"},
+    )
+    tbody = soup.new_tag("tbody")
+    table.append(tbody)
+    for row_slots in (
+        (None, "top", None),
+        ("left", None, "right"),
+        (None, "bottom", None),
+    ):
+        row = soup.new_tag("tr")
+        for slot_name in row_slots:
+            cell = soup.new_tag(
+                "td",
+                attrs={"class": f"anomaly-diamond-{slot_name or 'empty'}"},
+            )
+            if slot_name is not None and slots[slot_name] is not None:
+                cell.append(slots[slot_name].extract())
+            row.append(cell)
+        tbody.append(row)
+    diamond.append(table)
+
+
 def _normalize_anomaly_classification_bars(
     soup: BeautifulSoup,
     page_content: Tag,
@@ -1207,6 +1285,13 @@ def _normalize_anomaly_classification_bars(
         main_class = container.select_one(".main-class")
         if main_class is not None and main_class.select_one(".second-class") is None:
             _add_class_token(main_class, "anomaly-single-containment")
+
+        if not _has_required_descendants(container, ACS_REQUIRED_SELECTORS):
+            _mark_classification_component(container, "acs", "unrecognized")
+            continue
+        _wrap_anomaly_lower_fields(soup, container)
+        _build_anomaly_diamond_layout(soup, container)
+        _mark_classification_component(container, "acs", "normalized")
 
 
 def _anomaly_icon_urls_from_styles(
