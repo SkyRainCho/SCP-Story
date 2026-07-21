@@ -1277,6 +1277,44 @@ def test_prepare_kindle_pages_maps_all_clearance_levels():
     for page, label in zip(prepared, expected.values(), strict=True):
         assert f">{label}</span>" in page.xhtml
 
+    [level_zero] = prepare_kindle_pages(
+        [
+            _page(
+                '<div class="anom-bar-container clear-0">'
+                '<div class="top-right-box"><div class="clearance"></div></div>'
+                "</div>"
+            )
+        ]
+    )
+    assert "kindle-clearance-label" not in level_zero.xhtml
+
+
+def test_prepare_kindle_pages_preserves_canonical_classification_markup():
+    xhtml = (
+        '<div class="anom-bar-container clear-2" '
+        'data-epub-classification-family="acs" '
+        'data-epub-classification-status="normalized">'
+        '<div class="top-right-box"><div class="clearance">'
+        '<span class="anomaly-clearance-label">受限</span></div></div>'
+        '<div class="anomaly-lower-row"><div class="disrupt-class">Dark</div>'
+        '<div class="risk-class">待观察</div></div>'
+        '<table class="anomaly-diamond-layout"><tbody><tr>'
+        '<td class="anomaly-diamond-top"></td></tr></tbody></table></div>'
+        '<div class="scale woed-level-2 woed-class-keter" '
+        'data-epub-classification-family="woed" '
+        'data-epub-classification-status="normalized">'
+        '<div class="woed-level-segments">'
+        '<span class="woed-level-segment woed-level-segment-1"></span>'
+        '<span class="woed-level-segment woed-level-segment-2"></span></div></div>'
+    )
+
+    [prepared] = prepare_kindle_pages([_page(xhtml)])
+
+    assert '<span class="kindle-clearance-label">RESTRICTED</span>' in prepared.xhtml
+    assert 'class="anomaly-lower-row"' in prepared.xhtml
+    assert 'class="anomaly-diamond-layout"' in prepared.xhtml
+    assert 'class="woed-level-segment woed-level-segment-2"' in prepared.xhtml
+
 
 def test_kindle_css_uses_kf8_fallbacks_and_preserves_scp_components():
     css = load_kindle_css()
@@ -1310,6 +1348,23 @@ def test_kindle_css_uses_kf8_fallbacks_and_preserves_scp_components():
     assert ".anomaly-diamond-icon" in css
     assert ".danger-diamond .anomaly-icon-slot" in css
     assert ".anom-bar-container.keter .contain-class .anomaly-field-icon" in css
+    assert ".anomaly-lower-row" in css
+    assert ".anomaly-diamond-layout" in css
+    assert '.scale[data-epub-classification-family="woed"]' in css
+    assert ".woed-level-segment-6" in css
+    assert ".woed-class-keter .obj" in css
+    assert ".woed-class-safe .obj" in css
+    assert ".woed-class-euclid .obj" in css
+    assert ".woed-class-thaumiel .obj" in css
+    assert ".woed-class-neutralized .obj" in css
+    container_rule = re.search(r"\.anom-bar-container\s*\{(?P<body>[^}]*)\}", css)
+    assert container_rule is not None
+    assert "padding: 0;" in container_rule.group("body")
+    assert "border: 0;" in container_rule.group("body")
+    assert "background: transparent;" in container_rule.group("body")
+    assert ".anom-bar-container.clear-2 .top-center-box .bar-two" in css
+    assert "border-left: 0.45em solid #777;" in css
+    assert "background: #ececec;" in css
 
 
 def test_convert_epub_to_azw3_uses_scribe_profile_and_atomically_replaces_output(

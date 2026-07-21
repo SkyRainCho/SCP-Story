@@ -163,9 +163,9 @@ table.wiki-content-table th {
 .anom-bar-container {
   width: 100%;
   margin: 1.2em 0;
-  padding: 0.65em;
-  border: 2px solid #7a1726;
-  background: #e7e7e7;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: #111;
   font-family: Arial, Helvetica, sans-serif;
 }
@@ -200,8 +200,66 @@ table.wiki-content-table th {
 
 .anom-bar-container .top-center-box {
   width: 44%;
-  border-top: 0.35em solid #111;
-  border-bottom: 0.35em solid #111;
+  border: 0;
+}
+
+.anom-bar-container .top-center-box .bar-one,
+.anom-bar-container .top-center-box .bar-two,
+.anom-bar-container .top-center-box .bar-three,
+.anom-bar-container .top-center-box .bar-four,
+.anom-bar-container .top-center-box .bar-five,
+.anom-bar-container .top-center-box .bar-six {
+  display: none;
+  height: 0.45em;
+  margin: 0.18em 0;
+}
+
+.anom-bar-container.clear-1 .top-center-box .bar-one,
+.anom-bar-container.clear-2 .top-center-box .bar-one,
+.anom-bar-container.clear-2 .top-center-box .bar-two,
+.anom-bar-container.clear-3 .top-center-box .bar-one,
+.anom-bar-container.clear-3 .top-center-box .bar-two,
+.anom-bar-container.clear-3 .top-center-box .bar-three,
+.anom-bar-container.clear-4 .top-center-box .bar-one,
+.anom-bar-container.clear-4 .top-center-box .bar-two,
+.anom-bar-container.clear-4 .top-center-box .bar-three,
+.anom-bar-container.clear-4 .top-center-box .bar-four,
+.anom-bar-container.clear-5 .top-center-box .bar-one,
+.anom-bar-container.clear-5 .top-center-box .bar-two,
+.anom-bar-container.clear-5 .top-center-box .bar-three,
+.anom-bar-container.clear-5 .top-center-box .bar-four,
+.anom-bar-container.clear-5 .top-center-box .bar-five,
+.anom-bar-container.clear-6 .top-center-box .bar-one,
+.anom-bar-container.clear-6 .top-center-box .bar-two,
+.anom-bar-container.clear-6 .top-center-box .bar-three,
+.anom-bar-container.clear-6 .top-center-box .bar-four,
+.anom-bar-container.clear-6 .top-center-box .bar-five,
+.anom-bar-container.clear-6 .top-center-box .bar-six {
+  display: block;
+}
+
+.anom-bar-container.clear-1 .top-center-box div {
+  background: #009f6b;
+}
+
+.anom-bar-container.clear-2 .top-center-box div {
+  background: #0087bd;
+}
+
+.anom-bar-container.clear-3 .top-center-box div {
+  background: #ffd300;
+}
+
+.anom-bar-container.clear-4 .top-center-box div {
+  background: #ff6d00;
+}
+
+.anom-bar-container.clear-5 .top-center-box div {
+  background: #c40233;
+}
+
+.anom-bar-container.clear-6 .top-center-box div {
+  background: #111;
 }
 
 .anom-bar-container .top-right-box {
@@ -232,6 +290,20 @@ table.wiki-content-table th {
   width: 76%;
 }
 
+.anom-bar-container .anomaly-lower-row {
+  display: table;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0.3em;
+}
+
+.anom-bar-container .anomaly-lower-row .disrupt-class,
+.anom-bar-container .anomaly-lower-row .risk-class {
+  display: table-cell;
+  width: 50%;
+  vertical-align: middle;
+}
+
 .anom-bar-container .diamond-part {
   width: 24%;
   text-align: center;
@@ -242,8 +314,8 @@ table.wiki-content-table th {
 .anom-bar-container .disrupt-class,
 .anom-bar-container .risk-class {
   padding: 0.35em 0.5em;
-  border-left: 0.45em solid #7a1726;
-  background: #f2f2f2;
+  border-left: 0.45em solid #777;
+  background: #ececec;
   overflow: hidden;
 }
 
@@ -383,6 +455,21 @@ table.wiki-content-table th {
   text-align: center;
 }
 
+.anom-bar-container .anomaly-diamond-layout {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.anom-bar-container .anomaly-diamond-layout td {
+  width: 33%;
+  height: 2.2em;
+  padding: 0;
+  border: 0;
+  text-align: center;
+  vertical-align: middle;
+}
+
 .anom-bar-container .danger-diamond a,
 .anom-bar-container .danger-diamond br,
 .anom-bar-container .danger-diamond .arrows,
@@ -438,6 +525,117 @@ table.wiki-content-table th {
   font-weight: bold;
 }
 
+.scale[data-epub-classification-family="woed"] {
+  display: table;
+  width: 100%;
+  margin: 1em 0;
+  padding: 0.75em 0;
+  color: #111;
+  font-family: Arial, Helvetica, sans-serif;
+  table-layout: fixed;
+}
+
+.scale[data-epub-classification-family="woed"] .class1,
+.scale[data-epub-classification-family="woed"] .class1image,
+.scale[data-epub-classification-family="woed"] .item1 {
+  display: table-cell;
+  vertical-align: middle;
+}
+
+.scale[data-epub-classification-family="woed"] .class1 {
+  width: 30%;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.scale[data-epub-classification-family="woed"] .class1image {
+  width: 22%;
+  white-space: nowrap;
+}
+
+.scale[data-epub-classification-family="woed"] .item1 {
+  width: 48%;
+  text-align: right;
+}
+
+.scale[data-epub-classification-family="woed"] .level-text {
+  font-size: 1.6em;
+  line-height: 1;
+}
+
+.scale[data-epub-classification-family="woed"] .class-text {
+  font-size: 1.35em;
+  line-height: 1;
+}
+
+.scale[data-epub-classification-family="woed"] .woed-level-segment {
+  display: inline-block;
+  width: 0.75em;
+  height: 4em;
+  margin-right: 0.12em;
+  background: #111;
+}
+
+.scale[data-epub-classification-family="woed"] .woed-level-segment-1 {
+  background: #d9d9d9;
+}
+
+.scale[data-epub-classification-family="woed"] .woed-level-segment-2 {
+  background: #b5b5b5;
+}
+
+.scale[data-epub-classification-family="woed"] .woed-level-segment-3 {
+  background: #858585;
+}
+
+.scale[data-epub-classification-family="woed"] .woed-level-segment-4 {
+  background: #555;
+}
+
+.scale[data-epub-classification-family="woed"] .woed-level-segment-5 {
+  background: #111;
+}
+
+.scale[data-epub-classification-family="woed"] .woed-level-segment-6 {
+  background: #8c191a;
+}
+
+.scale[data-epub-classification-family="woed"] .obj {
+  margin-top: 0.2em;
+  padding: 0.12em 0.8em;
+  border-radius: 2em;
+  background: rgb(127, 127, 127);
+  color: #fff;
+  text-align: center;
+}
+
+.scale[data-epub-classification-family="woed"] .obj-text {
+  font-size: 1.7em;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.scale.woed-class-safe .obj {
+  background: rgb(35, 145, 70);
+}
+
+.scale.woed-class-euclid .obj {
+  background: rgb(225, 205, 35);
+  color: #111;
+}
+
+.scale.woed-class-keter .obj {
+  background: rgb(180, 30, 35);
+}
+
+.scale.woed-class-thaumiel .obj {
+  background: rgb(40, 60, 150);
+}
+
+.scale.woed-class-neutralized .obj {
+  background: rgb(127, 127, 127);
+}
+
 @media (max-width: 600px) {
   .scp-image-block,
   .scp-image-block.block-left,
@@ -452,6 +650,7 @@ table.wiki-content-table th {
   .anom-bar-container .top-box,
   .anom-bar-container .bottom-box,
   .anom-bar-container .main-class,
+  .anom-bar-container .anomaly-lower-row,
   .anom-bar-container .top-left-box,
   .anom-bar-container .top-center-box,
   .anom-bar-container .top-right-box,
@@ -466,6 +665,22 @@ table.wiki-content-table th {
   .anom-bar-container .top-right-box,
   .anom-bar-container .diamond-part {
     margin-top: 0.6em;
+    text-align: left;
+  }
+
+  .scale[data-epub-classification-family="woed"],
+  .scale[data-epub-classification-family="woed"] .class1,
+  .scale[data-epub-classification-family="woed"] .class1image,
+  .scale[data-epub-classification-family="woed"] .item1 {
+    display: block;
+    width: auto;
+  }
+
+  .scale[data-epub-classification-family="woed"] .class1image {
+    margin: 0.6em 0;
+  }
+
+  .scale[data-epub-classification-family="woed"] .item1 {
     text-align: left;
   }
 }
