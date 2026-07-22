@@ -2180,6 +2180,7 @@ def _stabilize_text_message_layout(page_content: Tag) -> None:
 
     for message in page_content.select(".text-container .recv, .text-container .sent"):
         alignment = "right" if "sent" in _class_tokens(message) else "left"
+        bubble_class = f"epub-chat-bubble-{alignment}"
         message["align"] = alignment
         _append_style_declaration(message, "text-align", f"{alignment} !important")
         for paragraph in message.find_all("p", recursive=False):
@@ -2189,6 +2190,16 @@ def _stabilize_text_message_layout(page_content: Tag) -> None:
                 "text-align",
                 f"{alignment} !important",
             )
+            bubbles = [
+                bubble
+                for bubble in paragraph.find_all("span", recursive=False)
+                if "text" in _class_tokens(bubble)
+            ]
+            for bubble in bubbles:
+                _add_class_token(bubble, bubble_class)
+            if len(bubbles) > 1:
+                for line_break in paragraph.find_all("br", recursive=False):
+                    line_break.decompose()
 
 
 def _is_floated_image_block(tag: Tag) -> bool:

@@ -20,6 +20,21 @@ BOOK_CSS = """body {
   line-height: 1.6;
 }
 
+.text-container .epub-chat-bubble-left,
+.text-container .epub-chat-bubble-right {
+  display: table !important;
+}
+
+.text-container .epub-chat-bubble-left {
+  margin-left: 10px !important;
+  margin-right: auto !important;
+}
+
+.text-container .epub-chat-bubble-right {
+  margin-left: auto !important;
+  margin-right: 10px !important;
+}
+
 h1 {
   color: #901;
 }

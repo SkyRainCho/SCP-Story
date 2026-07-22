@@ -1218,7 +1218,7 @@ def test_stabilizes_text_message_layout_on_each_message_paragraph():
     html = """
     <html><body><div id="page-content">
       <div class="text-container-wrap"><div class="text-container">
-        <div class="recv"><p style="margin: 0"><span class="text">收到</span></p></div>
+        <div class="recv"><p style="margin: 0"><span class="text">收到一</span><br/><span class="text">收到二</span></p></div>
         <div class="sent"><p><span class="text">发出</span></p></div>
       </div></div>
     </div></body></html>
@@ -1248,8 +1248,15 @@ def test_stabilizes_text_message_layout_on_each_message_paragraph():
     sent_paragraph = sent.select_one("p")
     assert received_paragraph is not None
     assert sent_paragraph is not None
-    assert "max-width: 85%" in received_paragraph.select_one(".text")["style"]
-    assert "max-width: 85%" in sent_paragraph.select_one(".text")["style"]
+    received_bubbles = received_paragraph.select(".text")
+    sent_bubbles = sent_paragraph.select(".text")
+    assert len(received_bubbles) == 2
+    assert len(sent_bubbles) == 1
+    assert received_paragraph.select_one("br") is None
+    assert all("epub-chat-bubble-left" in bubble.get("class", []) for bubble in received_bubbles)
+    assert all("epub-chat-bubble-right" in bubble.get("class", []) for bubble in sent_bubbles)
+    assert all("max-width: 85%" in bubble["style"] for bubble in received_bubbles)
+    assert all("max-width: 85%" in bubble["style"] for bubble in sent_bubbles)
     assert received_paragraph["align"] == "left"
     assert sent_paragraph["align"] == "right"
     assert "margin: 0" in received_paragraph["style"]

@@ -101,6 +101,16 @@ def test_write_epub_accepts_custom_css_without_changing_default(tmp_path: Path):
     assert custom_css == "body { color: black; }\n"
 
 
+def test_book_css_positions_chat_bubbles_without_parent_text_alignment():
+    assert ".text-container .epub-chat-bubble-left" in BOOK_CSS
+    assert ".text-container .epub-chat-bubble-right" in BOOK_CSS
+    assert "display: table !important;" in BOOK_CSS
+    assert "margin-left: 10px !important;" in BOOK_CSS
+    assert "margin-right: 10px !important;" in BOOK_CSS
+    assert "margin-left: auto !important;" in BOOK_CSS
+    assert "margin-right: auto !important;" in BOOK_CSS
+
+
 def test_write_epub_opf_manifest_spine_and_metadata_are_ordered(tmp_path: Path):
     pages = [
         _page("scp-002", "SCP-002", 2),
