@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import re
 from dataclasses import dataclass, replace
@@ -15,6 +16,15 @@ from .transform import ASSET_ATTRIBUTES
 
 EPUB_BACKGROUND_ASSET_ATTRIBUTE = "data-epub-background-url"
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+_ANOMALY_DIAMOND_ICON_CENTERS = {
+    "top": (80.0, 30.4),
+    "right": (129.6, 80.0),
+    "left": (30.4, 80.0),
+    "bottom": (80.0, 129.6),
+}
+_ANOMALY_DIAMOND_ICON_SIZE = 52.8
+_ANOMALY_DIAMOND_ICON_RADIUS = 24.9
+_ANOMALY_DIAMOND_ICON_BORDER_WIDTH = 3.0
 
 
 @dataclass(frozen=True)
@@ -70,6 +80,8 @@ def materialize_anomaly_diamond_assets(
 ) -> tuple[list[ProcessedPage], list[AssetRef]]:
     """Render generated ACS diamond SVGs to reader-compatible PNG assets."""
     prepared_assets = list(assets)
+    asset_by_href = {asset.href: asset for asset in assets}
+    embedded_icon_uris: dict[str, str | None] = {}
     generated_by_digest: dict[str, AssetRef] = {}
     prepared_pages: list[ProcessedPage] = []
 
@@ -81,12 +93,30 @@ def materialize_anomaly_diamond_assets(
             continue
         changed = False
         for frame in list(root.select("svg.anomaly-diamond-frame")):
+            diamond = frame.parent if isinstance(frame.parent, Tag) else None
+            layout = (
+                diamond.select_one("table.anomaly-diamond-layout")
+                if diamond is not None
+                else None
+            )
             svg_markup = str(frame)
             svg_markup = re.sub(r"\bviewbox=", "viewBox=", svg_markup, count=1)
             if "xmlns=" not in svg_markup[: svg_markup.find(">")]:
                 svg_markup = svg_markup.replace(
                     "<svg ",
                     '<svg xmlns="http://www.w3.org/2000/svg" ',
+                    1,
+                )
+            icon_markup = _anomaly_diamond_icon_markup(
+                frame,
+                layout,
+                asset_by_href,
+                embedded_icon_uris,
+            )
+            if icon_markup:
+                svg_markup = svg_markup.replace(
+                    "</svg>",
+                    f"{icon_markup}</svg>",
                     1,
                 )
             digest = hashlib.sha256(svg_markup.encode("utf-8")).hexdigest()[:16]
@@ -127,6 +157,8 @@ def materialize_anomaly_diamond_assets(
                 },
             )
             frame.replace_with(image)
+            if layout is not None:
+                layout.decompose()
             changed = True
         if not changed:
             prepared_pages.append(page)
@@ -135,6 +167,95 @@ def materialize_anomaly_diamond_assets(
         prepared_pages.append(replace(page, xhtml=xhtml))
 
     return prepared_pages, prepared_assets
+
+
+def _anomaly_diamond_icon_markup(
+    frame: Tag,
+    layout: Tag | None,
+    asset_by_href: dict[str, AssetRef],
+    embedded_icon_uris: dict[str, str | None],
+) -> str:
+    if layout is None:
+        return ""
+    quadrant_colors = {
+        str(polygon.get("data-quadrant")): str(polygon.get("fill"))
+        for polygon in frame.select("polygon[data-quadrant]")
+        if polygon.get("data-quadrant") and polygon.get("fill")
+    }
+    definitions: list[str] = []
+    icons: list[str] = []
+    half_size = _ANOMALY_DIAMOND_ICON_SIZE / 2
+
+    for slot, (center_x, center_y) in _ANOMALY_DIAMOND_ICON_CENTERS.items():
+        icon = layout.select_one(
+            f"td.anomaly-diamond-{slot} img.anomaly-diamond-icon"
+        )
+        if icon is None:
+            continue
+        href = _local_epub_asset_href(icon.get("src"))
+        if href is None:
+            continue
+        asset = asset_by_href.get(href)
+        if asset is None:
+            continue
+        if href not in embedded_icon_uris:
+            embedded_icon_uris[href] = _embedded_icon_data_uri(asset)
+        data_uri = embedded_icon_uris[href]
+        if data_uri is None:
+            continue
+        fill = quadrant_colors.get(slot, "#fcfcfc")
+        clip_id = f"anomaly-diamond-{slot}-icon-clip"
+        definitions.append(
+            f'<clipPath id="{clip_id}"><circle cx="{center_x:g}" '
+            f'cy="{center_y:g}" r="{_ANOMALY_DIAMOND_ICON_RADIUS:g}" />'
+            "</clipPath>"
+        )
+        icons.append(
+            f'<circle cx="{center_x:g}" cy="{center_y:g}" '
+            f'r="{_ANOMALY_DIAMOND_ICON_RADIUS:g}" fill="{fill}" '
+            'stroke="#0c0c0c" '
+            f'stroke-width="{_ANOMALY_DIAMOND_ICON_BORDER_WIDTH:g}" />'
+            f'<image href="{data_uri}" x="{center_x - half_size:g}" '
+            f'y="{center_y - half_size:g}" '
+            f'width="{_ANOMALY_DIAMOND_ICON_SIZE:g}" '
+            f'height="{_ANOMALY_DIAMOND_ICON_SIZE:g}" '
+            'preserveAspectRatio="xMidYMid meet" '
+            f'clip-path="url(#{clip_id})" />'
+        )
+    if not icons:
+        return ""
+    return f"<defs>{''.join(definitions)}</defs>{''.join(icons)}"
+
+
+def _local_epub_asset_href(value: object) -> str | None:
+    if not isinstance(value, str) or not value.startswith("../"):
+        return None
+    return value[3:].replace("\\", "/")
+
+
+def _embedded_icon_data_uri(asset: AssetRef) -> str | None:
+    try:
+        data = asset.path.read_bytes()
+    except OSError:
+        return None
+    content_type = asset.content_type.split(";", 1)[0].strip().lower()
+    if content_type == "image/svg+xml" or asset.path.suffix.casefold() == ".svg":
+        try:
+            rendered = resvg_py.svg_to_bytes(
+                svg_string=data.decode("utf-8-sig"),
+                width=256,
+                dpi=96,
+            )
+        except Exception:
+            return None
+        if not rendered.startswith(_PNG_SIGNATURE):
+            return None
+        data = rendered
+        content_type = "image/png"
+    elif not content_type.startswith("image/"):
+        return None
+    encoded = base64.b64encode(data).decode("ascii")
+    return f"data:{content_type};base64,{encoded}"
 
 
 def remote_resource_page_slugs(pages: list[ProcessedPage], missing_asset_urls: list[str] | tuple[str, ...]) -> set[str]:

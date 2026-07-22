@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PIL import Image
+
 import scp_epub.assets as assets_module
 from scp_epub.assets import (
     localize_assets,
@@ -167,6 +169,17 @@ def test_remote_resource_page_slugs_returns_only_pages_with_missing_asset_refs()
 
 
 def test_materialize_anomaly_diamond_assets_renders_png_and_rewrites_page(tmp_path: Path):
+    icon_path = tmp_path / "icon.svg"
+    icon_path.write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"></svg>',
+        encoding="utf-8",
+    )
+    icon_asset = assets_module.AssetRef(
+        "https://example.com/icon.svg",
+        icon_path,
+        "assets/icon.svg",
+        "image/svg+xml",
+    )
     page = _page(
         "scp-6764",
         1,
@@ -175,25 +188,66 @@ def test_materialize_anomaly_diamond_assets_renders_png_and_rewrites_page(tmp_pa
             '<svg class="anomaly-diamond-frame" viewBox="0 0 160 160">'
             '<polygon points="51.226,3.456 108.250,3.456 132.096,27.264 '
             '80.256,80.256 28.416,27.264" fill="#009f6b" '
-            'fill-opacity="0.25"></polygon>'
+            'fill-opacity="0.25" data-quadrant="top"></polygon>'
+            '<polygon points="51.226,3.456 108.250,3.456 132.096,27.264 '
+            '80.256,80.256 28.416,27.264" fill="#c40233" '
+            'fill-opacity="0.25" data-quadrant="right" '
+            'transform="rotate(90 80.256 80.256)"></polygon>'
+            '<polygon points="51.226,3.456 108.250,3.456 132.096,27.264 '
+            '80.256,80.256 28.416,27.264" fill="#0087bd" '
+            'fill-opacity="0.25" data-quadrant="left" '
+            'transform="rotate(270 80.256 80.256)"></polygon>'
             '<path fill="#010101" d="M136.1,133.3l23.9-23.9V51.2"></path>'
-            '</svg><table class="anomaly-diamond-layout"></table></div>'
+            '</svg><table class="anomaly-diamond-layout"><tbody>'
+            '<tr><td></td><td class="anomaly-diamond-top">'
+            '<img class="anomaly-diamond-icon" src="../assets/icon.svg"/></td><td></td></tr>'
+            '<tr><td class="anomaly-diamond-left"><img class="anomaly-diamond-icon" '
+            'src="../assets/icon.svg"/></td><td></td>'
+            '<td class="anomaly-diamond-right"><img class="anomaly-diamond-icon" '
+            'src="../assets/icon.svg"/></td></tr></tbody></table></div>'
         ),
         (),
     )
 
     [prepared_page], assets = assets_module.materialize_anomaly_diamond_assets(
         [page],
-        [],
+        [icon_asset],
         tmp_path / "generated-assets",
     )
 
     assert "<svg" not in prepared_page.xhtml
     assert 'class="anomaly-diamond-frame"' in prepared_page.xhtml
-    assert len(assets) == 1
-    [frame_asset] = assets
+    assert "anomaly-diamond-layout" not in prepared_page.xhtml
+    assert "anomaly-diamond-icon" not in prepared_page.xhtml
+    assert len(assets) == 2
+    frame_asset = assets[-1]
     assert frame_asset.source_url.startswith("builtin://anomaly-diamond/")
     assert frame_asset.href.endswith(".png")
     assert frame_asset.content_type == "image/png"
     assert frame_asset.path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
     assert f'../{frame_asset.href}' in prepared_page.xhtml
+
+    image = Image.open(frame_asset.path).convert("RGBA")
+
+    def color_bounds(color: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
+        points = [
+            (x, y)
+            for y in range(image.height)
+            for x in range(image.width)
+            if image.getpixel((x, y)) == color
+        ]
+        assert points
+        xs = [point[0] for point in points]
+        ys = [point[1] for point in points]
+        return min(xs), min(ys), max(xs), max(ys)
+
+    expected_centers = {
+        (0, 159, 107, 255): (320, 122),
+        (0, 135, 189, 255): (122, 320),
+        (196, 2, 51, 255): (518, 320),
+    }
+    for color, expected_center in expected_centers.items():
+        left, top, right, bottom = color_bounds(color)
+        assert abs((right - left) - (bottom - top)) <= 2
+        assert abs((left + right) / 2 - expected_center[0]) <= 3
+        assert abs((top + bottom) / 2 - expected_center[1]) <= 3

@@ -2151,6 +2151,8 @@ def test_build_volume_kindles_pages_css_report_and_azw3_without_mutating_process
     assert 'class="anomaly-lower-row"' in chapter
     assert 'class="anomaly-diamond-frame"' in chapter
     assert '<svg class="anomaly-diamond-frame"' not in chapter
+    assert "anomaly-diamond-layout" not in chapter
+    assert "anomaly-diamond-icon" not in chapter
     assert 'media-type="image/png"' in opf
     assert "575px" not in chapter
     assert "width:28%;" in chapter.replace(" ", "")
@@ -2216,6 +2218,8 @@ def test_build_volume_materializes_anomaly_diamond_for_standard_epub(tmp_path: P
         names = set(archive.namelist())
     assert 'class="anomaly-diamond-frame"' in chapter
     assert '<svg class="anomaly-diamond-frame"' not in chapter
+    assert "anomaly-diamond-layout" not in chapter
+    assert "anomaly-diamond-icon" not in chapter
     frame_href = re.search(
         r'<img[^>]+class="anomaly-diamond-frame"[^>]+src="\.\./(?P<href>assets/[^"]+\.png)"',
         chapter,
