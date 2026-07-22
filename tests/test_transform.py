@@ -1214,7 +1214,7 @@ def test_anomaly_diamond_uses_last_resolved_css_variable_quadrant_color():
     assert right["fill-opacity"] == "0.25"
 
 
-def test_stabilizes_text_message_alignment_on_each_message_paragraph():
+def test_stabilizes_text_message_layout_on_each_message_paragraph():
     html = """
     <html><body><div id="page-content">
       <div class="text-container-wrap"><div class="text-container">
@@ -1226,11 +1226,14 @@ def test_stabilizes_text_message_alignment_on_each_message_paragraph():
 
     result = transform_page(page_ref("scp-6764"), html, BASE_URL)
     soup = soup_fragment(result.xhtml)
+    container = soup.select_one(".text-container")
     received = soup.select_one(".text-container .recv")
     sent = soup.select_one(".text-container .sent")
 
+    assert container is not None
     assert received is not None
     assert sent is not None
+    assert "font-size: 0.72em" in container["style"]
     assert received["align"] == "left"
     assert sent["align"] == "right"
     assert "text-align: left !important" in received["style"]
