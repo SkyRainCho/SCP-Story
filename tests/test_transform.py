@@ -1214,6 +1214,38 @@ def test_anomaly_diamond_uses_last_resolved_css_variable_quadrant_color():
     assert right["fill-opacity"] == "0.25"
 
 
+def test_stabilizes_text_message_alignment_on_each_message_paragraph():
+    html = """
+    <html><body><div id="page-content">
+      <div class="text-container-wrap"><div class="text-container">
+        <div class="recv"><p style="margin: 0"><span class="text">收到</span></p></div>
+        <div class="sent"><p><span class="text">发出</span></p></div>
+      </div></div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-6764"), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+    received = soup.select_one(".text-container .recv")
+    sent = soup.select_one(".text-container .sent")
+
+    assert received is not None
+    assert sent is not None
+    assert received["align"] == "left"
+    assert sent["align"] == "right"
+    assert "text-align: left !important" in received["style"]
+    assert "text-align: right !important" in sent["style"]
+    received_paragraph = received.select_one("p")
+    sent_paragraph = sent.select_one("p")
+    assert received_paragraph is not None
+    assert sent_paragraph is not None
+    assert received_paragraph["align"] == "left"
+    assert sent_paragraph["align"] == "right"
+    assert "margin: 0" in received_paragraph["style"]
+    assert "text-align: left !important" in received_paragraph["style"]
+    assert "text-align: right !important" in sent_paragraph["style"]
+
+
 def test_anomaly_bar_marks_unrecognized_shape_without_dropping_text():
     html = """
     <html><body><div id="page-content">

@@ -475,6 +475,7 @@ def transform_page(
     page_styles = _materialize_generated_before_content(soup, page_content, page_styles)
     _convert_grid_tables(soup, page_content)
     _stabilize_float_layout(soup, page_content)
+    _stabilize_text_message_alignment(page_content)
     _normalize_scene_break_images(page_content)
     if entry.slug != "scp-001":
         _expand_wikidot_tabs(
@@ -2161,6 +2162,20 @@ def _append_style_declaration(tag: Tag, property_name: str, value: str) -> None:
     ]
     declarations.append(f"{property_name}: {value}")
     tag["style"] = "; ".join(declarations)
+
+
+def _stabilize_text_message_alignment(page_content: Tag) -> None:
+    for message in page_content.select(".text-container .recv, .text-container .sent"):
+        alignment = "right" if "sent" in _class_tokens(message) else "left"
+        message["align"] = alignment
+        _append_style_declaration(message, "text-align", f"{alignment} !important")
+        for paragraph in message.find_all("p", recursive=False):
+            paragraph["align"] = alignment
+            _append_style_declaration(
+                paragraph,
+                "text-align",
+                f"{alignment} !important",
+            )
 
 
 def _is_floated_image_block(tag: Tag) -> bool:
