@@ -299,7 +299,7 @@ def test_scp6183_layout_profile_does_not_style_all_content_for_direct_notice_hea
     assert "正文仍使用普通页面样式。" in soup.get_text(" ", strip=True)
 
 
-def test_scp4612_layout_profile_stabilizes_right_floated_image_blocks():
+def test_scp4612_layout_profile_stabilizes_classification_header_and_intro_image():
     html = (FEATURED_LAYOUT_FIXTURES / "scp-4612.html").read_text(encoding="utf-8")
 
     result = transform_page(
@@ -309,13 +309,40 @@ def test_scp4612_layout_profile_stabilizes_right_floated_image_blocks():
         page_options=PageTransformOptions(layout_profile="scp-4612"),
     )
     soup = soup_fragment(result.xhtml)
-    image_block = soup.find(id="estate-image")
+    classification = soup.select_one("table.scale")
+    clearance_cell = soup.select_one("td.class1")
+    decoration_cell = soup.select_one("td.class1image")
+    item_cell = soup.select_one("td.item1")
+    intro_image = soup.find(id="estate-image")
+    later_image = soup.find(id="later-image")
 
-    assert image_block is not None
-    assert "layout-profile-scp-4612-image" in image_block["class"]
-    assert "float: none" in image_block["style"]
-    assert "clear: both" in image_block["style"]
-    assert "max-width: 100%" in image_block.find("img")["style"]
+    assert classification is not None
+    assert "layout-profile-scp-4612-classification" in classification["class"]
+    assert "table-layout: fixed" in classification["style"]
+    assert "page-break-inside: avoid" in result.xhtml
+    assert clearance_cell is not None
+    assert "width: 34%" in clearance_cell["style"]
+    assert ".layout-profile-scp-4612-classification .class1" in result.xhtml
+    assert "white-space: normal" in result.xhtml
+    assert decoration_cell is not None
+    assert "width: 12%" in decoration_cell["style"]
+    assert "width: 4em" in decoration_cell.find("img")["style"]
+    assert item_cell is not None
+    assert "width: 54%" in item_cell["style"]
+    assert "font-size: 1.65em" in clearance_cell.find_all("h1")[0]["style"]
+    assert "font-size: 1.25em" in item_cell.find("h1")["style"]
+    assert clearance_cell.get_text(" ", strip=True) == "3/4612 级 机密"
+    assert len(clearance_cell.select(".base")) == 1
+    assert intro_image is not None
+    assert "layout-profile-scp-4612-intro-image" in intro_image["class"]
+    assert "float: right" in intro_image["style"]
+    assert "clear: right" in intro_image["style"]
+    assert "max-width: 45%" in intro_image["style"]
+    assert "max-width: 100%" in intro_image.find("img")["style"]
+    assert later_image is not None
+    assert "layout-profile-scp-4612-image" in later_image["class"]
+    assert "float: none" in later_image["style"]
+    assert "clear: both" in later_image["style"]
     assert "宅邸的调查仍在继续。" in soup.get_text(" ", strip=True)
 
 
@@ -2685,6 +2712,43 @@ def test_preserves_terminal_content_that_only_starts_with_an_author_work_list_la
     )
 
     assert soup_fragment(result.xhtml).find(id="ordinary-terminal") is not None
+
+
+def test_removes_scp7472_recommendation_panel_without_removing_article_content():
+    html = """
+    <html><body><div id="page-content">
+      <p id="version-notice">您目前正在浏览的文档版本已过期。点击<a href="/scp-7472/offset/1">此处</a>。</p>
+      <div id="ordinary-collapsible" class="collapsible-block">
+        <div class="collapsible-block-folded"><a class="collapsible-block-link">正文附录</a></div>
+        <div class="collapsible-block-unfolded"><p>应保留的正文内容。</p></div>
+      </div>
+      <div id="recommendations" class="collapsible-block">
+        <div class="collapsible-block-folded">
+          <a class="collapsible-block-link">您可能也会喜欢...</a>
+        </div>
+        <div class="collapsible-block-unfolded">
+          <div class="collapsible-block-content">
+            <p><a href="/scp-3790-j">SCP-3790-J</a></p>
+            <p><a href="/scp-6222">SCP-6222</a></p>
+          </div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-7472"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_recommendation_panel=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="recommendations") is None
+    assert soup.find(id="ordinary-collapsible") is not None
+    assert soup.find(id="version-notice") is not None
+    assert "应保留的正文内容。" in soup.get_text(" ", strip=True)
+    assert "SCP-3790-J" not in soup.get_text(" ", strip=True)
 
 
 def test_converts_ruby_annotation_spans_to_semantic_ruby():

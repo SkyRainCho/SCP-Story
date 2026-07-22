@@ -21,6 +21,11 @@ explicit_linked_appendices:
       url: https://scp-wiki-cn.wikidot.com/scp-5170/offset/2
     - title: "#3附件C"
       url: https://scp-wiki-cn.wikidot.com/scp-5170/offset/3
+  scp-7472:
+    - title: SCP-7472 Offset 1
+      url: https://scp-wiki-cn.wikidot.com/scp-7472/offset/1
+    - title: SCP-7472 Offset 2
+      url: https://scp-wiki-cn.wikidot.com/scp-7472/offset/2
 page_tab_includes:
   about-the-scp-foundation:
     - 简介
@@ -82,6 +87,8 @@ page_overrides:
     remove_author_work_list: true
   scp-7069:
     remove_adult_content_warning: true
+  scp-7472:
+    remove_recommendation_panel: true
   scp-6183:
     layout_profile: scp-6183
   scp-4612:

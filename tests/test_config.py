@@ -278,6 +278,13 @@ def test_featured_scp_config_uses_archive_mode_and_title_indexes():
         "scp-5170/offset/2",
         "scp-5170/offset/3",
     ]
+    assert [
+        (link.title, link.slug)
+        for link in config.explicit_linked_appendices["scp-7472"]
+    ] == [
+        ("SCP-7472 Offset 1", "scp-7472/offset/1"),
+        ("SCP-7472 Offset 2", "scp-7472/offset/2"),
+    ]
     assert list(config.volumes) == ["featured"]
 
 
@@ -342,6 +349,7 @@ def test_load_config_parses_page_overrides_and_inline_documents(tmp_path: Path):
     remove_leading_metadata: true
     remove_adult_content_warning: true
     remove_author_work_list: true
+    remove_recommendation_panel: true
     layout_profile: scp-1234
     inline_documents:
       - title: Supplement
@@ -365,6 +373,7 @@ def test_load_config_parses_page_overrides_and_inline_documents(tmp_path: Path):
     assert override.remove_leading_metadata is True
     assert override.remove_adult_content_warning is True
     assert override.remove_author_work_list is True
+    assert override.remove_recommendation_panel is True
     assert override.layout_profile == "scp-1234"
     assert [(document.title, document.url, document.slug, document.position, document.anchor_text) for document in override.inline_documents] == [
         ("Supplement", "https://example.test/supplement", "supplement", "after_text", "Anchor"),
@@ -397,6 +406,7 @@ def test_featured_scp_config_declares_page_overrides():
         if override.remove_author_work_list
     } == {"scp-6698", "scp-4233", "scp-5595"}
     assert config.page_overrides["scp-7069"].remove_adult_content_warning is True
+    assert config.page_overrides["scp-7472"].remove_recommendation_panel is True
     assert {
         slug: config.page_overrides[slug].layout_profile
         for slug in ("scp-6183", "scp-4612", "scp-6599")
