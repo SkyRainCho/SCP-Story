@@ -1398,6 +1398,13 @@ def test_kindle_css_uses_kf8_fallbacks_and_preserves_scp_components():
     assert "text-transform: uppercase" in lowered
 
     assert ".content-panel" in css
+    assert ".text-container .epub-chat-bubble-left" in css
+    assert ".text-container .epub-chat-bubble-right" in css
+    assert "display: table !important;" in css
+    assert "margin-left: 10px !important;" in css
+    assert "margin-right: 10px !important;" in css
+    assert "margin-left: auto !important;" in css
+    assert "margin-right: auto !important;" in css
     assert ".scp-image-block.block-right" in css
     assert "table.wiki-content-table" in css
     assert ".tabview-panel-epub" in css
