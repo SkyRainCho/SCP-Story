@@ -216,7 +216,8 @@ def test_materialize_anomaly_diamond_assets_renders_png_and_rewrites_page(tmp_pa
     )
 
     assert "<svg" not in prepared_page.xhtml
-    assert 'class="anomaly-diamond-frame"' in prepared_page.xhtml
+    assert "anomaly-diamond-frame" in prepared_page.xhtml
+    assert "anomaly-diamond-composite" in prepared_page.xhtml
     assert "anomaly-diamond-layout" not in prepared_page.xhtml
     assert "anomaly-diamond-icon" not in prepared_page.xhtml
     assert len(assets) == 2

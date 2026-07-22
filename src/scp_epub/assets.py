@@ -151,7 +151,11 @@ def materialize_anomaly_diamond_assets(
             image = soup.new_tag(
                 "img",
                 attrs={
-                    "class": "anomaly-diamond-frame",
+                    "class": (
+                        "anomaly-diamond-frame anomaly-diamond-composite"
+                        if icon_markup
+                        else "anomaly-diamond-frame"
+                    ),
                     "src": f"../{asset.href}",
                     "alt": "",
                 },

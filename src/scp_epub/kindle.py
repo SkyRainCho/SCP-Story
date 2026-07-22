@@ -1190,6 +1190,9 @@ def _prepare_kindle_xhtml(xhtml: str, *, page_slug: str) -> str:
             and not _has_descendant_class(
                 parser.elements, diamond, "anomaly-diamond-icon"
             )
+            and not _has_descendant_class(
+                parser.elements, diamond, "anomaly-diamond-composite"
+            )
         ):
             risk_text = _element_text(risk)
             if (

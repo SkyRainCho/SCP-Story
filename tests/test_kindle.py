@@ -1121,6 +1121,21 @@ def test_prepare_kindle_pages_prefers_real_anomaly_icon_over_fallback_risk_label
     assert "anomaly-diamond-icon" in prepared.xhtml
 
 
+def test_prepare_kindle_pages_does_not_overlay_risk_label_on_composite_diamond():
+    source = _page(
+        '<div class="anom-bar-container clear-1 safe vlam notice">'
+        '<div class="risk-class"><div class="class-text">notice</div></div>'
+        '<div class="danger-diamond">'
+        '<img class="anomaly-diamond-frame anomaly-diamond-composite" '
+        'src="../assets/anomaly-diamond.png" alt="" />'
+        "</div></div>"
+    )
+
+    [prepared] = prepare_kindle_pages([source])
+
+    assert "kindle-danger-label" not in prepared.xhtml
+
+
 def test_prepare_kindle_pages_preserves_ordinary_xhtml_exactly():
     xhtml = (
         '<section><svg viewBox="0 0 10 10" preserveAspectRatio="xMidYMid meet">'
