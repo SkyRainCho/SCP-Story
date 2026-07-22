@@ -45,6 +45,7 @@ class PageOverride:
     remove_leading_metadata: bool = False
     remove_adult_content_warning: bool = False
     remove_author_work_list: bool = False
+    remove_recommendation_panel: bool = False
     layout_profile: str | None = None
     inline_documents: tuple[InlineDocumentSpec, ...] = ()
 

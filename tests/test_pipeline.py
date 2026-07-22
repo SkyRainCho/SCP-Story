@@ -1647,8 +1647,8 @@ def test_build_volume_applies_configured_layout_profile(tmp_path: Path):
     page_xhtml = (config.processed_dir / "test-volume" / "0001-scp-4612.xhtml").read_text(
         encoding="utf-8"
     )
-    assert "layout-profile-scp-4612-image" in page_xhtml
-    assert 'style="width: 320px; float: none; clear: both; max-width: 100%"' in page_xhtml
+    assert "layout-profile-scp-4612-intro-image" in page_xhtml
+    assert 'style="width: 320px; float: right; clear: right; max-width: 45%"' in page_xhtml
 
 
 def test_build_volume_can_disable_linked_appendices_for_featured_books(tmp_path: Path):
@@ -1726,6 +1726,74 @@ def test_build_volume_includes_configured_linked_appendix_chain(tmp_path: Path):
         "scp-5170/offset/2",
         "scp-5170/offset/3",
     ]
+
+
+def test_build_volume_cleans_scp7472_recommendations_and_adds_offsets(tmp_path: Path):
+    config = app_config(
+        tmp_path,
+        explicit_linked_appendices={
+            "scp-7472": (
+                ConfiguredLink(
+                    title="SCP-7472 Offset 1",
+                    url=f"{BASE_URL}/scp-7472/offset/1",
+                    slug="scp-7472/offset/1",
+                ),
+                ConfiguredLink(
+                    title="SCP-7472 Offset 2",
+                    url=f"{BASE_URL}/scp-7472/offset/2",
+                    slug="scp-7472/offset/2",
+                ),
+            )
+        },
+        page_overrides={
+            "scp-7472": PageOverride(remove_recommendation_panel=True),
+        },
+    )
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(
+        [PageRef("SCP-7472", f"{BASE_URL}/scp-7472", "scp-7472", 1, "scp", order=1)],
+        config.manifest_dir / "test-volume.json",
+    )
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-7472": simple_page(
+                "SCP-7472",
+                '<p id="version-notice"><a href="/scp-7472/offset/1">最新迭代</a></p>'
+                '<div id="recommendations" class="collapsible-block">'
+                '<div class="collapsible-block-folded">'
+                '<a class="collapsible-block-link">您可能也会喜欢...</a>'
+                '</div><div class="collapsible-block-unfolded">'
+                '<p><a href="/scp-6222">SCP-6222</a></p></div></div>',
+            ),
+            "scp-7472/offset/1": simple_page("SCP-7472 Offset 1", "第一份正文。"),
+            "scp-7472/offset/2": simple_page("SCP-7472 Offset 2", "第二份正文。"),
+        },
+    )
+
+    build_volume(config, "001-099", fetcher=fetcher)
+
+    report = json.loads(
+        (config.output_dir / "reports" / "test-volume-report.json").read_text(encoding="utf-8")
+    )
+    assert report["slugs"] == [
+        "scp-7472",
+        "scp-7472--linked-appendices",
+        "scp-7472/offset/1",
+        "scp-7472/offset/2",
+    ]
+    main_xhtml = (
+        config.processed_dir / "test-volume" / "0001-scp-7472.xhtml"
+    ).read_text(encoding="utf-8")
+    assert "version-notice" in main_xhtml
+    assert "recommendations" not in main_xhtml
+    assert "SCP-6222" not in main_xhtml
+    assert "原文附属文档" in (
+        config.processed_dir
+        / "test-volume"
+        / "0002-scp-7472--linked-appendices.xhtml"
+    ).read_text(encoding="utf-8")
 
 
 def test_fetch_inline_documents_skips_configured_owner_absent_from_manifest(tmp_path: Path):

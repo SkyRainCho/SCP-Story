@@ -261,6 +261,7 @@ def _load_page_overrides(
                 "remove_leading_metadata",
                 "remove_adult_content_warning",
                 "remove_author_work_list",
+                "remove_recommendation_panel",
                 "layout_profile",
                 "inline_documents",
             },
@@ -282,6 +283,10 @@ def _load_page_overrides(
             remove_author_work_list=_optional_bool(
                 override.get("remove_author_work_list", False),
                 f"{override_name}.remove_author_work_list",
+            ),
+            remove_recommendation_panel=_optional_bool(
+                override.get("remove_recommendation_panel", False),
+                f"{override_name}.remove_recommendation_panel",
             ),
             layout_profile=_optional_string(
                 override.get("layout_profile"),

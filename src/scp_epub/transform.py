@@ -395,6 +395,7 @@ AUTHOR_WORK_LIST_LABELS = (
     "More by this author",
     "该作者的更多作品",
 )
+RECOMMENDATION_PANEL_LABELS = frozenset({"你可能也会喜欢", "您可能也会喜欢"})
 SUBSTANTIVE_MEDIA_TAGS = ("audio", "figure", "img", "object", "picture", "svg", "table", "video")
 TWO_LINK_TERMINAL_NAVIGATION_SLUGS = frozenset({"scp-7261", "scp-3662"})
 
@@ -405,6 +406,7 @@ class PageTransformOptions:
     remove_leading_metadata: bool = False
     remove_adult_content_warning: bool = False
     remove_author_work_list: bool = False
+    remove_recommendation_panel: bool = False
     layout_profile: str | None = None
 
 
@@ -644,6 +646,8 @@ def _apply_page_cleanup_options(
         _remove_scp_7069_adult_warning(page_content)
     if options.remove_author_work_list:
         _remove_terminal_author_work_list(page_content)
+    if options.remove_recommendation_panel:
+        _remove_recommendation_panels(page_content)
 
     layout_profile_rule = LAYOUT_PROFILE_RULES.get(options.layout_profile)
     if layout_profile_rule is None:
@@ -802,6 +806,20 @@ def _remove_terminal_author_work_list(page_content: Tag) -> None:
         text = block.get_text(" ", strip=True)
         if _starts_with_author_work_list_label(text):
             block.decompose()
+
+
+def _remove_recommendation_panels(page_content: Tag) -> None:
+    for heading in list(page_content.select(".collapsible-block-folded")):
+        if not _is_recommendation_panel_label(heading.get_text(" ", strip=True)):
+            continue
+        panel = heading.find_parent(class_="collapsible-block")
+        if isinstance(panel, Tag):
+            panel.decompose()
+
+
+def _is_recommendation_panel_label(value: str) -> bool:
+    normalized = re.sub(r"\s+", "", value).rstrip(".…")
+    return normalized in RECOMMENDATION_PANEL_LABELS
 
 
 def _remove_folded_author_work_lists(page_content: Tag) -> None:
@@ -2321,11 +2339,97 @@ def _apply_scp_6183_layout_profile(page_content: Tag) -> None:
 
 
 def _apply_scp_4612_layout_profile(page_content: Tag) -> None:
-    for image_block in page_content.select(".scp-image-block.block-right"):
+    _normalize_scp_4612_classification(page_content)
+
+    image_blocks = page_content.select(".scp-image-block.block-right")
+    if image_blocks:
+        _stabilize_scp_4612_intro_image(image_blocks[0])
+    for image_block in image_blocks[1:]:
         _stabilize_profile_image_block(
             image_block,
             "layout-profile-scp-4612-image",
         )
+
+
+def _normalize_scp_4612_classification(page_content: Tag) -> None:
+    classification = page_content.select_one("table.scale")
+    if classification is None:
+        return
+
+    _add_class_token(classification, "layout-profile-scp-4612-classification")
+    for property_name, value in (
+        ("width", "100%"),
+        ("max-width", "100%"),
+        ("table-layout", "fixed"),
+        ("border-collapse", "collapse"),
+        ("page-break-inside", "avoid"),
+        ("break-inside", "avoid"),
+    ):
+        _append_style_declaration(classification, property_name, value)
+
+    clearance_cell = classification.select_one("td.class1")
+    decoration_cell = classification.select_one("td.class1image")
+    item_cell = classification.select_one("td.item1")
+
+    if clearance_cell is not None:
+        _stabilize_scp_4612_classification_cell(clearance_cell, "34%", "left")
+        level_spans = clearance_cell.select(".base")
+        for duplicate in level_spans[1:]:
+            duplicate.decompose()
+        if level_spans:
+            _append_style_declaration(level_spans[0], "display", "inline")
+        clearance_headings = clearance_cell.find_all("h1")
+        if clearance_headings:
+            _stabilize_scp_4612_classification_heading(clearance_headings[0], "1.65em")
+        for heading in clearance_headings[1:]:
+            _stabilize_scp_4612_classification_heading(heading, "1.45em")
+
+    if decoration_cell is not None:
+        _stabilize_scp_4612_classification_cell(decoration_cell, "12%", "center")
+        for image in decoration_cell.find_all("img"):
+            _append_style_declaration(image, "display", "block")
+            _append_style_declaration(image, "width", "4em")
+            _append_style_declaration(image, "max-width", "100%")
+            _append_style_declaration(image, "height", "auto")
+            _append_style_declaration(image, "margin", "0 auto")
+
+    if item_cell is not None:
+        _stabilize_scp_4612_classification_cell(item_cell, "54%", "right")
+        for heading in item_cell.find_all("h1"):
+            _stabilize_scp_4612_classification_heading(heading, "1.25em")
+
+
+def _stabilize_scp_4612_classification_cell(
+    cell: Tag,
+    width: str,
+    text_align: str,
+) -> None:
+    _append_style_declaration(cell, "width", width)
+    _append_style_declaration(cell, "white-space", "normal")
+    _append_style_declaration(cell, "vertical-align", "middle")
+    _append_style_declaration(cell, "text-align", text_align)
+    _append_style_declaration(cell, "padding", "0.25em")
+
+
+def _stabilize_scp_4612_classification_heading(
+    heading: Tag,
+    font_size: str,
+) -> None:
+    _append_style_declaration(heading, "font-size", font_size)
+    _append_style_declaration(heading, "line-height", "1.2")
+    _append_style_declaration(heading, "margin", "0.2em 0")
+    _append_style_declaration(heading, "transform", "none")
+    _append_style_declaration(heading, "overflow-wrap", "anywhere")
+
+
+def _stabilize_scp_4612_intro_image(image_block: Tag) -> None:
+    _add_class_token(image_block, "layout-profile-scp-4612-intro-image")
+    _append_style_declaration(image_block, "float", "right")
+    _append_style_declaration(image_block, "clear", "right")
+    _append_style_declaration(image_block, "max-width", "45%")
+    for image in image_block.find_all("img"):
+        _append_style_declaration(image, "max-width", "100%")
+        _append_style_declaration(image, "height", "auto")
 
 
 def _apply_scp_6599_layout_profile(page_content: Tag) -> None:
@@ -2418,7 +2522,16 @@ LAYOUT_PROFILE_RULES: dict[str, LayoutProfileRule] = {
     "scp-4612": LayoutProfileRule(
         apply=_apply_scp_4612_layout_profile,
         style_rules=(
-            ".layout-profile-scp-4612-image {float: none; clear: both; max-width: 100%;}"
+            ".layout-profile-scp-4612-classification {width: 100%; max-width: 100%; "
+            "table-layout: fixed; border-collapse: collapse; page-break-inside: avoid; break-inside: avoid;}"
+            "\n.layout-profile-scp-4612-classification td {vertical-align: middle; border: 0;}"
+            "\n.layout-profile-scp-4612-classification .class1, "
+            ".layout-profile-scp-4612-classification .item1 {white-space: normal;}"
+            "\n.layout-profile-scp-4612-classification h1 {line-height: 1.2; margin: 0.2em 0; "
+            "transform: none; overflow-wrap: anywhere;}"
+            "\n.layout-profile-scp-4612-intro-image {float: right; clear: right; max-width: 45%;}"
+            "\n.layout-profile-scp-4612-intro-image img {max-width: 100%; height: auto;}"
+            "\n.layout-profile-scp-4612-image {float: none; clear: both; max-width: 100%;}"
             "\n.layout-profile-scp-4612-image img {max-width: 100%; height: auto;}"
         ),
     ),
