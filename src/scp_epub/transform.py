@@ -2168,7 +2168,15 @@ def _stabilize_text_message_layout(page_content: Tag) -> None:
     for container in page_content.select(".text-container"):
         if container.select_one(".recv, .sent") is None:
             continue
+        wrapper = container.find_parent(class_="text-container-wrap")
+        if wrapper is not None:
+            _append_style_declaration(wrapper, "width", "500px !important")
+            _append_style_declaration(wrapper, "max-width", "100% !important")
         _append_style_declaration(container, "font-size", "0.72em !important")
+        _append_style_declaration(container, "width", "450px !important")
+        _append_style_declaration(container, "max-width", "90% !important")
+        for bubble in container.select(".recv .text, .sent .text"):
+            _append_style_declaration(bubble, "max-width", "85% !important")
 
     for message in page_content.select(".text-container .recv, .text-container .sent"):
         alignment = "right" if "sent" in _class_tokens(message) else "left"

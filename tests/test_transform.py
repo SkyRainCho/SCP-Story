@@ -1226,14 +1226,20 @@ def test_stabilizes_text_message_layout_on_each_message_paragraph():
 
     result = transform_page(page_ref("scp-6764"), html, BASE_URL)
     soup = soup_fragment(result.xhtml)
+    wrapper = soup.select_one(".text-container-wrap")
     container = soup.select_one(".text-container")
     received = soup.select_one(".text-container .recv")
     sent = soup.select_one(".text-container .sent")
 
+    assert wrapper is not None
     assert container is not None
     assert received is not None
     assert sent is not None
+    assert "width: 500px" in wrapper["style"]
+    assert "max-width: 100%" in wrapper["style"]
     assert "font-size: 0.72em" in container["style"]
+    assert "width: 450px" in container["style"]
+    assert "max-width: 90%" in container["style"]
     assert received["align"] == "left"
     assert sent["align"] == "right"
     assert "text-align: left !important" in received["style"]
@@ -1242,6 +1248,8 @@ def test_stabilizes_text_message_layout_on_each_message_paragraph():
     sent_paragraph = sent.select_one("p")
     assert received_paragraph is not None
     assert sent_paragraph is not None
+    assert "max-width: 85%" in received_paragraph.select_one(".text")["style"]
+    assert "max-width: 85%" in sent_paragraph.select_one(".text")["style"]
     assert received_paragraph["align"] == "left"
     assert sent_paragraph["align"] == "right"
     assert "margin: 0" in received_paragraph["style"]
