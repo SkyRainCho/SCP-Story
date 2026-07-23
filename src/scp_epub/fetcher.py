@@ -187,7 +187,7 @@ class Fetcher:
         )
         content_type = response.content_type or "application/octet-stream"
         if force:
-            self._delete_cached_asset_files(url)
+            self.cache.delete_asset(url)
         asset_path, metadata_path = self.cache.write_asset(
             url,
             response.content,
@@ -247,14 +247,6 @@ class Fetcher:
         if callable(self.http_client):
             return self.http_client(url, headers=headers)
         raise TypeError("HTTP client must be callable or provide get()")
-
-    def _delete_cached_asset_files(self, url: str) -> None:
-        if not self.cache.assets_dir.exists():
-            return
-        digest = self.cache.asset_digest(url)
-        for path in sorted(self.cache.assets_dir.glob(f"{digest}.*")):
-            if path.is_file():
-                path.unlink()
 
     def _fetch_with_browser(self, url: str) -> tuple[str, int, str]:
         fetcher = self.browser_fetcher

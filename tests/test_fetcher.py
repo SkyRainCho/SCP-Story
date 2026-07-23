@@ -313,6 +313,8 @@ def test_fetch_asset_force_refresh_removes_stale_digest_files(tmp_path: Path):
     )
 
     png = fetcher.fetch_asset(url)
+    assert cache.find_asset(url) == png.path
+
     webp = fetcher.fetch_asset(url, force=True)
     cached = fetcher.fetch_asset(url)
 
