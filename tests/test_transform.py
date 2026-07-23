@@ -946,6 +946,35 @@ def test_page_styles_preserve_commas_inside_pseudo_class_selectors():
     assert "#page-content .metam :is(th, td) {background: #1a1a1a; color: white;}" in style_text
 
 
+def test_adds_readability_background_for_site_7_image_captions():
+    html = """
+    <html><head><style>
+      .scp-image-caption { color: rgb(252, 252, 252); }
+    </style></head><body><div id="page-content">
+      <div class="scp-image-block"><div class="scp-image-caption">站点图片</div></div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("secure-facility-dossier-site-7"), html, BASE_URL)
+    style_text = soup_fragment(result.xhtml).find("style").get_text()
+
+    assert ".scp-image-caption {background-color: #262626;}" in style_text
+
+
+def test_adds_readability_background_for_area_12_themed_floatboxes():
+    html = """
+    <html><body><div id="page-content">
+      <div class="floatbox metam"><span class="fncon">译注</span></div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("secure-facility-dossier-area-12"), html, BASE_URL)
+    style_text = soup_fragment(result.xhtml).find("style").get_text()
+
+    assert "#page-content .floatbox.metam {background-color: #080808 !important;" in style_text
+    assert "#page-content .floatbox.metam .fncon {background-color: #030303;" in style_text
+
+
 def test_does_not_recolor_explicit_source_white_text_without_a_dark_panel():
     html = """
     <html><body><div id="page-content">

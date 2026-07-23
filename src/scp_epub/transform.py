@@ -154,6 +154,17 @@ INTERACTIVE_ARTICLE_EPUB_STYLE_RULES = (
     "transform: rotate(-1deg); margin: 0.75em 0;}"
     "\n.glitch-stack span {font-weight: bold; text-shadow: -2px 3px 0 red, 2px -3px 0 #4d52ff;}"
 )
+PAGE_EPUB_STYLE_RULES = {
+    "secure-facility-dossier-site-7": (
+        ".scp-image-caption {background-color: #262626;}"
+    ),
+    "secure-facility-dossier-area-12": (
+        "#page-content .floatbox.metam {background-color: #080808 !important; "
+        "color: #d2d2d2 !important; border: 1px solid #333;}"
+        "\n#page-content .floatbox.metam .fncon {background-color: #030303; "
+        "color: #fff; padding: 0.1em 0.25em;}"
+    ),
+}
 ANOMALY_CLEARANCE_LABELS = {
     "clear-1": "公开",
     "clear-2": "受限",
@@ -475,6 +486,9 @@ def transform_page(
         page_options or PageTransformOptions(),
     )
     page_styles = _append_page_style_rules(page_styles, profile_style_rules)
+    page_styles = _append_page_style_rules(
+        page_styles, PAGE_EPUB_STYLE_RULES.get(entry.slug, "")
+    )
 
     if _has_interactive_article_layout(page_content):
         _linearize_interactive_article_layout(page_content)
