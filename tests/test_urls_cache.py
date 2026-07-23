@@ -145,6 +145,67 @@ def test_cache_store_finds_asset_by_url_digest_without_content_type_lookup(tmp_p
     assert cache.find_asset(url) == asset_path
 
 
+def test_cache_store_indexes_assets_once_for_repeated_lookup(tmp_path: Path, monkeypatch):
+    cache = CacheStore(tmp_path / "raw")
+    url = "https://example.test/assets/logo"
+    asset_path, _ = cache.write_asset(url, b"png bytes", 200, "image/png")
+    original_iterdir = Path.iterdir
+    enumeration_count = 0
+
+    def counted_iterdir(path: Path):
+        nonlocal enumeration_count
+        if path == cache.assets_dir:
+            enumeration_count += 1
+        return original_iterdir(path)
+
+    monkeypatch.setattr(Path, "iterdir", counted_iterdir)
+
+    assert cache.find_asset(url) == asset_path
+    assert cache.find_asset(url) == asset_path
+    assert enumeration_count == 1
+
+
+def test_cache_store_index_preserves_sorted_asset_winner_and_ignores_metadata(tmp_path: Path):
+    cache = CacheStore(tmp_path / "raw")
+    url = "https://example.test/assets/logo"
+    digest = cache.asset_digest(url)
+    cache.assets_dir.mkdir(parents=True)
+    expected_path = cache.assets_dir / f"{digest}.jpg"
+    expected_path.write_bytes(b"jpeg bytes")
+    (cache.assets_dir / f"{digest}.webp").write_bytes(b"webp bytes")
+    (cache.assets_dir / f"{digest}.jpg.json").write_text("{}", encoding="utf-8")
+
+    assert cache.find_asset(url) == expected_path
+
+
+def test_cache_store_deletes_asset_files_and_index_entry(tmp_path: Path):
+    cache = CacheStore(tmp_path / "raw")
+    url = "https://example.test/assets/logo"
+    asset_path, metadata_path = cache.write_asset(url, b"png bytes", 200, "image/png")
+
+    assert cache.find_asset(url) == asset_path
+
+    cache.delete_asset(url)
+
+    assert not asset_path.exists()
+    assert not metadata_path.exists()
+    assert cache.find_asset(url) is None
+
+
+def test_cache_store_write_asset_replaces_missing_indexed_path(tmp_path: Path):
+    cache = CacheStore(tmp_path / "raw")
+    url = "https://example.test/assets/logo"
+    old_path, old_metadata_path = cache.write_asset(url, b"png bytes", 200, "image/png")
+
+    assert cache.find_asset(url) == old_path
+    old_path.unlink()
+    old_metadata_path.unlink()
+
+    new_path, _ = cache.write_asset(url, b"webp bytes", 200, "image/webp")
+
+    assert cache.find_asset(url) == new_path
+
+
 def test_cache_store_extensionless_asset_without_content_type_uses_bin(tmp_path: Path):
     cache = CacheStore(tmp_path / "raw")
 
