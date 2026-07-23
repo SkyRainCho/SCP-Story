@@ -131,6 +131,9 @@ CSS_ESCAPED_CHAR_RE = re.compile(r"\\(?P<escape>[0-9a-fA-F]{1,6}\s?|.)", re.DOTA
 CSS_PSEUDO_RE = re.compile(r"::?[a-zA-Z-]+(?:\([^)]*\))?")
 CSS_CLASS_SELECTOR_RE = re.compile(r"\.([_a-zA-Z][-_a-zA-Z0-9]*)")
 CSS_ID_SELECTOR_RE = re.compile(r"#([_a-zA-Z][-_a-zA-Z0-9]*)")
+CSS_PAGE_STYLE_TARGET_TOKEN_RE = re.compile(
+    r"\.(?P<class>[_a-zA-Z][-_a-zA-Z0-9]*)|#(?P<id>[_a-zA-Z][-_a-zA-Z0-9]*)"
+)
 GENERATED_BEFORE_FONT_SIZE = "0.875em"
 POSITIONED_GENERATED_BEFORE_STYLE = (
     "margin-top: -1.75em; margin-left: -0.5em; margin-bottom: 0.75em"
@@ -1240,11 +1243,19 @@ def _style_block_may_target_page_content(
 ) -> bool:
     page_classes, page_ids = targets
     normalized_css = css_text.casefold()
-    return (
-        "#page-content" in normalized_css
-        or any(f".{class_name.casefold()}" in normalized_css for class_name in page_classes)
-        or any(f"#{page_id.casefold()}" in normalized_css for page_id in page_ids)
-    )
+    if "#page-content" in normalized_css:
+        return True
+
+    selector_classes: set[str] = set()
+    selector_ids: set[str] = set()
+    for match in CSS_PAGE_STYLE_TARGET_TOKEN_RE.finditer(normalized_css):
+        class_name = match.group("class")
+        if class_name is not None:
+            selector_classes.add(class_name)
+            continue
+        selector_ids.add(match.group("id"))
+
+    return bool(selector_classes & page_classes or selector_ids & page_ids)
 
 
 def _css_rule_source(css_text: str) -> str:

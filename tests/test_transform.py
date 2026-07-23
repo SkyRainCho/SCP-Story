@@ -1689,6 +1689,50 @@ def test_skips_irrelevant_large_page_style_block_before_matching_rules(monkeypat
     assert "<style>" not in result.xhtml
 
 
+def test_style_prefilter_extracts_tokens_once_for_many_page_targets(monkeypatch):
+    class CountingTokenExtractor:
+        def __init__(self):
+            self.css_inputs: list[str] = []
+
+        def finditer(self, css_text):
+            self.css_inputs.append(css_text)
+            return iter(())
+
+    token_extractor = CountingTokenExtractor()
+    matcher_calls: list[str] = []
+    original_matching_css_rules = transform_module._matching_css_rules
+
+    def spy_matching_css_rules(css_text, targets, custom_properties):
+        matcher_calls.append(css_text)
+        return original_matching_css_rules(css_text, targets, custom_properties)
+
+    monkeypatch.setattr(
+        transform_module,
+        "CSS_PAGE_STYLE_TARGET_TOKEN_RE",
+        token_extractor,
+        raising=False,
+    )
+    monkeypatch.setattr(transform_module, "_matching_css_rules", spy_matching_css_rules)
+    unused_rules = "\n".join(
+        f".unused-{index} {{ color: red; }}" for index in range(1_000)
+    )
+    page_targets = "\n".join(
+        f'<p class="target-class-{index}" id="target-id-{index}">正文。</p>'
+        for index in range(500)
+    )
+    html = f"""
+    <html><head><style>{unused_rules}</style></head><body>
+      <div id="page-content">{page_targets}</div>
+    </body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+
+    assert len(token_extractor.css_inputs) == 1
+    assert matcher_calls == []
+    assert "<style>" not in result.xhtml
+
+
 def test_preserves_page_style_rule_for_present_class():
     html = """
     <html><head><style>.present { color: red; }</style></head><body>
