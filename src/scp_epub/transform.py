@@ -497,6 +497,8 @@ def transform_page(
     page_styles = _append_page_style_rules(
         page_styles, PAGE_EPUB_STYLE_RULES.get(entry.slug, "")
     )
+    if entry.slug == "scp-6747":
+        _stabilize_scp_6747_splash(page_content)
 
     if _has_interactive_article_layout(page_content):
         _linearize_interactive_article_layout(page_content)
@@ -1122,6 +1124,20 @@ def _append_page_style_rules(page_styles: str, extra_rules: str) -> str:
     if not page_styles:
         return extra_rules
     return f"{page_styles}\n{extra_rules}"
+
+
+def _stabilize_scp_6747_splash(page_content: Tag) -> None:
+    for splash in page_content.select(".admo-episode_splash, .admo-intermission_splash"):
+        classes = [
+            class_name
+            for class_name in splash.get("class", [])
+            if class_name not in {"admo-episode_splash", "admo-intermission_splash"}
+        ]
+        splash["class"] = [*classes, "admo-episode-splash-epub"]
+        for title in splash.select(".ctrl"):
+            title["style"] = "font-size: 2.4em; line-height: 1.2"
+        for subtitle in splash.select(".cond"):
+            subtitle["style"] = "font-size: 1.2em"
 
 
 def _normalize_ruby_annotations(soup: BeautifulSoup, page_content: Tag) -> None:

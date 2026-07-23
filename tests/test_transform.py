@@ -983,10 +983,13 @@ def test_adds_static_epub_layout_for_scp_6747_splash():
     """
 
     result = transform_page(page_ref("scp-6747"), html, BASE_URL)
-    style_text = soup_fragment(result.xhtml).find("style").get_text()
+    soup = soup_fragment(result.xhtml)
+    splash = soup.find("div", class_="admo-episode-splash-epub")
+    title = splash.find("span", class_="ctrl")
 
-    assert ".admo-episode_splash {display: block; height: auto;" in style_text
-    assert ".admo-episode_splash .ctrl {font-size: 2.4em; line-height: 1.2;}" in style_text
+    assert splash is not None
+    assert "admo-episode_splash" not in splash.get("class", [])
+    assert title["style"] == "font-size: 2.4em"
 
 
 def test_does_not_recolor_explicit_source_white_text_without_a_dark_panel():
