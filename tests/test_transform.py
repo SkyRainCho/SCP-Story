@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from bs4 import BeautifulSoup, Comment
 
+import scp_epub.transform as transform_module
 from scp_epub.config import load_config
 from scp_epub.models import InlineDocumentSpec, PageRef, ProcessedPage
 from scp_epub.page_fallbacks import snapshot_layout_signature
@@ -1662,6 +1663,66 @@ def test_skips_page_style_rules_with_unexpanded_wikidot_template_placeholders():
     assert ".article-frame {border: 1px solid #555;}" in style_text
     assert ".earthworm__previous" not in style_text
     assert "previous-title" not in style_text
+
+
+def test_skips_irrelevant_large_page_style_block_before_matching_rules(monkeypatch):
+    calls: list[str] = []
+    original_matching_css_rules = transform_module._matching_css_rules
+
+    def spy_matching_css_rules(css_text, targets, custom_properties):
+        calls.append(css_text)
+        return original_matching_css_rules(css_text, targets, custom_properties)
+
+    monkeypatch.setattr(transform_module, "_matching_css_rules", spy_matching_css_rules)
+    unused_rules = "\n".join(
+        f".unused-{index} {{ color: red; }}" for index in range(1_000)
+    )
+    html = f"""
+    <html><head><style>{unused_rules}</style></head><body>
+      <div id="page-content"><p class="present">正文。</p></div>
+    </body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+
+    assert calls == []
+    assert "<style>" not in result.xhtml
+
+
+def test_preserves_page_style_rule_for_present_class():
+    html = """
+    <html><head><style>.present { color: red; }</style></head><body>
+      <div id="page-content"><p class="present">正文。</p></div>
+    </body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+
+    assert ".present {color: red;}" in soup_fragment(result.xhtml).find("style").get_text()
+
+
+def test_preserves_page_style_rule_for_present_id():
+    html = """
+    <html><head><style>#present { color: blue; }</style></head><body>
+      <div id="page-content"><p id="present">正文。</p></div>
+    </body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+
+    assert "#present {color: blue;}" in soup_fragment(result.xhtml).find("style").get_text()
+
+
+def test_preserves_page_content_root_style_rule():
+    html = """
+    <html><head><style>#page-content > p { color: green; }</style></head><body>
+      <div id="page-content"><p>正文。</p></div>
+    </body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+
+    assert "p {color: green;}" in soup_fragment(result.xhtml).find("style").get_text()
 
 
 def test_materializes_page_style_before_content_labels():

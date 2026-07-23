@@ -1224,6 +1224,8 @@ def _applicable_page_styles(soup: BeautifulSoup, page_content: Tag) -> str:
 
     for style in soup.find_all("style"):
         css_text = _css_rule_source(style.get_text("\n", strip=True))
+        if not _style_block_may_target_page_content(css_text, targets):
+            continue
         for rule in _matching_css_rules(css_text, targets, custom_properties):
             if rule in seen_rules:
                 continue
@@ -1231,6 +1233,18 @@ def _applicable_page_styles(soup: BeautifulSoup, page_content: Tag) -> str:
             rules.append(rule)
 
     return "\n".join(rules)
+
+
+def _style_block_may_target_page_content(
+    css_text: str, targets: tuple[set[str], set[str]]
+) -> bool:
+    page_classes, page_ids = targets
+    normalized_css = css_text.casefold()
+    return (
+        "#page-content" in normalized_css
+        or any(f".{class_name.casefold()}" in normalized_css for class_name in page_classes)
+        or any(f"#{page_id.casefold()}" in normalized_css for page_id in page_ids)
+    )
 
 
 def _css_rule_source(css_text: str) -> str:
