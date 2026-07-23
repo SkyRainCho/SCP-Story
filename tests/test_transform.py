@@ -858,7 +858,7 @@ def test_preserves_document_styles_that_target_page_content():
 def test_page_styles_do_not_attach_import_to_following_selector():
     html = """
     <html><head><style>
-      @import url("https://fonts.example/mono.css");
+      @import url("https://fonts.example/mono.css?family=PT+Mono&amp;display=swap");
       .parawatch blockquote { background: #1a1a1a; color: #f2f2f2; }
     </style></head><body><div id="page-content">
       <div class="parawatch"><blockquote>深色论坛正文。</blockquote></div>
@@ -912,6 +912,38 @@ def test_page_styles_resolve_numeric_css_custom_property_aliases():
     assert "color: rgb(255, 255, 255)" in style_text
     assert "var(--panel-alias)" not in style_text
     assert "var(--missing-text" not in style_text
+
+
+def test_page_styles_resolve_css_color_custom_properties():
+    html = """
+    <html><head><style>
+      :root { --bar-colour: rgb(192, 39, 39); }
+      .status-label { background: var(--bar-colour); color: white; }
+    </style></head><body><div id="page-content">
+      <span class="status-label">受保护站点</span>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("secure-facility-dossier-site-7"), html, BASE_URL)
+    style_text = soup_fragment(result.xhtml).find("style").get_text()
+
+    assert "background: rgb(192, 39, 39)" in style_text
+    assert "var(--bar-colour)" not in style_text
+
+
+def test_page_styles_preserve_commas_inside_pseudo_class_selectors():
+    html = """
+    <html><head><style>
+      #page-content .metam :is(th, td) { background: #1a1a1a; color: white; }
+    </style></head><body><div id="page-content">
+      <table class="metam"><tr><th>Area-12</th></tr></table>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("secure-facility-dossier-area-12"), html, BASE_URL)
+    style_text = soup_fragment(result.xhtml).find("style").get_text()
+
+    assert "#page-content .metam :is(th, td) {background: #1a1a1a; color: white;}" in style_text
 
 
 def test_does_not_recolor_explicit_source_white_text_without_a_dark_panel():

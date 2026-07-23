@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from html import escape
+from html import escape, unescape
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup, NavigableString, Tag
@@ -1196,7 +1196,7 @@ def _applicable_page_styles(soup: BeautifulSoup, page_content: Tag) -> str:
 
 
 def _css_rule_source(css_text: str) -> str:
-    without_comments = CSS_COMMENT_RE.sub(" ", css_text)
+    without_comments = CSS_COMMENT_RE.sub(" ", unescape(css_text))
     return CSS_SEMICOLON_AT_RULE_RE.sub(" ", without_comments)
 
 
@@ -1213,7 +1213,7 @@ def _matching_css_rules(
         )
         if not selector_text or not body:
             continue
-        selectors = [selector.strip() for selector in selector_text.split(",") if selector.strip()]
+        selectors = _split_css_selector_list(selector_text)
         supported_selectors = [
             selector
             for selector in selectors
@@ -1228,6 +1228,43 @@ def _matching_css_rules(
         if matching_selectors:
             rules.append(f"{', '.join(matching_selectors)} {{{body}}}")
     return rules
+
+
+def _split_css_selector_list(selector_text: str) -> list[str]:
+    selectors: list[str] = []
+    current: list[str] = []
+    nesting = 0
+    quote: str | None = None
+    escaped = False
+
+    for character in selector_text:
+        if quote is not None:
+            current.append(character)
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == quote:
+                quote = None
+            continue
+        if character in {"'", '"'}:
+            quote = character
+        elif character in "([":
+            nesting += 1
+        elif character in ")]":
+            nesting = max(0, nesting - 1)
+        elif character == "," and nesting == 0:
+            selector = "".join(current).strip()
+            if selector:
+                selectors.append(selector)
+            current = []
+            continue
+        current.append(character)
+
+    selector = "".join(current).strip()
+    if selector:
+        selectors.append(selector)
+    return selectors
 
 
 def _is_unsupported_page_style_selector(selector: str) -> bool:
@@ -1671,7 +1708,7 @@ def _numeric_css_custom_properties(soup: BeautifulSoup) -> dict[str, str]:
         value = raw_properties.get(name)
         if value is None:
             return None
-        if CSS_NUMERIC_TRIPLET_RE.fullmatch(value):
+        if CSS_NUMERIC_TRIPLET_RE.fullmatch(value) or _parse_numeric_css_color(value):
             resolved[name] = value
             return value
 
@@ -1684,7 +1721,10 @@ def _numeric_css_custom_properties(soup: BeautifulSoup) -> dict[str, str]:
         resolving.remove(name)
         fallback = (variable.group("fallback") or "").strip()
         result = replacement or (
-            fallback if CSS_NUMERIC_TRIPLET_RE.fullmatch(fallback) else None
+            fallback
+            if CSS_NUMERIC_TRIPLET_RE.fullmatch(fallback)
+            or _parse_numeric_css_color(fallback)
+            else None
         )
         if result is not None:
             resolved[name] = result
