@@ -943,7 +943,7 @@ def test_page_styles_preserve_commas_inside_pseudo_class_selectors():
     result = transform_page(page_ref("secure-facility-dossier-area-12"), html, BASE_URL)
     style_text = soup_fragment(result.xhtml).find("style").get_text()
 
-    assert "#page-content .metam :is(th, td) {background: #1a1a1a; color: white;}" in style_text
+    assert ".metam :is(th, td) {background: #1a1a1a; color: white;}" in style_text
 
 
 def test_adds_readability_background_for_site_7_image_captions():
@@ -971,8 +971,8 @@ def test_adds_readability_background_for_area_12_themed_floatboxes():
     result = transform_page(page_ref("secure-facility-dossier-area-12"), html, BASE_URL)
     style_text = soup_fragment(result.xhtml).find("style").get_text()
 
-    assert "#page-content .floatbox.metam {background-color: #080808 !important;" in style_text
-    assert "#page-content .floatbox.metam .fncon {background-color: #030303;" in style_text
+    assert ".floatbox.metam {background-color: #080808 !important;" in style_text
+    assert ".floatbox.metam .fncon {background-color: #030303;" in style_text
 
 
 def test_does_not_recolor_explicit_source_white_text_without_a_dark_panel():

@@ -1235,13 +1235,18 @@ def _matching_css_rules(
             and not _is_unsupported_page_style_selector(selector)
         ]
         matching_selectors = [
-            selector
+            _epub_page_style_selector(selector)
             for selector in supported_selectors
             if _selector_targets_page_content(selector, targets)
         ]
         if matching_selectors:
             rules.append(f"{', '.join(matching_selectors)} {{{body}}}")
     return rules
+
+
+def _epub_page_style_selector(selector: str) -> str:
+    selector = re.sub(r"#page-content\b\s*", "", selector).strip()
+    return re.sub(r"^>\s*", "", selector).strip()
 
 
 def _split_css_selector_list(selector_text: str) -> list[str]:
