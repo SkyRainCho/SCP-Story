@@ -855,6 +855,65 @@ def test_preserves_document_styles_that_target_page_content():
     assert soup.find(class_="console").find(class_="generated-before").get_text(strip=True) == "43NET"
 
 
+def test_page_styles_do_not_attach_import_to_following_selector():
+    html = """
+    <html><head><style>
+      @import url("https://fonts.example/mono.css");
+      .parawatch blockquote { background: #1a1a1a; color: #f2f2f2; }
+    </style></head><body><div id="page-content">
+      <div class="parawatch"><blockquote>深色论坛正文。</blockquote></div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-6838"), html, BASE_URL)
+    style_text = soup_fragment(result.xhtml).find("style").get_text()
+
+    assert "import url" not in style_text
+    assert ".parawatch blockquote {background: #1a1a1a; color: #f2f2f2;}" in style_text
+
+
+def test_page_styles_do_not_attach_comments_to_following_selector():
+    html = """
+    <html><head><style>
+      /* AUDITOR PANEL */
+      .auditor-content { background: #001600; color: #c3c3c3; }
+    </style></head><body><div id="page-content">
+      <div class="auditor-content">审计正文。</div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-9100"), html, BASE_URL)
+    style_text = soup_fragment(result.xhtml).find("style").get_text()
+
+    assert "/*" not in style_text
+    assert ".auditor-content {background: #001600; color: #c3c3c3;}" in style_text
+
+
+def test_page_styles_resolve_numeric_css_custom_property_aliases():
+    html = """
+    <html><head><style>
+      :root {
+        --dark-panel: 26, 26, 26;
+        --panel-alias: var(--dark-panel);
+      }
+      .blackboard {
+        background: rgb(var(--panel-alias));
+        color: rgb(var(--missing-text, 255, 255, 255));
+      }
+    </style></head><body><div id="page-content">
+      <div class="blackboard">黑板正文。</div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("secure-facility-dossier-site-81tg"), html, BASE_URL)
+    style_text = soup_fragment(result.xhtml).find("style").get_text()
+
+    assert "background: rgb(26, 26, 26)" in style_text
+    assert "color: rgb(255, 255, 255)" in style_text
+    assert "var(--panel-alias)" not in style_text
+    assert "var(--missing-text" not in style_text
+
+
 def test_skips_unsupported_anomaly_bar_document_styles():
     html = """
     <html>

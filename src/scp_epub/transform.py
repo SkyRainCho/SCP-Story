@@ -92,6 +92,14 @@ CSS_VAR_FUNCTION_RE = re.compile(
     r"var\(\s*(?P<name>--[a-z0-9_-]+)\s*(?:,\s*(?P<fallback>[^()]+))?\)",
     re.IGNORECASE,
 )
+CSS_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
+CSS_SEMICOLON_AT_RULE_RE = re.compile(
+    r"@(import|charset|namespace)\b[^;{}]*;",
+    re.IGNORECASE,
+)
+CSS_NUMERIC_TRIPLET_RE = re.compile(
+    r"\d+(?:\.\d+)?\s*,\s*\d+(?:\.\d+)?\s*,\s*\d+(?:\.\d+)?"
+)
 WIKIDOT_TEMPLATE_PLACEHOLDER_RE = re.compile(
     r"(?:\{\$[A-Za-z0-9_-]+\}|\\\{\\\$[A-Za-z0-9_-]+\\\})"
 )
@@ -1174,9 +1182,11 @@ def _applicable_page_styles(soup: BeautifulSoup, page_content: Tag) -> str:
     rules: list[str] = []
     seen_rules: set[str] = set()
     targets = _page_style_targets(page_content)
+    custom_properties = _numeric_css_custom_properties(soup)
 
     for style in soup.find_all("style"):
-        for rule in _matching_css_rules(style.get_text("\n", strip=True), targets):
+        css_text = _css_rule_source(style.get_text("\n", strip=True))
+        for rule in _matching_css_rules(css_text, targets, custom_properties):
             if rule in seen_rules:
                 continue
             seen_rules.add(rule)
@@ -1185,11 +1195,22 @@ def _applicable_page_styles(soup: BeautifulSoup, page_content: Tag) -> str:
     return "\n".join(rules)
 
 
-def _matching_css_rules(css_text: str, targets: tuple[set[str], set[str]]) -> list[str]:
+def _css_rule_source(css_text: str) -> str:
+    without_comments = CSS_COMMENT_RE.sub(" ", css_text)
+    return CSS_SEMICOLON_AT_RULE_RE.sub(" ", without_comments)
+
+
+def _matching_css_rules(
+    css_text: str,
+    targets: tuple[set[str], set[str]],
+    custom_properties: dict[str, str],
+) -> list[str]:
     rules: list[str] = []
     for match in CSS_RULE_RE.finditer(css_text):
         selector_text = re.sub(r"\s+", " ", match.group("selectors")).strip()
-        body = match.group("body").strip()
+        body = _resolve_numeric_css_variables(
+            match.group("body").strip(), custom_properties
+        )
         if not selector_text or not body:
             continue
         selectors = [selector.strip() for selector in selector_text.split(",") if selector.strip()]
@@ -1628,16 +1649,63 @@ def _anomaly_quadrant_colors_from_styles(
 
 
 def _numeric_css_custom_properties(soup: BeautifulSoup) -> dict[str, str]:
-    properties: dict[str, str] = {}
+    raw_properties: dict[str, str] = {}
     for style in soup.find_all("style"):
-        for match in CSS_CUSTOM_PROPERTY_VALUE_RE.finditer(style.get_text("\n", strip=True)):
-            value = match.group("value").strip()
-            if re.fullmatch(
-                r"\d+(?:\.\d+)?\s*,\s*\d+(?:\.\d+)?\s*,\s*\d+(?:\.\d+)?",
-                value,
-            ):
-                properties[match.group("name").casefold()] = value
-    return properties
+        css_text = CSS_COMMENT_RE.sub(" ", style.get_text("\n", strip=True))
+        for match in CSS_CUSTOM_PROPERTY_VALUE_RE.finditer(css_text):
+            raw_properties[match.group("name").casefold()] = re.sub(
+                r"\s*!important\s*$",
+                "",
+                match.group("value"),
+                flags=re.IGNORECASE,
+            ).strip()
+
+    resolved: dict[str, str] = {}
+    resolving: set[str] = set()
+
+    def resolve(name: str) -> str | None:
+        if name in resolved:
+            return resolved[name]
+        if name in resolving:
+            return None
+        value = raw_properties.get(name)
+        if value is None:
+            return None
+        if CSS_NUMERIC_TRIPLET_RE.fullmatch(value):
+            resolved[name] = value
+            return value
+
+        variable = CSS_VAR_FUNCTION_RE.fullmatch(value)
+        if variable is None:
+            return None
+
+        resolving.add(name)
+        replacement = resolve(variable.group("name").casefold())
+        resolving.remove(name)
+        fallback = (variable.group("fallback") or "").strip()
+        result = replacement or (
+            fallback if CSS_NUMERIC_TRIPLET_RE.fullmatch(fallback) else None
+        )
+        if result is not None:
+            resolved[name] = result
+        return result
+
+    for property_name in raw_properties:
+        resolve(property_name)
+    return resolved
+
+
+def _resolve_numeric_css_variables(
+    style_body: str,
+    custom_properties: dict[str, str],
+) -> str:
+    return CSS_VAR_FUNCTION_RE.sub(
+        lambda variable: custom_properties.get(
+            variable.group("name").casefold(),
+            (variable.group("fallback") or "").strip() or variable.group(0),
+        ),
+        style_body,
+    )
 
 
 def _last_resolved_background_color(
