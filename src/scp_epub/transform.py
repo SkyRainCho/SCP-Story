@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from html import escape
+from html import escape, unescape
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup, NavigableString, Tag
@@ -92,6 +92,14 @@ CSS_VAR_FUNCTION_RE = re.compile(
     r"var\(\s*(?P<name>--[a-z0-9_-]+)\s*(?:,\s*(?P<fallback>[^()]+))?\)",
     re.IGNORECASE,
 )
+CSS_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
+CSS_SEMICOLON_AT_RULE_RE = re.compile(
+    r"@(import|charset|namespace)\b[^;{}]*;",
+    re.IGNORECASE,
+)
+CSS_NUMERIC_TRIPLET_RE = re.compile(
+    r"\d+(?:\.\d+)?\s*,\s*\d+(?:\.\d+)?\s*,\s*\d+(?:\.\d+)?"
+)
 WIKIDOT_TEMPLATE_PLACEHOLDER_RE = re.compile(
     r"(?:\{\$[A-Za-z0-9_-]+\}|\\\{\\\$[A-Za-z0-9_-]+\\\})"
 )
@@ -146,6 +154,25 @@ INTERACTIVE_ARTICLE_EPUB_STYLE_RULES = (
     "transform: rotate(-1deg); margin: 0.75em 0;}"
     "\n.glitch-stack span {font-weight: bold; text-shadow: -2px 3px 0 red, 2px -3px 0 #4d52ff;}"
 )
+PAGE_EPUB_STYLE_RULES = {
+    "scp-6747": (
+        ".admo-episode_splash {display: block; height: auto; margin: 1.5em 0; "
+        "text-align: center;}"
+        "\n.admo-episode_splash .ctrl {font-size: 2.4em; line-height: 1.2;}"
+        "\n.admo-episode_splash .cond {font-size: 1.2em;}"
+        "\n.admo-episode_splash .admo-rate_splash {margin-top: 0; padding-bottom: 0;}"
+        "\n.admo-end_card .admo-credits {display: block; text-align: center;}"
+    ),
+    "secure-facility-dossier-site-7": (
+        ".scp-image-caption {background-color: #262626;}"
+    ),
+    "secure-facility-dossier-area-12": (
+        "#page-content .floatbox.metam {background-color: #080808 !important; "
+        "color: #d2d2d2 !important; border: 1px solid #333;}"
+        "\n#page-content .floatbox.metam .fncon {background-color: #030303; "
+        "color: #fff; padding: 0.1em 0.25em;}"
+    ),
+}
 ANOMALY_CLEARANCE_LABELS = {
     "clear-1": "公开",
     "clear-2": "受限",
@@ -467,6 +494,11 @@ def transform_page(
         page_options or PageTransformOptions(),
     )
     page_styles = _append_page_style_rules(page_styles, profile_style_rules)
+    page_styles = _append_page_style_rules(
+        page_styles, PAGE_EPUB_STYLE_RULES.get(entry.slug, "")
+    )
+    if entry.slug == "scp-6747":
+        _stabilize_scp_6747_splash(page_content)
 
     if _has_interactive_article_layout(page_content):
         _linearize_interactive_article_layout(page_content)
@@ -1094,6 +1126,20 @@ def _append_page_style_rules(page_styles: str, extra_rules: str) -> str:
     return f"{page_styles}\n{extra_rules}"
 
 
+def _stabilize_scp_6747_splash(page_content: Tag) -> None:
+    for splash in page_content.select(".admo-episode_splash, .admo-intermission_splash"):
+        classes = [
+            class_name
+            for class_name in splash.get("class", [])
+            if class_name not in {"admo-episode_splash", "admo-intermission_splash"}
+        ]
+        splash["class"] = [*classes, "admo-episode-splash-epub"]
+        for title in splash.select(".ctrl"):
+            title["style"] = "font-size: 2.4em; line-height: 1.2"
+        for subtitle in splash.select(".cond"):
+            subtitle["style"] = "font-size: 1.2em"
+
+
 def _normalize_ruby_annotations(soup: BeautifulSoup, page_content: Tag) -> None:
     for ruby_span in list(page_content.select("span.ruby")):
         rt_span = ruby_span.find("span", class_="rt", recursive=False)
@@ -1174,9 +1220,11 @@ def _applicable_page_styles(soup: BeautifulSoup, page_content: Tag) -> str:
     rules: list[str] = []
     seen_rules: set[str] = set()
     targets = _page_style_targets(page_content)
+    custom_properties = _numeric_css_custom_properties(soup)
 
     for style in soup.find_all("style"):
-        for rule in _matching_css_rules(style.get_text("\n", strip=True), targets):
+        css_text = _css_rule_source(style.get_text("\n", strip=True))
+        for rule in _matching_css_rules(css_text, targets, custom_properties):
             if rule in seen_rules:
                 continue
             seen_rules.add(rule)
@@ -1185,14 +1233,25 @@ def _applicable_page_styles(soup: BeautifulSoup, page_content: Tag) -> str:
     return "\n".join(rules)
 
 
-def _matching_css_rules(css_text: str, targets: tuple[set[str], set[str]]) -> list[str]:
+def _css_rule_source(css_text: str) -> str:
+    without_comments = CSS_COMMENT_RE.sub(" ", unescape(css_text))
+    return CSS_SEMICOLON_AT_RULE_RE.sub(" ", without_comments)
+
+
+def _matching_css_rules(
+    css_text: str,
+    targets: tuple[set[str], set[str]],
+    custom_properties: dict[str, str],
+) -> list[str]:
     rules: list[str] = []
     for match in CSS_RULE_RE.finditer(css_text):
         selector_text = re.sub(r"\s+", " ", match.group("selectors")).strip()
-        body = match.group("body").strip()
+        body = _resolve_numeric_css_variables(
+            match.group("body").strip(), custom_properties
+        )
         if not selector_text or not body:
             continue
-        selectors = [selector.strip() for selector in selector_text.split(",") if selector.strip()]
+        selectors = _split_css_selector_list(selector_text)
         supported_selectors = [
             selector
             for selector in selectors
@@ -1200,13 +1259,55 @@ def _matching_css_rules(css_text: str, targets: tuple[set[str], set[str]]) -> li
             and not _is_unsupported_page_style_selector(selector)
         ]
         matching_selectors = [
-            selector
+            _epub_page_style_selector(selector)
             for selector in supported_selectors
             if _selector_targets_page_content(selector, targets)
         ]
         if matching_selectors:
             rules.append(f"{', '.join(matching_selectors)} {{{body}}}")
     return rules
+
+
+def _epub_page_style_selector(selector: str) -> str:
+    selector = re.sub(r"#page-content\b\s*", "", selector).strip()
+    return re.sub(r"^>\s*", "", selector).strip()
+
+
+def _split_css_selector_list(selector_text: str) -> list[str]:
+    selectors: list[str] = []
+    current: list[str] = []
+    nesting = 0
+    quote: str | None = None
+    escaped = False
+
+    for character in selector_text:
+        if quote is not None:
+            current.append(character)
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == quote:
+                quote = None
+            continue
+        if character in {"'", '"'}:
+            quote = character
+        elif character in "([":
+            nesting += 1
+        elif character in ")]":
+            nesting = max(0, nesting - 1)
+        elif character == "," and nesting == 0:
+            selector = "".join(current).strip()
+            if selector:
+                selectors.append(selector)
+            current = []
+            continue
+        current.append(character)
+
+    selector = "".join(current).strip()
+    if selector:
+        selectors.append(selector)
+    return selectors
 
 
 def _is_unsupported_page_style_selector(selector: str) -> bool:
@@ -1628,16 +1729,66 @@ def _anomaly_quadrant_colors_from_styles(
 
 
 def _numeric_css_custom_properties(soup: BeautifulSoup) -> dict[str, str]:
-    properties: dict[str, str] = {}
+    raw_properties: dict[str, str] = {}
     for style in soup.find_all("style"):
-        for match in CSS_CUSTOM_PROPERTY_VALUE_RE.finditer(style.get_text("\n", strip=True)):
-            value = match.group("value").strip()
-            if re.fullmatch(
-                r"\d+(?:\.\d+)?\s*,\s*\d+(?:\.\d+)?\s*,\s*\d+(?:\.\d+)?",
-                value,
-            ):
-                properties[match.group("name").casefold()] = value
-    return properties
+        css_text = CSS_COMMENT_RE.sub(" ", style.get_text("\n", strip=True))
+        for match in CSS_CUSTOM_PROPERTY_VALUE_RE.finditer(css_text):
+            raw_properties[match.group("name").casefold()] = re.sub(
+                r"\s*!important\s*$",
+                "",
+                match.group("value"),
+                flags=re.IGNORECASE,
+            ).strip()
+
+    resolved: dict[str, str] = {}
+    resolving: set[str] = set()
+
+    def resolve(name: str) -> str | None:
+        if name in resolved:
+            return resolved[name]
+        if name in resolving:
+            return None
+        value = raw_properties.get(name)
+        if value is None:
+            return None
+        if CSS_NUMERIC_TRIPLET_RE.fullmatch(value) or _parse_numeric_css_color(value):
+            resolved[name] = value
+            return value
+
+        variable = CSS_VAR_FUNCTION_RE.fullmatch(value)
+        if variable is None:
+            return None
+
+        resolving.add(name)
+        replacement = resolve(variable.group("name").casefold())
+        resolving.remove(name)
+        fallback = (variable.group("fallback") or "").strip()
+        result = replacement or (
+            fallback
+            if CSS_NUMERIC_TRIPLET_RE.fullmatch(fallback)
+            or _parse_numeric_css_color(fallback)
+            else None
+        )
+        if result is not None:
+            resolved[name] = result
+        return result
+
+    for property_name in raw_properties:
+        resolve(property_name)
+    return resolved
+
+
+def _resolve_numeric_css_variables(
+    style_body: str,
+    custom_properties: dict[str, str],
+) -> str:
+    return CSS_VAR_FUNCTION_RE.sub(
+        lambda variable: custom_properties.get(
+            variable.group("name").casefold(),
+            (variable.group("fallback") or "").strip() or variable.group(0),
+        ),
+        style_body,
+    )
 
 
 def _last_resolved_background_color(

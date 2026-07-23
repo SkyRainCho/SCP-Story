@@ -256,9 +256,14 @@ def test_write_epub_includes_book_styles_for_wiki_tables_and_blockquotes(tmp_pat
     assert "border-collapse: collapse;" in css
     assert "table.wiki-content-table th," in css
     assert "border: 1px solid #888;" in css
-    assert "blockquote" in css
-    assert "border: 1px dashed #999;" in css
-    assert "background: #f8f8f8;" in css
+    blockquote_rule = re.search(r"blockquote,\s*\.blockquote\s*\{(?P<body>[^}]*)\}", css)
+    assert blockquote_rule is not None
+    assert "border: 1px dashed #999;" in blockquote_rule.group("body")
+    assert "background: transparent;" in blockquote_rule.group("body")
+
+    image_block_rule = re.search(r"\.scp-image-block\s*\{(?P<body>[^}]*)\}", css)
+    assert image_block_rule is not None
+    assert "background: transparent;" in image_block_rule.group("body")
 
 
 def test_write_epub_includes_book_styles_for_anomaly_classification_bar(tmp_path: Path):

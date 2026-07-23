@@ -855,6 +855,156 @@ def test_preserves_document_styles_that_target_page_content():
     assert soup.find(class_="console").find(class_="generated-before").get_text(strip=True) == "43NET"
 
 
+def test_page_styles_do_not_attach_import_to_following_selector():
+    html = """
+    <html><head><style>
+      @import url("https://fonts.example/mono.css?family=PT+Mono&amp;display=swap");
+      .parawatch blockquote { background: #1a1a1a; color: #f2f2f2; }
+    </style></head><body><div id="page-content">
+      <div class="parawatch"><blockquote>深色论坛正文。</blockquote></div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-6838"), html, BASE_URL)
+    style_text = soup_fragment(result.xhtml).find("style").get_text()
+
+    assert "import url" not in style_text
+    assert ".parawatch blockquote {background: #1a1a1a; color: #f2f2f2;}" in style_text
+
+
+def test_page_styles_do_not_attach_comments_to_following_selector():
+    html = """
+    <html><head><style>
+      /* AUDITOR PANEL */
+      .auditor-content { background: #001600; color: #c3c3c3; }
+    </style></head><body><div id="page-content">
+      <div class="auditor-content">审计正文。</div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-9100"), html, BASE_URL)
+    style_text = soup_fragment(result.xhtml).find("style").get_text()
+
+    assert "/*" not in style_text
+    assert ".auditor-content {background: #001600; color: #c3c3c3;}" in style_text
+
+
+def test_page_styles_resolve_numeric_css_custom_property_aliases():
+    html = """
+    <html><head><style>
+      :root {
+        --dark-panel: 26, 26, 26;
+        --panel-alias: var(--dark-panel);
+      }
+      .blackboard {
+        background: rgb(var(--panel-alias));
+        color: rgb(var(--missing-text, 255, 255, 255));
+      }
+    </style></head><body><div id="page-content">
+      <div class="blackboard">黑板正文。</div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("secure-facility-dossier-site-81tg"), html, BASE_URL)
+    style_text = soup_fragment(result.xhtml).find("style").get_text()
+
+    assert "background: rgb(26, 26, 26)" in style_text
+    assert "color: rgb(255, 255, 255)" in style_text
+    assert "var(--panel-alias)" not in style_text
+    assert "var(--missing-text" not in style_text
+
+
+def test_page_styles_resolve_css_color_custom_properties():
+    html = """
+    <html><head><style>
+      :root { --bar-colour: rgb(192, 39, 39); }
+      .status-label { background: var(--bar-colour); color: white; }
+    </style></head><body><div id="page-content">
+      <span class="status-label">受保护站点</span>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("secure-facility-dossier-site-7"), html, BASE_URL)
+    style_text = soup_fragment(result.xhtml).find("style").get_text()
+
+    assert "background: rgb(192, 39, 39)" in style_text
+    assert "var(--bar-colour)" not in style_text
+
+
+def test_page_styles_preserve_commas_inside_pseudo_class_selectors():
+    html = """
+    <html><head><style>
+      #page-content .metam :is(th, td) { background: #1a1a1a; color: white; }
+    </style></head><body><div id="page-content">
+      <table class="metam"><tr><th>Area-12</th></tr></table>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("secure-facility-dossier-area-12"), html, BASE_URL)
+    style_text = soup_fragment(result.xhtml).find("style").get_text()
+
+    assert ".metam :is(th, td) {background: #1a1a1a; color: white;}" in style_text
+
+
+def test_adds_readability_background_for_site_7_image_captions():
+    html = """
+    <html><head><style>
+      .scp-image-caption { color: rgb(252, 252, 252); }
+    </style></head><body><div id="page-content">
+      <div class="scp-image-block"><div class="scp-image-caption">站点图片</div></div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("secure-facility-dossier-site-7"), html, BASE_URL)
+    style_text = soup_fragment(result.xhtml).find("style").get_text()
+
+    assert ".scp-image-caption {background-color: #262626;}" in style_text
+
+
+def test_adds_readability_background_for_area_12_themed_floatboxes():
+    html = """
+    <html><body><div id="page-content">
+      <div class="floatbox metam"><span class="fncon">译注</span></div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("secure-facility-dossier-area-12"), html, BASE_URL)
+    style_text = soup_fragment(result.xhtml).find("style").get_text()
+
+    assert ".floatbox.metam {background-color: #080808 !important;" in style_text
+    assert ".floatbox.metam .fncon {background-color: #030303;" in style_text
+
+
+def test_adds_static_epub_layout_for_scp_6747_splash():
+    html = """
+    <html><body><div id="page-content"><div class="admo-episode_splash">
+      <span class="ctrl">混沌学说</span>
+    </div></div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-6747"), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+    splash = soup.find("div", class_="admo-episode-splash-epub")
+    title = splash.find("span", class_="ctrl")
+
+    assert splash is not None
+    assert "admo-episode_splash" not in splash.get("class", [])
+    assert title["style"] == "font-size: 2.4em"
+
+
+def test_does_not_recolor_explicit_source_white_text_without_a_dark_panel():
+    html = """
+    <html><body><div id="page-content">
+      <p>档案正文。<span style="color: white">作者刻意隐藏的文字。</span></p>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("personnel-and-character-dossier"), html, BASE_URL)
+    hidden = soup_fragment(result.xhtml).find("span", string="作者刻意隐藏的文字。")
+
+    assert hidden["style"] == "color: white"
+
+
 def test_skips_unsupported_anomaly_bar_document_styles():
     html = """
     <html>

@@ -178,7 +178,7 @@ blockquote,
   margin: 1em 3em;
   padding: 0.75em 1em;
   border: 1px dashed #999;
-  background: #f8f8f8;
+  background: transparent;
 }
 
 blockquote p:first-child,
@@ -214,7 +214,7 @@ table.wiki-content-table th {
   max-width: 100%;
   margin: 0.75em 0 1em;
   border: 1px solid #666;
-  background: #fff;
+  background: transparent;
   box-sizing: border-box;
 }
 
