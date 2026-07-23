@@ -155,6 +155,14 @@ INTERACTIVE_ARTICLE_EPUB_STYLE_RULES = (
     "\n.glitch-stack span {font-weight: bold; text-shadow: -2px 3px 0 red, 2px -3px 0 #4d52ff;}"
 )
 PAGE_EPUB_STYLE_RULES = {
+    "scp-6747": (
+        ".admo-episode_splash {display: block; height: auto; margin: 1.5em 0; "
+        "text-align: center;}"
+        "\n.admo-episode_splash .ctrl {font-size: 2.4em; line-height: 1.2;}"
+        "\n.admo-episode_splash .cond {font-size: 1.2em;}"
+        "\n.admo-episode_splash .admo-rate_splash {margin-top: 0; padding-bottom: 0;}"
+        "\n.admo-end_card .admo-credits {display: block; text-align: center;}"
+    ),
     "secure-facility-dossier-site-7": (
         ".scp-image-caption {background-color: #262626;}"
     ),

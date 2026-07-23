@@ -975,6 +975,20 @@ def test_adds_readability_background_for_area_12_themed_floatboxes():
     assert ".floatbox.metam .fncon {background-color: #030303;" in style_text
 
 
+def test_adds_static_epub_layout_for_scp_6747_splash():
+    html = """
+    <html><body><div id="page-content"><div class="admo-episode_splash">
+      <span class="ctrl">混沌学说</span>
+    </div></div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-6747"), html, BASE_URL)
+    style_text = soup_fragment(result.xhtml).find("style").get_text()
+
+    assert ".admo-episode_splash {display: block; height: auto;" in style_text
+    assert ".admo-episode_splash .ctrl {font-size: 2.4em; line-height: 1.2;}" in style_text
+
+
 def test_does_not_recolor_explicit_source_white_text_without_a_dark_panel():
     html = """
     <html><body><div id="page-content">
