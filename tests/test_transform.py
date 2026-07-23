@@ -914,6 +914,19 @@ def test_page_styles_resolve_numeric_css_custom_property_aliases():
     assert "var(--missing-text" not in style_text
 
 
+def test_does_not_recolor_explicit_source_white_text_without_a_dark_panel():
+    html = """
+    <html><body><div id="page-content">
+      <p>档案正文。<span style="color: white">作者刻意隐藏的文字。</span></p>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("personnel-and-character-dossier"), html, BASE_URL)
+    hidden = soup_fragment(result.xhtml).find("span", string="作者刻意隐藏的文字。")
+
+    assert hidden["style"] == "color: white"
+
+
 def test_skips_unsupported_anomaly_bar_document_styles():
     html = """
     <html>
