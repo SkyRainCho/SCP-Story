@@ -29,6 +29,7 @@ class CacheStore:
         self.root = root
         self.pages_dir = root / "pages"
         self.assets_dir = root / "assets"
+        self._asset_index: dict[str, Path] | None = None
 
     def page_path(self, slug: str) -> Path:
         return self.pages_dir / f"{safe_filename(slug)}.html"
@@ -72,13 +73,7 @@ class CacheStore:
         return hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
 
     def find_asset(self, url: str) -> Path | None:
-        if not self.assets_dir.exists():
-            return None
-        digest = self.asset_digest(url)
-        for candidate in sorted(self.assets_dir.glob(f"{digest}.*")):
-            if candidate.is_file() and not candidate.name.endswith(".json"):
-                return candidate
-        return None
+        return self._asset_index_or_build().get(self.asset_digest(url))
 
     def has_asset(self, url: str) -> bool:
         return self.find_asset(url) is not None
@@ -102,7 +97,44 @@ class CacheStore:
             ),
             encoding="utf-8",
         )
+        if self._asset_index is not None:
+            existing_path = self._asset_index.get(self.asset_digest(url))
+            if existing_path is None or not existing_path.exists() or asset_path.name < existing_path.name:
+                self._asset_index[self.asset_digest(url)] = asset_path
         return asset_path, meta_path
+
+    def delete_asset(self, url: str) -> None:
+        digest = self.asset_digest(url)
+        if self.assets_dir.exists():
+            for candidate in self.assets_dir.glob(f"{digest}.*"):
+                if candidate.is_file():
+                    candidate.unlink()
+        if self._asset_index is not None:
+            self._asset_index.pop(digest, None)
+
+    def _asset_index_or_build(self) -> dict[str, Path]:
+        if self._asset_index is None:
+            self._asset_index = self._build_asset_index()
+        return self._asset_index
+
+    def _build_asset_index(self) -> dict[str, Path]:
+        if not self.assets_dir.exists():
+            return {}
+        index: dict[str, Path] = {}
+        try:
+            candidates = sorted(self.assets_dir.iterdir())
+        except FileNotFoundError:
+            return index
+        for candidate in candidates:
+            digest = candidate.name[:16]
+            if (
+                candidate.is_file()
+                and candidate.name[16:17] == "."
+                and not candidate.name.endswith(".json")
+                and _is_asset_digest(digest)
+            ):
+                index.setdefault(digest, candidate)
+        return index
 
 
 def _suffix_from_content_type(content_type: str) -> str:
@@ -128,3 +160,7 @@ def _suffix_from_content_type(content_type: str) -> str:
 def _suffix_from_url_path(url: str) -> str:
     suffix = Path(urlparse(url).path).suffix.lower()
     return suffix if suffix in SUPPORTED_URL_SUFFIXES else ""
+
+
+def _is_asset_digest(value: str) -> bool:
+    return len(value) == 16 and all(character in "0123456789abcdef" for character in value)

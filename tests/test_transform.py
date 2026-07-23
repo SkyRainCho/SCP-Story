@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from bs4 import BeautifulSoup, Comment
 
+import scp_epub.transform as transform_module
 from scp_epub.config import load_config
 from scp_epub.models import InlineDocumentSpec, PageRef, ProcessedPage
 from scp_epub.page_fallbacks import snapshot_layout_signature
@@ -1391,6 +1392,47 @@ def test_anomaly_diamond_uses_last_resolved_css_variable_quadrant_color():
     assert right["fill-opacity"] == "0.25"
 
 
+def test_anomaly_styles_preserve_template_icon_and_numeric_top_quadrant_color():
+    html = """
+    <html><head><style>
+      :root { --top-color: 12, 34, 56; }
+      .anom-bar-container.{$container-class} .contain-class::after {
+        background-image: url("/local--files/scp-999/template-icon.svg");
+      }
+      .anom-bar-container.template .danger-diamond > .quadrants > .top-quad {
+        background-color: rgb(var(--top-color));
+      }
+    </style></head><body><div id="page-content">
+      <div class="anom-bar-container item-999 clear-2 template none vlam danger">
+        <div class="top-box"><div class="top-left-box"></div><div class="top-center-box"></div>
+          <div class="top-right-box"><div class="clearance"></div></div></div>
+        <div class="bottom-box"><div class="text-part"><div class="main-class">
+          <div class="contain-class"><div class="class-text">mystery</div></div>
+          <div class="second-class"><div class="class-text">none</div></div></div>
+          <div class="disrupt-class"><div class="class-text">vlam</div></div>
+          <div class="risk-class"><div class="class-text">danger</div></div></div>
+          <div class="diamond-part"><div class="danger-diamond">
+            <div class="top-icon"></div><div class="right-icon"></div>
+            <div class="left-icon"></div><div class="bottom-icon"></div>
+          </div></div></div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-999"), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+    icon = soup.select_one(".contain-class img.anomaly-field-icon")
+    top = soup.select_one(
+        'svg.anomaly-diamond-frame polygon[data-quadrant="top"]'
+    )
+
+    assert icon is not None
+    assert icon["src"].endswith("/template-icon.svg")
+    assert top is not None
+    assert top["fill"] == "#0c2238"
+    assert top["fill-opacity"] == "1"
+
+
 def test_stabilizes_text_message_layout_on_each_message_paragraph():
     html = """
     <html><body><div id="page-content">
@@ -1662,6 +1704,110 @@ def test_skips_page_style_rules_with_unexpanded_wikidot_template_placeholders():
     assert ".article-frame {border: 1px solid #555;}" in style_text
     assert ".earthworm__previous" not in style_text
     assert "previous-title" not in style_text
+
+
+def test_skips_irrelevant_large_page_style_block_before_matching_rules(monkeypatch):
+    calls: list[str] = []
+    original_matching_css_rules = transform_module._matching_css_rules
+
+    def spy_matching_css_rules(css_text, targets, custom_properties):
+        calls.append(css_text)
+        return original_matching_css_rules(css_text, targets, custom_properties)
+
+    monkeypatch.setattr(transform_module, "_matching_css_rules", spy_matching_css_rules)
+    unused_rules = "\n".join(
+        f".unused-{index} {{ color: red; }}" for index in range(1_000)
+    )
+    html = f"""
+    <html><head><style>{unused_rules}</style></head><body>
+      <div id="page-content"><p class="present">正文。</p></div>
+    </body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+
+    assert calls == []
+    assert "<style>" not in result.xhtml
+
+
+def test_style_prefilter_extracts_tokens_once_for_many_page_targets(monkeypatch):
+    class CountingTokenExtractor:
+        def __init__(self):
+            self.css_inputs: list[str] = []
+
+        def finditer(self, css_text):
+            self.css_inputs.append(css_text)
+            return iter(())
+
+    token_extractor = CountingTokenExtractor()
+    matcher_calls: list[str] = []
+    original_matching_css_rules = transform_module._matching_css_rules
+
+    def spy_matching_css_rules(css_text, targets, custom_properties):
+        matcher_calls.append(css_text)
+        return original_matching_css_rules(css_text, targets, custom_properties)
+
+    monkeypatch.setattr(
+        transform_module,
+        "CSS_PAGE_STYLE_TARGET_TOKEN_RE",
+        token_extractor,
+        raising=False,
+    )
+    monkeypatch.setattr(transform_module, "_matching_css_rules", spy_matching_css_rules)
+    unused_rules = "\n".join(
+        f".unused-{index} {{ color: red; }}" for index in range(1_000)
+    )
+    page_targets = "\n".join(
+        f'<p class="target-class-{index}" id="target-id-{index}">正文。</p>'
+        for index in range(500)
+    )
+    html = f"""
+    <html><head><style>{unused_rules}</style></head><body>
+      <div id="page-content">{page_targets}</div>
+    </body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+
+    assert len(token_extractor.css_inputs) == 1
+    assert matcher_calls == []
+    assert "<style>" not in result.xhtml
+
+
+def test_preserves_page_style_rule_for_present_class():
+    html = """
+    <html><head><style>.present { color: red; }</style></head><body>
+      <div id="page-content"><p class="present">正文。</p></div>
+    </body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+
+    assert ".present {color: red;}" in soup_fragment(result.xhtml).find("style").get_text()
+
+
+def test_preserves_page_style_rule_for_present_id():
+    html = """
+    <html><head><style>#present { color: blue; }</style></head><body>
+      <div id="page-content"><p id="present">正文。</p></div>
+    </body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+
+    assert "#present {color: blue;}" in soup_fragment(result.xhtml).find("style").get_text()
+
+
+def test_preserves_page_content_root_style_rule():
+    html = """
+    <html><head><style>#page-content > p { color: green; }</style></head><body>
+      <div id="page-content"><p>正文。</p></div>
+    </body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+
+    assert "p {color: green;}" in soup_fragment(result.xhtml).find("style").get_text()
 
 
 def test_materializes_page_style_before_content_labels():

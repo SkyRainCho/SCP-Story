@@ -131,6 +131,9 @@ CSS_ESCAPED_CHAR_RE = re.compile(r"\\(?P<escape>[0-9a-fA-F]{1,6}\s?|.)", re.DOTA
 CSS_PSEUDO_RE = re.compile(r"::?[a-zA-Z-]+(?:\([^)]*\))?")
 CSS_CLASS_SELECTOR_RE = re.compile(r"\.([_a-zA-Z][-_a-zA-Z0-9]*)")
 CSS_ID_SELECTOR_RE = re.compile(r"#([_a-zA-Z][-_a-zA-Z0-9]*)")
+CSS_PAGE_STYLE_TARGET_TOKEN_RE = re.compile(
+    r"\.(?P<class>[_a-zA-Z][-_a-zA-Z0-9]*)|#(?P<id>[_a-zA-Z][-_a-zA-Z0-9]*)"
+)
 GENERATED_BEFORE_FONT_SIZE = "0.875em"
 POSITIONED_GENERATED_BEFORE_STYLE = (
     "margin-top: -1.75em; margin-left: -0.5em; margin-bottom: 0.75em"
@@ -463,16 +466,12 @@ def transform_page(
     if page_content is None:
         raise ValueError("missing #page-content")
 
-    anomaly_icon_urls = (
-        _anomaly_icon_urls_from_styles(soup, base_url)
-        if page_content.select_one(".anom-bar-container") is not None
-        else {}
-    )
-    anomaly_quadrant_colors = (
-        _anomaly_quadrant_colors_from_styles(soup)
-        if page_content.select_one(".anom-bar-container") is not None
-        else {}
-    )
+    if page_content.select_one(".anom-bar-container") is not None:
+        anomaly_icon_urls, anomaly_quadrant_colors = _anomaly_style_metadata(
+            soup, base_url
+        )
+    else:
+        anomaly_icon_urls, anomaly_quadrant_colors = {}, {}
     page_styles = _applicable_page_styles(soup, page_content)
 
     _remove_creator_information_blocks(page_content)
@@ -1224,6 +1223,8 @@ def _applicable_page_styles(soup: BeautifulSoup, page_content: Tag) -> str:
 
     for style in soup.find_all("style"):
         css_text = _css_rule_source(style.get_text("\n", strip=True))
+        if not _style_block_may_target_page_content(css_text, targets):
+            continue
         for rule in _matching_css_rules(css_text, targets, custom_properties):
             if rule in seen_rules:
                 continue
@@ -1231,6 +1232,26 @@ def _applicable_page_styles(soup: BeautifulSoup, page_content: Tag) -> str:
             rules.append(rule)
 
     return "\n".join(rules)
+
+
+def _style_block_may_target_page_content(
+    css_text: str, targets: tuple[set[str], set[str]]
+) -> bool:
+    page_classes, page_ids = targets
+    normalized_css = css_text.casefold()
+    if "#page-content" in normalized_css:
+        return True
+
+    selector_classes: set[str] = set()
+    selector_ids: set[str] = set()
+    for match in CSS_PAGE_STYLE_TARGET_TOKEN_RE.finditer(normalized_css):
+        class_name = match.group("class")
+        if class_name is not None:
+            selector_classes.add(class_name)
+            continue
+        selector_ids.add(match.group("id"))
+
+    return bool(selector_classes & page_classes or selector_ids & page_ids)
 
 
 def _css_rule_source(css_text: str) -> str:
@@ -1629,70 +1650,65 @@ def _materialize_woed_level_text(scale: Tag) -> None:
     level_text.string = visible_text.strip()
 
 
-def _anomaly_icon_urls_from_styles(
+def _anomaly_style_metadata(
     soup: BeautifulSoup,
     base_url: str,
-) -> dict[tuple[str, str], str]:
+) -> tuple[
+    dict[tuple[str, str], str],
+    dict[tuple[str, str], tuple[str, str]],
+]:
     icon_urls: dict[tuple[str, str], str] = {}
-    for style in soup.find_all("style"):
-        for rule in CSS_RULE_RE.finditer(style.get_text("\n", strip=True)):
-            url_match = CSS_BACKGROUND_IMAGE_URL_RE.search(rule.group("body"))
-            if url_match is None:
-                continue
-            raw_url = next(
-                (
-                    value
-                    for value in (
-                        url_match.group("double"),
-                        url_match.group("single"),
-                        url_match.group("bare"),
-                    )
-                    if value
-                ),
-                None,
-            )
-            if (
-                raw_url is None
-                or WIKIDOT_TEMPLATE_PLACEHOLDER_RE.search(raw_url) is not None
-            ):
-                continue
-            normalized_url = normalize_url(base_url, raw_url)
-            if normalized_url == ACS_ANOMALY_ICON_PLACEHOLDER_URL:
-                continue
-            for selector in rule.group("selectors").split(","):
-                field_class = _anomaly_field_class_for_selector(selector)
-                if field_class is None:
-                    continue
-                normalized_selector = selector.replace("\\", "").casefold()
-                placeholder_names = {
-                    "contain-class": ("container-class", "containment-class"),
-                    "second-class": ("secondary-class",),
-                    "disrupt-class": ("disruption-class",),
-                    "risk-class": ("risk-class",),
-                }[field_class]
-                if any(
-                    "{$" + placeholder_name + "}" in normalized_selector
-                    for placeholder_name in placeholder_names
-                ):
-                    icon_urls[("*", field_class)] = normalized_url
-                    continue
-                if WIKIDOT_TEMPLATE_PLACEHOLDER_RE.search(selector) is not None:
-                    continue
-                for class_name in re.findall(
-                    r"\.anom-bar-container\.([^\s.:#>+~,\[\](){}]+)",
-                    selector,
-                ):
-                    icon_urls[(class_name.casefold(), field_class)] = normalized_url
-    return icon_urls
-
-
-def _anomaly_quadrant_colors_from_styles(
-    soup: BeautifulSoup,
-) -> dict[tuple[str, str], tuple[str, str]]:
     colors: dict[tuple[str, str], tuple[str, str]] = {}
     custom_properties = _numeric_css_custom_properties(soup)
     for style in soup.find_all("style"):
         for rule in CSS_RULE_RE.finditer(style.get_text("\n", strip=True)):
+            url_match = CSS_BACKGROUND_IMAGE_URL_RE.search(rule.group("body"))
+            if url_match is not None:
+                raw_url = next(
+                    (
+                        value
+                        for value in (
+                            url_match.group("double"),
+                            url_match.group("single"),
+                            url_match.group("bare"),
+                        )
+                        if value
+                    ),
+                    None,
+                )
+                if (
+                    raw_url is not None
+                    and WIKIDOT_TEMPLATE_PLACEHOLDER_RE.search(raw_url) is None
+                ):
+                    normalized_url = normalize_url(base_url, raw_url)
+                    if normalized_url != ACS_ANOMALY_ICON_PLACEHOLDER_URL:
+                        for selector in rule.group("selectors").split(","):
+                            field_class = _anomaly_field_class_for_selector(selector)
+                            if field_class is None:
+                                continue
+                            normalized_selector = selector.replace("\\", "").casefold()
+                            placeholder_names = {
+                                "contain-class": (
+                                    "container-class",
+                                    "containment-class",
+                                ),
+                                "second-class": ("secondary-class",),
+                                "disrupt-class": ("disruption-class",),
+                                "risk-class": ("risk-class",),
+                            }[field_class]
+                            if any(
+                                "{$" + placeholder_name + "}" in normalized_selector
+                                for placeholder_name in placeholder_names
+                            ):
+                                icon_urls[("*", field_class)] = normalized_url
+                                continue
+                            if WIKIDOT_TEMPLATE_PLACEHOLDER_RE.search(selector) is not None:
+                                continue
+                            for class_name in re.findall(
+                                r"\.anom-bar-container\.([^\s.:#>+~,\[\](){}]+)",
+                                selector,
+                            ):
+                                icon_urls[(class_name.casefold(), field_class)] = normalized_url
             color = _last_resolved_background_color(
                 rule.group("body"), custom_properties
             )
@@ -1725,7 +1741,7 @@ def _anomaly_quadrant_colors_from_styles(
                     names = class_names or modifier_names or ["*"]
                     for class_name in names:
                         colors[(class_name.replace("\\", "").casefold(), quadrant)] = color
-    return colors
+    return icon_urls, colors
 
 
 def _numeric_css_custom_properties(soup: BeautifulSoup) -> dict[str, str]:
