@@ -1392,6 +1392,47 @@ def test_anomaly_diamond_uses_last_resolved_css_variable_quadrant_color():
     assert right["fill-opacity"] == "0.25"
 
 
+def test_anomaly_styles_preserve_template_icon_and_numeric_top_quadrant_color():
+    html = """
+    <html><head><style>
+      :root { --top-color: 12, 34, 56; }
+      .anom-bar-container.{$container-class} .contain-class::after {
+        background-image: url("/local--files/scp-999/template-icon.svg");
+      }
+      .anom-bar-container.template .danger-diamond > .quadrants > .top-quad {
+        background-color: rgb(var(--top-color));
+      }
+    </style></head><body><div id="page-content">
+      <div class="anom-bar-container item-999 clear-2 template none vlam danger">
+        <div class="top-box"><div class="top-left-box"></div><div class="top-center-box"></div>
+          <div class="top-right-box"><div class="clearance"></div></div></div>
+        <div class="bottom-box"><div class="text-part"><div class="main-class">
+          <div class="contain-class"><div class="class-text">mystery</div></div>
+          <div class="second-class"><div class="class-text">none</div></div></div>
+          <div class="disrupt-class"><div class="class-text">vlam</div></div>
+          <div class="risk-class"><div class="class-text">danger</div></div></div>
+          <div class="diamond-part"><div class="danger-diamond">
+            <div class="top-icon"></div><div class="right-icon"></div>
+            <div class="left-icon"></div><div class="bottom-icon"></div>
+          </div></div></div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-999"), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+    icon = soup.select_one(".contain-class img.anomaly-field-icon")
+    top = soup.select_one(
+        'svg.anomaly-diamond-frame polygon[data-quadrant="top"]'
+    )
+
+    assert icon is not None
+    assert icon["src"].endswith("/template-icon.svg")
+    assert top is not None
+    assert top["fill"] == "#0c2238"
+    assert top["fill-opacity"] == "1"
+
+
 def test_stabilizes_text_message_layout_on_each_message_paragraph():
     html = """
     <html><body><div id="page-content">
