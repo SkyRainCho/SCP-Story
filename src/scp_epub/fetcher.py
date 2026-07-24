@@ -225,6 +225,13 @@ class Fetcher:
             except Exception as exc:
                 last_error = FetchError(url, reason=str(exc))
 
+            # Permanent 4xx client errors (404, 403, 410, ...) won't change on
+            # retry, so don't waste requests on them. Network errors (no status),
+            # 5xx server errors, and the transient 408/429 are still retried.
+            status = last_error.status_code
+            if status is not None and 400 <= status < 500 and status not in (408, 429):
+                break
+
             if attempt < retry_count and self.request_delay_seconds:
                 time.sleep(self.request_delay_seconds)
 
