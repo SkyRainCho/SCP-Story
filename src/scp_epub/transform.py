@@ -107,6 +107,71 @@ CSS_RULE_RE = re.compile(
     rf"(?P<selectors>[^{{}}@](?:{WIKIDOT_TEMPLATE_PLACEHOLDER_RE.pattern}|[^{{}}])*)"
     rf"\{{(?P<body>[^{{}}]*)\}}"
 )
+_CSS_PLACEHOLDER_NAME_CHARS = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
+)
+
+
+def _css_placeholder_end(text: str, i: int) -> int:
+    """If ``text[i] == '{'`` opens a Wikidot placeholder, return index past it; else -1."""
+    n = len(text)
+    if i + 1 < n and text[i + 1] == "$":
+        j = i + 2
+        while j < n and text[j] in _CSS_PLACEHOLDER_NAME_CHARS:
+            j += 1
+        if j > i + 2 and j < n and text[j] == "}":
+            return j + 1
+        return -1
+    if i + 2 < n and text[i + 1] == "\\" and text[i + 2] == "$":
+        j = i + 3
+        while j < n and text[j] in _CSS_PLACEHOLDER_NAME_CHARS:
+            j += 1
+        if j > i + 3 and j + 1 < n and text[j] == "\\" and text[j + 1] == "}":
+            return j + 2
+    return -1
+
+
+def iter_css_rules(css_text: str):
+    """Yield ``(selectors, body, start, end)`` for each CSS rule, matching ``CSS_RULE_RE``.
+
+    ``start``/``end`` are the char span of the whole rule (incl. braces) in the
+    input. ``CSS_RULE_RE`` backtracks catastrophically on style blocks mixing
+    many ``{$placeholder}`` tokens (e.g. SCP-5140, ~250s for one page), so this
+    O(n) scan replaces the regex while preserving the same rule boundaries.
+    """
+    n = len(css_text)
+    pos = 0
+    while pos < n:
+        ch = css_text[pos]
+        if ch == "{" or ch == "}" or ch == "@":
+            pos += 1
+            continue
+        i = pos
+        while i < n:
+            c = css_text[i]
+            if c == "{":
+                end = _css_placeholder_end(css_text, i)
+                if end != -1:
+                    i = end
+                    continue
+                break
+            if c == "}":
+                break
+            i += 1
+        if i >= n:
+            break
+        if css_text[i] == "}":
+            pos = i + 1
+            continue
+        j = i + 1
+        while j < n and css_text[j] != "{" and css_text[j] != "}":
+            j += 1
+        if j >= n or css_text[j] != "}":
+            pos = i + 1
+            continue
+        rule_start = pos
+        yield css_text[rule_start:i], css_text[i + 1 : j], rule_start, j + 1
+        pos = j + 1
 CSS_CONTENT_PROPERTY_RE = re.compile(
     r"""(?:^|;)\s*content\s*:\s*(?P<value>"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')\s*(?=;|$)""",
     re.IGNORECASE | re.DOTALL,
@@ -1107,15 +1172,15 @@ def _linearize_interactive_article_layout(page_content: Tag) -> None:
 
 def _linearize_interactive_article_styles(page_styles: str) -> str:
     rules: list[str] = []
-    for match in CSS_RULE_RE.finditer(page_styles):
-        selectors = [selector.strip() for selector in match.group("selectors").split(",") if selector.strip()]
+    for rule_selectors, body, _, _ in iter_css_rules(page_styles):
+        selectors = [selector.strip() for selector in rule_selectors.split(",") if selector.strip()]
         kept_selectors = [
             selector
             for selector in selectors
             if not _is_interactive_article_layout_selector(selector)
         ]
         if kept_selectors:
-            rules.append(f"{', '.join(kept_selectors)} {{{match.group('body').strip()}}}")
+            rules.append(f"{', '.join(kept_selectors)} {{{body.strip()}}}")
     return "\n".join(rules)
 
 
@@ -1265,10 +1330,10 @@ def _matching_css_rules(
     custom_properties: dict[str, str],
 ) -> list[str]:
     rules: list[str] = []
-    for match in CSS_RULE_RE.finditer(css_text):
-        selector_text = re.sub(r"\s+", " ", match.group("selectors")).strip()
+    for rule_selectors, body, _, _ in iter_css_rules(css_text):
+        selector_text = re.sub(r"\s+", " ", rule_selectors).strip()
         body = _resolve_numeric_css_variables(
-            match.group("body").strip(), custom_properties
+            body.strip(), custom_properties
         )
         if not selector_text or not body:
             continue
@@ -1661,8 +1726,8 @@ def _anomaly_style_metadata(
     colors: dict[tuple[str, str], tuple[str, str]] = {}
     custom_properties = _numeric_css_custom_properties(soup)
     for style in soup.find_all("style"):
-        for rule in CSS_RULE_RE.finditer(style.get_text("\n", strip=True)):
-            url_match = CSS_BACKGROUND_IMAGE_URL_RE.search(rule.group("body"))
+        for rule_selectors, body, _, _ in iter_css_rules(style.get_text("\n", strip=True)):
+            url_match = CSS_BACKGROUND_IMAGE_URL_RE.search(body)
             if url_match is not None:
                 raw_url = next(
                     (
@@ -1682,7 +1747,7 @@ def _anomaly_style_metadata(
                 ):
                     normalized_url = normalize_url(base_url, raw_url)
                     if normalized_url != ACS_ANOMALY_ICON_PLACEHOLDER_URL:
-                        for selector in rule.group("selectors").split(","):
+                        for selector in rule_selectors.split(","):
                             field_class = _anomaly_field_class_for_selector(selector)
                             if field_class is None:
                                 continue
@@ -1710,11 +1775,11 @@ def _anomaly_style_metadata(
                             ):
                                 icon_urls[(class_name.casefold(), field_class)] = normalized_url
             color = _last_resolved_background_color(
-                rule.group("body"), custom_properties
+                body, custom_properties
             )
             if color is None:
                 continue
-            for selector in rule.group("selectors").split(","):
+            for selector in rule_selectors.split(","):
                 quadrants = set(
                     re.findall(
                         r"\.(top|right|left|bottom)-quad\b",
@@ -2032,12 +2097,12 @@ def _materialize_generated_before_content(
     generated_order: list[int] = []
     materialized_rule_spans: list[tuple[int, int]] = []
 
-    for match in CSS_RULE_RE.finditer(page_styles):
-        content_value = _css_content_value(match.group("body"))
-        label_style = _sanitize_style_value(_style_without_content(match.group("body")))
+    for rule_selectors, body, rule_start, rule_end in iter_css_rules(page_styles):
+        content_value = _css_content_value(body)
+        label_style = _sanitize_style_value(_style_without_content(body))
         selectors = [
             selector.strip()
-            for selector in match.group("selectors").split(",")
+            for selector in rule_selectors.split(",")
             if "::before" in selector.lower()
         ]
         rule_was_materialized = False
@@ -2065,12 +2130,12 @@ def _materialize_generated_before_content(
                     state["content"] = content_value
                 if label_style:
                     state["style"] = _merge_style_values(str(state["style"] or ""), label_style)
-                if _is_positioned_generated_before_rule(match.group("body")):
+                if _is_positioned_generated_before_rule(body):
                     state["positioned"] = True
                 rule_was_materialized = True
 
         if rule_was_materialized and selectors:
-            materialized_rule_spans.append(match.span())
+            materialized_rule_spans.append((rule_start, rule_end))
 
     for target_id in generated_order:
         state = generated_labels[target_id]

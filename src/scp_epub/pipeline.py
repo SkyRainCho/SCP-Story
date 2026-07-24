@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import os
 from argparse import Namespace
+from collections import namedtuple
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import replace
-from pathlib import Path
 from html import escape
+from pathlib import Path
 from typing import Callable, Protocol
 from urllib.parse import urlparse
 
@@ -1139,6 +1142,7 @@ def _process_pages(
         section.slug: section for section in config.appendix.sections
     } if config.appendix is not None else {}
 
+    tasks: list[_PageProcessTask] = []
     for entry in manifest:
         result = results_by_slug[entry.slug]
         configured_page = configured_pages_by_slug.get(entry.slug)
@@ -1153,45 +1157,133 @@ def _process_pages(
         elif appendix_section is not None:
             include_tab_titles = set(appendix_section.include_tabs)
             unwrap_single_included_tab = appendix_section.unwrap_single_tab
-        page = transform_page(
-            entry,
-            result.path.read_text(encoding="utf-8"),
-            result.url,
-            manifest_slugs,
-            include_tab_titles=include_tab_titles,
-            unwrap_single_included_tab=unwrap_single_included_tab,
-            background_asset_url=(
-                configured_page.epub_background_url if configured_page is not None else None
-            ),
-            page_options=_page_transform_options(config, entry),
-        )
-        inline_fragments: list[tuple[InlineDocumentSpec, ProcessedPage]] = []
-        for document, inline_result in (inline_document_results or {}).get(entry.slug, ()):
-            inline_entry = PageRef(
-                title=document.title,
-                url=document.url,
-                slug=document.slug,
-                level=entry.level,
-                role=entry.role,
+        inline_tasks = tuple(
+            _InlineProcessTask(
+                spec=document,
+                html_path=inline_result.path,
+                url=inline_result.url,
+                page_options=_page_transform_options(
+                    config,
+                    PageRef(
+                        title=document.title,
+                        url=document.url,
+                        slug=document.slug,
+                        level=entry.level,
+                        role=entry.role,
+                    ),
+                ),
             )
-            inline_fragments.append(
+            for document, inline_result in (inline_document_results or {}).get(
+                entry.slug, ()
+            )
+        )
+        tasks.append(
+            _PageProcessTask(
+                entry=entry,
+                html_path=result.path,
+                url=result.url,
+                manifest_slugs=manifest_slugs,
+                include_tab_titles=include_tab_titles,
+                unwrap_single_included_tab=unwrap_single_included_tab,
+                background_asset_url=(
+                    configured_page.epub_background_url
+                    if configured_page is not None
+                    else None
+                ),
+                page_options=_page_transform_options(config, entry),
+                inline_tasks=inline_tasks,
+            )
+        )
+
+    worker_count = _worker_count()
+    if worker_count > 1 and len(tasks) > 1:
+        # chunksize=1 keeps each page as its own unit of work so the ~64 heavy
+        # anomaly pages distribute across workers instead of clumping in a chunk.
+        with ProcessPoolExecutor(max_workers=worker_count) as executor:
+            for page in executor.map(_process_page_task, tasks, chunksize=1):
+                processed_pages.append(page)
+                _write_processed_page(processed_dir, page)
+    else:
+        for task in tasks:
+            page = _process_page_task(task)
+            processed_pages.append(page)
+            _write_processed_page(processed_dir, page)
+
+    return processed_pages
+
+
+_PageProcessTask = namedtuple(
+    "_PageProcessTask",
+    [
+        "entry",
+        "html_path",
+        "url",
+        "manifest_slugs",
+        "include_tab_titles",
+        "unwrap_single_included_tab",
+        "background_asset_url",
+        "page_options",
+        "inline_tasks",
+    ],
+)
+_InlineProcessTask = namedtuple(
+    "_InlineProcessTask",
+    ["spec", "html_path", "url", "page_options"],
+)
+
+
+def _worker_count() -> int:
+    """Resolve page-processing parallelism.
+
+    ``SCP_EPUB_WORKERS=1`` forces the exact serial path; otherwise the pool
+    size is capped to keep memory bounded on high-core machines.
+    """
+    env = os.environ.get("SCP_EPUB_WORKERS", "")
+    if env.strip().isdigit():
+        requested = int(env)
+        if requested >= 1:
+            return requested
+    return min(os.cpu_count() or 4, 8)
+
+
+def _process_page_task(task: _PageProcessTask) -> ProcessedPage:
+    # Source HTML is read inside the worker so large page bodies never cross
+    # the process boundary. transform_page is pure (reads only module
+    # constants), so running it across processes is output-equivalent to serial.
+    page = transform_page(
+        task.entry,
+        task.html_path.read_text(encoding="utf-8"),
+        task.url,
+        task.manifest_slugs,
+        include_tab_titles=task.include_tab_titles,
+        unwrap_single_included_tab=task.unwrap_single_included_tab,
+        background_asset_url=task.background_asset_url,
+        page_options=task.page_options,
+    )
+    if task.inline_tasks:
+        fragments: list[tuple[InlineDocumentSpec, ProcessedPage]] = []
+        for inline in task.inline_tasks:
+            inline_entry = PageRef(
+                title=inline.spec.title,
+                url=inline.spec.url,
+                slug=inline.spec.slug,
+                level=task.entry.level,
+                role=task.entry.role,
+            )
+            fragments.append(
                 (
-                    document,
+                    inline.spec,
                     transform_page(
                         inline_entry,
-                        inline_result.path.read_text(encoding="utf-8"),
-                        inline_result.url,
-                        manifest_slugs,
-                        page_options=_page_transform_options(config, inline_entry),
+                        inline.html_path.read_text(encoding="utf-8"),
+                        inline.url,
+                        task.manifest_slugs,
+                        page_options=inline.page_options,
                     ),
                 )
             )
-        if inline_fragments:
-            page = insert_inline_fragments(page, fragments=inline_fragments)
-        processed_pages.append(page)
-        _write_processed_page(processed_dir, page)
-
-    return processed_pages
+        page = insert_inline_fragments(page, fragments=fragments)
+    return page
 
 
 def _page_transform_options(config: AppConfig, entry: PageRef) -> PageTransformOptions:
