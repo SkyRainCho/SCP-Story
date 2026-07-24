@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from argparse import Namespace
 from collections import namedtuple
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from dataclasses import replace
 from html import escape
 from pathlib import Path
@@ -375,56 +375,101 @@ def include_linked_appendices(
     missing_pages: list[dict[str, str]] = []
     fallback_pages: list[FallbackPageRecord] = []
 
+    # Collect the slugs that still need a network fetch (excluding any already in
+    # the manifest or already fetched), then fetch them concurrently. Page
+    # fetches are I/O-bound; order does not matter because each slug maps to one
+    # result and failure handling below is per-slug.
+    candidates_to_fetch: list[LinkedAppendixCandidate] = []
+    seen_fetch_slugs: set[str] = set()
+    for document in documents:
+        for candidate in document.candidates:
+            if (
+                candidate.slug in manifest_slugs
+                or candidate.slug in fetched_results_by_slug
+                or candidate.slug in seen_fetch_slugs
+            ):
+                continue
+            seen_fetch_slugs.add(candidate.slug)
+            candidates_to_fetch.append(candidate)
+
+    # Snapshot what was already in the map before this pass, so the manifest-order
+    # loop can tell "already present" from "newly fetched here" — the original
+    # serial loop appended newly-fetched candidates but skipped pre-existing ones.
+    fetched_results_by_slug_pre = dict(fetched_results_by_slug)
+    fetch_errors: dict[str, Exception] = {}
+    fetch_successes: dict[str, FetchResult] = {}
+    if candidates_to_fetch:
+        def _fetch_candidate(candidate: LinkedAppendixCandidate) -> tuple[str, FetchResult | Exception]:
+            try:
+                return candidate.slug, fetcher.fetch_page(
+                    candidate.slug, candidate.url, force=force
+                )
+            except Exception as exc:
+                return candidate.slug, exc
+
+        worker_count = _fetch_worker_count()
+        if worker_count <= 1:
+            fetched_iter = (_fetch_candidate(c) for c in candidates_to_fetch)
+        else:
+            with ThreadPoolExecutor(max_workers=worker_count) as executor:
+                fetched_iter = list(executor.map(_fetch_candidate, candidates_to_fetch))
+        for slug, outcome in fetched_iter:
+            if isinstance(outcome, Exception):
+                fetch_errors[slug] = outcome
+            else:
+                fetch_successes[slug] = outcome
+
     for document in documents:
         successful_candidates: list[LinkedAppendixCandidate] = []
         for candidate in document.candidates:
-            if candidate.slug in manifest_slugs or candidate.slug in fetched_results_by_slug:
+            if candidate.slug in manifest_slugs or candidate.slug in fetched_results_by_slug_pre:
+                # Already in the manifest or already fetched/cached before this
+                # expansion pass; the original loop skipped these without
+                # re-adding as candidates.
+                continue
+            if candidate.slug in fetch_successes:
+                fetched_results_by_slug[candidate.slug] = fetch_successes[candidate.slug]
+                successful_candidates.append(candidate)
+                continue
+            exc = fetch_errors[candidate.slug]
+            fallback = config.page_fallbacks.get(candidate.slug)
+            if fallback is None:
+                missing_pages.append(
+                    {
+                        "slug": candidate.slug,
+                        "title": candidate.title,
+                        "url": candidate.url,
+                        "reason": str(exc),
+                    }
+                )
                 continue
             try:
-                fetched_results_by_slug[candidate.slug] = fetcher.fetch_page(
+                fetched_results_by_slug[candidate.slug] = load_fallback_fetch_result(
                     candidate.slug,
-                    candidate.url,
-                    force=force,
+                    fallback,
                 )
-            except Exception as exc:
-                fallback = config.page_fallbacks.get(candidate.slug)
-                if fallback is None:
-                    missing_pages.append(
-                        {
-                            "slug": candidate.slug,
-                            "title": candidate.title,
-                            "url": candidate.url,
-                            "reason": str(exc),
-                        }
-                    )
-                    continue
-                try:
-                    fetched_results_by_slug[candidate.slug] = load_fallback_fetch_result(
-                        candidate.slug,
-                        fallback,
-                    )
-                except Exception as fallback_exc:
-                    missing_pages.append(
-                        {
-                            "slug": candidate.slug,
-                            "title": candidate.title,
-                            "url": candidate.url,
-                            "reason": f"{exc}; fallback failed: {fallback_exc}",
-                        }
-                    )
-                    continue
-                candidate = replace(candidate, title=fallback.translated_title)
-                fallback_pages.append(
-                    FallbackPageRecord(
-                        slug=candidate.slug,
-                        title=candidate.title,
-                        source_url=fallback.source_url,
-                        source_language=fallback.source_language,
-                        snapshot_path=fallback.snapshot_path.relative_to(
-                            config.workspace
-                        ).as_posix(),
-                    )
+            except Exception as fallback_exc:
+                missing_pages.append(
+                    {
+                        "slug": candidate.slug,
+                        "title": candidate.title,
+                        "url": candidate.url,
+                        "reason": f"{exc}; fallback failed: {fallback_exc}",
+                    }
                 )
+                continue
+            candidate = replace(candidate, title=fallback.translated_title)
+            fallback_pages.append(
+                FallbackPageRecord(
+                    slug=candidate.slug,
+                    title=candidate.title,
+                    source_url=fallback.source_url,
+                    source_language=fallback.source_language,
+                    snapshot_path=fallback.snapshot_path.relative_to(
+                        config.workspace
+                    ).as_posix(),
+                )
+            )
             successful_candidates.append(candidate)
 
         if successful_candidates:
@@ -550,30 +595,16 @@ def fetch_build_pages(
     missing_pages: list[dict[str, str]] = []
     fallback_pages: list[FallbackPageRecord] = []
 
-    tab_fetch_results: dict[tuple[str, str], FetchResult] = {}
-    cache = CacheStore(config.cache_dir)
-
-    for entry in manifest:
-        try:
-            if entry.role == APPENDIX_GROUP_ROLE:
-                result = _write_appendix_group_fetch_result(cache, entry)
-            elif entry.role == APPENDIX_TAB_ROLE:
-                source_key = _tab_source_key(config, entry)
-                result = tab_fetch_results.get(source_key)
-                if result is None:
-                    result = (appendix_fetch_results or {}).get(source_key)
-                    if result is None:
-                        result = fetcher.fetch_page(*source_key, force=force)
-                    tab_fetch_results[source_key] = result
-            else:
-                source_key = (entry.slug, entry.url)
-                if _is_configured_appendix_page_entry(config, entry):
-                    result = (appendix_fetch_results or {}).get(source_key)
-                else:
-                    result = None
-                if result is None:
-                    result = fetcher.fetch_page(*source_key, force=force)
-        except Exception as exc:
+    resolved = _fetch_manifest_results(
+        config,
+        manifest,
+        fetcher,
+        force=force,
+        appendix_fetch_results=appendix_fetch_results,
+    )
+    for entry, result in zip(manifest, resolved, strict=True):
+        if isinstance(result, Exception):
+            exc = result
             fallback = config.page_fallbacks.get(entry.slug)
             if fallback is not None:
                 try:
@@ -616,6 +647,110 @@ def fetch_build_pages(
     return available_manifest, fetch_results, missing_pages, fallback_pages
 
 
+def _fetch_manifest_results(
+    config: AppConfig,
+    manifest: list[PageRef],
+    fetcher: PageFetcher,
+    *,
+    force: bool,
+    appendix_fetch_results: dict[tuple[str, str], FetchResult] | None,
+) -> list[FetchResult | Exception]:
+    """Resolve a FetchResult for every manifest entry, fetching concurrently.
+
+    Page fetches are I/O-bound, so the entries needing a network fetch are
+    fetched in a thread pool. Non-tab entries each fetch (duplicates preserved);
+    appendix tabs share one fetch per source key; provided/cached results are
+    reused. A failed fetch is returned as the Exception so callers apply their
+    own fallback/missing handling in manifest order.
+    """
+    cache = CacheStore(config.cache_dir)
+    provided = appendix_fetch_results or {}
+
+    fetch_source: dict[int, tuple[str, str]] = {}
+    tab_first_index: dict[tuple[str, str], int] = {}
+    for index, entry in enumerate(manifest):
+        if entry.role == APPENDIX_GROUP_ROLE:
+            continue
+        if entry.role == APPENDIX_TAB_ROLE:
+            source_key = _tab_source_key(config, entry)
+            if provided.get(source_key) is not None or source_key in tab_first_index:
+                continue
+            tab_first_index[source_key] = index
+        else:
+            source_key = (entry.slug, entry.url)
+            if (
+                _is_configured_appendix_page_entry(config, entry)
+                and provided.get(source_key) is not None
+            ):
+                continue
+        fetch_source[index] = source_key
+
+    fetched = _fetch_pages_concurrent(fetcher, fetch_source, force=force)
+
+    results: list[FetchResult | Exception] = []
+    for index, entry in enumerate(manifest):
+        if entry.role == APPENDIX_GROUP_ROLE:
+            try:
+                results.append(_write_appendix_group_fetch_result(cache, entry))
+            except Exception as exc:
+                results.append(exc)
+            continue
+        if entry.role == APPENDIX_TAB_ROLE:
+            source_key = _tab_source_key(config, entry)
+            if provided.get(source_key) is not None:
+                results.append(provided[source_key])
+            else:
+                results.append(fetched[tab_first_index[source_key]])
+            continue
+        source_key = (entry.slug, entry.url)
+        if (
+            _is_configured_appendix_page_entry(config, entry)
+            and provided.get(source_key) is not None
+        ):
+            results.append(provided[source_key])
+        else:
+            results.append(fetched[index])
+    return results
+
+
+def _fetch_pages_concurrent(
+    fetcher: PageFetcher,
+    fetch_source: dict[int, tuple[str, str]],
+    *,
+    force: bool,
+) -> dict[int, FetchResult | Exception]:
+    if not fetch_source:
+        return {}
+
+    def fetch_one(index: int) -> FetchResult | Exception:
+        source_key = fetch_source[index]
+        try:
+            return fetcher.fetch_page(*source_key, force=force)
+        except Exception as exc:
+            return exc
+
+    worker_count = _fetch_worker_count()
+    if worker_count <= 1:
+        return {index: fetch_one(index) for index in fetch_source}
+
+    results: dict[int, FetchResult | Exception] = {}
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        future_to_index = {executor.submit(fetch_one, index): index for index in fetch_source}
+        for future in as_completed(future_to_index):
+            results[future_to_index[future]] = future.result()
+    return results
+
+
+def _fetch_worker_count() -> int:
+    """Concurrent page-fetch thread count (SCP_EPUB_FETCH_WORKERS, default 6)."""
+    env = os.environ.get("SCP_EPUB_FETCH_WORKERS", "")
+    if env.strip().isdigit():
+        requested = int(env)
+        if requested >= 1:
+            return requested
+    return 6
+
+
 def _fetch_manifest_entries(
     config: AppConfig,
     manifest: list[PageRef],
@@ -624,33 +759,18 @@ def _fetch_manifest_entries(
     force: bool,
     appendix_fetch_results: dict[tuple[str, str], FetchResult] | None = None,
 ) -> list[FetchResult]:
-    cache = CacheStore(config.cache_dir)
-    tab_fetch_results: dict[tuple[str, str], FetchResult] = {}
+    resolved = _fetch_manifest_results(
+        config,
+        manifest,
+        fetcher,
+        force=force,
+        appendix_fetch_results=appendix_fetch_results,
+    )
     results: list[FetchResult] = []
-
-    for entry in manifest:
-        if entry.role == APPENDIX_GROUP_ROLE:
-            results.append(_write_appendix_group_fetch_result(cache, entry))
-            continue
-
-        if entry.role == APPENDIX_TAB_ROLE:
-            source_key = _tab_source_key(config, entry)
-            result = tab_fetch_results.get(source_key)
-            if result is None:
-                result = (appendix_fetch_results or {}).get(source_key)
-                if result is None:
-                    result = fetcher.fetch_page(*source_key, force=force)
-                tab_fetch_results[source_key] = result
-        else:
-            source_key = (entry.slug, entry.url)
-            if _is_configured_appendix_page_entry(config, entry):
-                result = (appendix_fetch_results or {}).get(source_key)
-            else:
-                result = None
-            if result is None:
-                result = fetcher.fetch_page(*source_key, force=force)
+    for result in resolved:
+        if isinstance(result, Exception):
+            raise result
         results.append(result)
-
     return results
 
 

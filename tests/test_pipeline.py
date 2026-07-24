@@ -974,6 +974,49 @@ def test_fetch_paths_preserve_normal_duplicate_fetches_and_reuse_appendix_tab_so
     ]
 
 
+def test_fetch_build_pages_runs_fetches_concurrently_when_workers_configured(
+    tmp_path: Path,
+    monkeypatch,
+):
+    import threading
+    import time
+
+    monkeypatch.setenv("SCP_EPUB_FETCH_WORKERS", "4")
+    config = app_config(tmp_path)
+    pages = {f"scp-{i:03d}": simple_page(f"page {i}") for i in range(8)}
+    manifest = [
+        PageRef(f"scp-{i:03d}", f"{BASE_URL}/scp-{i:03d}", f"scp-{i:03d}", 1, "scp", order=i)
+        for i in range(8)
+    ]
+
+    lock = threading.Lock()
+    active = {"n": 0, "max": 0}
+
+    class SlowFakeFetcher(FakeFetcher):
+        def fetch_page(self, slug: str, url: str, *, force: bool = False) -> FetchResult:
+            with lock:
+                active["n"] += 1
+                active["max"] = max(active["max"], active["n"])
+            time.sleep(0.05)
+            try:
+                return super().fetch_page(slug, url, force=force)
+            finally:
+                with lock:
+                    active["n"] -= 1
+
+    fetcher = SlowFakeFetcher(tmp_path / "cache", pages)
+
+    available_manifest, results, missing_pages, fallback_pages = fetch_build_pages(
+        config, manifest, fetcher
+    )
+
+    assert available_manifest == manifest
+    assert len(results) == 8
+    assert missing_pages == []
+    assert fallback_pages == []
+    assert active["max"] > 1  # fetches actually overlapped (concurrency worked)
+
+
 def test_fetch_build_pages_keeps_primary_chinese_page_without_fallback_record(
     tmp_path: Path,
 ):
