@@ -343,3 +343,40 @@ def test_fetch_page_retries_until_retry_count_total_attempts(tmp_path: Path):
 
     assert result.path.read_text(encoding="utf-8") == "<html>retry success</html>"
     assert len(client.calls) == 2
+
+
+def test_fetch_page_does_not_retry_permanent_4xx_errors(tmp_path: Path):
+    cache = CacheStore(tmp_path / "raw")
+    client = RecordingClient(
+        [
+            (b"not found", 404, "text/plain"),
+            AssertionError("a permanent 404 must not be retried"),
+        ]
+    )
+
+    with pytest.raises(FetchError) as exc_info:
+        Fetcher(
+            cache,
+            http_client=client,
+            retry_count=3,
+            request_delay_seconds=0.0,
+        ).fetch_page("scp-002", "https://example.test/scp-002")
+
+    assert exc_info.value.status_code == 404
+    assert len(client.calls) == 1
+
+
+def test_fetch_page_retries_5xx_server_errors(tmp_path: Path):
+    cache = CacheStore(tmp_path / "raw")
+    client = RecordingClient([(b"server error", 500, "text/plain")] * 3)
+
+    with pytest.raises(FetchError) as exc_info:
+        Fetcher(
+            cache,
+            http_client=client,
+            retry_count=3,
+            request_delay_seconds=0.0,
+        ).fetch_page("scp-002", "https://example.test/scp-002")
+
+    assert exc_info.value.status_code == 500
+    assert len(client.calls) == 3
