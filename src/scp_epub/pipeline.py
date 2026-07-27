@@ -670,6 +670,9 @@ def _fetch_manifest_results(
     tab_first_index: dict[tuple[str, str], int] = {}
     for index, entry in enumerate(manifest):
         if entry.role == APPENDIX_GROUP_ROLE:
+            source_key = _appendix_group_source_key(config, entry)
+            if source_key is not None and provided.get(source_key) is None:
+                fetch_source[index] = source_key
             continue
         if entry.role == APPENDIX_TAB_ROLE:
             source_key = _tab_source_key(config, entry)
@@ -690,6 +693,10 @@ def _fetch_manifest_results(
     results: list[FetchResult | Exception] = []
     for index, entry in enumerate(manifest):
         if entry.role == APPENDIX_GROUP_ROLE:
+            source_key = _appendix_group_source_key(config, entry)
+            if source_key is not None:
+                results.append(provided.get(source_key) or fetched[index])
+                continue
             try:
                 results.append(_write_appendix_group_fetch_result(cache, entry))
             except Exception as exc:
@@ -1019,6 +1026,21 @@ def _tab_source_key(config: AppConfig, entry: PageRef) -> tuple[str, str]:
             if _appendix_group_slug(section.slug) == entry.parent_slug:
                 return section.slug, section.url
     return entry.parent_slug or entry.slug, entry.url
+
+
+def _appendix_group_source_key(
+    config: AppConfig,
+    entry: PageRef,
+) -> tuple[str, str] | None:
+    if entry.role != APPENDIX_GROUP_ROLE or config.appendix is None:
+        return None
+    for section in config.appendix.sections:
+        if (
+            section.mode == "facility-links"
+            and entry.slug == _appendix_group_slug(section.slug)
+        ):
+            return section.slug, section.url
+    return None
 
 
 def _is_configured_appendix_page_entry(config: AppConfig, entry: PageRef) -> bool:

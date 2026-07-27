@@ -915,6 +915,95 @@ def test_fetch_manifest_pages_fetches_each_manifest_entry(tmp_path: Path):
     assert [slug for slug, _url, _force in fetcher.calls] == ["scp-001", "scp-002"]
 
 
+def test_fetch_manifest_pages_uses_facility_source_for_generated_group(tmp_path: Path):
+    source_url = f"{BASE_URL}/secure-facilities-locations"
+    config = app_config(
+        tmp_path,
+        appendix=AppendixSpec(
+            title="附录",
+            slug="appendix",
+            sections=(
+                AppendixSection(
+                    "基金会设施",
+                    source_url,
+                    "secure-facilities-locations",
+                    mode="facility-links",
+                ),
+            ),
+        ),
+    )
+    manifest = [
+        PageRef(
+            "基金会设施",
+            source_url,
+            "secure-facilities-locations--appendix-group",
+            2,
+            "appendix-group",
+            parent_slug="appendix",
+            order=1,
+        )
+    ]
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {"secure-facilities-locations": simple_page("设施源正文。")},
+    )
+
+    results = fetch_manifest_pages(config, manifest, fetcher=fetcher)
+
+    assert [slug for slug, _url, _force in fetcher.calls] == [
+        "secure-facilities-locations"
+    ]
+    assert "设施源正文。" in results[0].path.read_text(encoding="utf-8")
+
+
+def test_fetch_manifest_pages_reuses_prefetched_facility_source_for_group(tmp_path: Path):
+    source_url = f"{BASE_URL}/secure-facilities-locations"
+    config = app_config(
+        tmp_path,
+        appendix=AppendixSpec(
+            title="附录",
+            slug="appendix",
+            sections=(
+                AppendixSection(
+                    "基金会设施",
+                    source_url,
+                    "secure-facilities-locations",
+                    mode="facility-links",
+                ),
+            ),
+        ),
+    )
+    manifest = [
+        PageRef(
+            "基金会设施",
+            source_url,
+            "secure-facilities-locations--appendix-group",
+            2,
+            "appendix-group",
+            parent_slug="appendix",
+            order=1,
+        )
+    ]
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {"secure-facilities-locations": simple_page("预抓取设施正文。")},
+    )
+    prefetched = fetcher.fetch_page("secure-facilities-locations", source_url)
+    fetcher.calls.clear()
+
+    results = fetch_manifest_pages(
+        config,
+        manifest,
+        fetcher=fetcher,
+        appendix_fetch_results={
+            ("secure-facilities-locations", source_url): prefetched
+        },
+    )
+
+    assert fetcher.calls == []
+    assert results == [prefetched]
+
+
 def test_fetch_paths_preserve_normal_duplicate_fetches_and_reuse_appendix_tab_sources(
     tmp_path: Path,
 ):
