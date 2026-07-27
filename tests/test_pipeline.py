@@ -938,8 +938,21 @@ def test_build_volume_restores_facility_body_and_keeps_only_configured_tab(tmp_p
     facilities_html = """
       <div id="page-content">
         <p>设施简介正文。</p>
-        <div class="site-grid"><p>站点列表正文。</p></div>
-        <div class="site-grid"><p>区域列表正文。</p></div>
+        <h2>站点列表</h2>
+        <div class="site-grid">
+          <div class="s-wrapper">
+            <div class="thumbnail SITE"><span class="type">SITE-<span class="number">19</span></span></div>
+            <a href="javascript:;">/</a>
+            <div class="slideover"><p>站点悬浮详情。</p></div>
+          </div>
+        </div>
+        <h2>区域列表</h2>
+        <div class="site-grid">
+          <div class="s-wrapper">
+            <div class="thumbnail AREA"><span class="type">AREA-<span class="number">12</span></span></div>
+            <div class="slideover"><p>区域悬浮详情。</p></div>
+          </div>
+        </div>
         <div class="yui-navset">
           <ul class="yui-nav">
             <li>进一步阅读</li><li>设施种类定义</li><li>关于此页面</li>
@@ -969,8 +982,14 @@ def test_build_volume_restores_facility_body_and_keeps_only_configured_tab(tmp_p
     )
     parent = parent_path.read_text(encoding="utf-8")
     assert "设施简介正文。" in parent
-    assert "站点列表正文。" in parent
-    assert "区域列表正文。" in parent
+    assert "站点列表" in parent
+    assert "区域列表" in parent
+    assert parent.count('class="facility-grid-epub"') == 2
+    assert "SITE-19" in parent
+    assert "AREA-12" in parent
+    assert "s-wrapper" not in parent
+    assert "slideover" not in parent
+    assert "javascript:" not in parent
     assert "设施种类" in parent
     assert "站点与区域的定义。" in parent
     assert "进一步阅读正文。" not in parent

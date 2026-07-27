@@ -13,6 +13,12 @@ from scp_epub.urls import normalize_url, slug_from_url
 
 
 NON_DOWNLOADABLE_ASSET_SCHEMES = {"data", "mailto", "tel"}
+FACILITY_LOCATION_SLUGS = frozenset(
+    {
+        "secure-facilities-locations",
+        "secure-facilities-locations--appendix-group",
+    }
+)
 HEADING_NAMES = frozenset(f"h{level}" for level in range(1, 7))
 INLINE_ANCHOR_BLOCK_TAGS = frozenset(
     {
@@ -478,6 +484,15 @@ GRID_TABLE_CELL_STYLE = (
     "border: solid 1px #ff1d45; background-color: #21252E; color: #EDEDED; "
     "padding: 0.625em; vertical-align: middle"
 )
+FACILITY_GRID_STYLE = (
+    "width: 100%; border-collapse: collapse; table-layout: fixed; margin: 1em 0"
+)
+FACILITY_CARD_STYLE = (
+    "width: 25%; border: solid 1px #ddd; padding: 0.625em; "
+    "text-align: center; vertical-align: top"
+)
+FACILITY_ICON_STYLE = "width: 64px; max-width: 80%; height: auto; margin: 0 auto"
+FACILITY_LABEL_STYLE = "font-weight: bold; text-align: center; margin-top: 0.35em"
 SCENE_BREAK_IMAGE_STYLE = {
     "width": "96px",
     "max-width": "40%",
@@ -571,6 +586,8 @@ def transform_page(
 
     _normalize_ruby_annotations(soup, page_content)
     page_styles = _materialize_generated_before_content(soup, page_content, page_styles)
+    if entry.slug in FACILITY_LOCATION_SLUGS:
+        _convert_facility_grids(soup, page_content)
     _convert_grid_tables(soup, page_content)
     _stabilize_float_layout(soup, page_content)
     _stabilize_text_message_layout(page_content)
@@ -2266,6 +2283,58 @@ def _convert_grid_tables(soup: BeautifulSoup, page_content: Tag) -> None:
             table.append(row)
 
         grid_table.replace_with(table)
+
+
+def _convert_facility_grids(soup: BeautifulSoup, page_content: Tag) -> None:
+    for facility_grid in list(page_content.select(".site-grid")):
+        cards: list[Tag] = []
+        for wrapper in facility_grid.select(".s-wrapper"):
+            type_label = wrapper.select_one(".thumbnail .type")
+            if type_label is None:
+                continue
+
+            label_text = re.sub(r"\s+", "", type_label.get_text("", strip=True))
+            label_text = re.sub(
+                r"^(site|area)-",
+                lambda match: f"{match.group(1).upper()}-",
+                label_text,
+                flags=re.IGNORECASE,
+            )
+            if not label_text or label_text.endswith("-"):
+                continue
+
+            card = soup.new_tag("td")
+            card["class"] = "facility-card-epub"
+            card["style"] = FACILITY_CARD_STYLE
+
+            source_image = wrapper.select_one(".slideover img[src]")
+            if source_image is not None:
+                source_url = source_image.get("src")
+                if isinstance(source_url, str) and source_url.strip():
+                    image = soup.new_tag("img")
+                    image["class"] = "facility-icon-epub"
+                    image["style"] = FACILITY_ICON_STYLE
+                    image["src"] = source_url
+                    image["alt"] = label_text
+                    card.append(image)
+
+            label = soup.new_tag("div")
+            label["class"] = "facility-label-epub"
+            label["style"] = FACILITY_LABEL_STYLE
+            label.string = label_text
+            card.append(label)
+            cards.append(card)
+
+        table = soup.new_tag("table")
+        table["class"] = "facility-grid-epub"
+        table["style"] = FACILITY_GRID_STYLE
+        for index in range(0, len(cards), 4):
+            row = soup.new_tag("tr")
+            for card in cards[index : index + 4]:
+                row.append(card)
+            table.append(row)
+
+        facility_grid.replace_with(table)
 
 
 def _move_children(source: Tag, destination: Tag) -> None:

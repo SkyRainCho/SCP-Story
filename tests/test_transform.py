@@ -2002,6 +2002,132 @@ def test_converts_css_grid_tables_to_epub_tables():
     assert table.find("a", href="https://scp-wiki-cn.wikidot.com/scp-1048") is not None
 
 
+def test_converts_facility_grids_to_static_four_column_tables():
+    html = """
+    <html><body><div id="page-content">
+      <h1>站点列表</h1>
+      <div class="site-grid">
+        <div class="s-wrapper">
+          <div class="thumbnail SITE"><span class="type">SITE-<span class="number">01</span></span></div>
+          <a href="javascript:;">/</a>
+          <div class="slideover"><div class="socontent">
+            <img src="/local--files/secure-facilities-locations/Site-01.svg" alt="Site-01" />
+            <p>不应进入电子书的悬浮详情。</p>
+          </div></div>
+        </div>
+        <div class="s-wrapper">
+          <div class="thumbnail SITE"><span class="type">SITE-<span class="number">02</span></span></div>
+          <div class="slideover"><img src="/site-02.png" alt="Site-02" /></div>
+        </div>
+        <div class="s-wrapper">
+          <div class="thumbnail SITE"><span class="type">SITE-<span class="number">03</span></span></div>
+          <div class="slideover"><img src="/site-03.png" alt="Site-03" /></div>
+        </div>
+        <div class="s-wrapper">
+          <div class="thumbnail SITE"><span class="type">SITE-<span class="number">04</span></span></div>
+          <div class="slideover"><img src="/site-04.png" alt="Site-04" /></div>
+        </div>
+        <div class="s-wrapper">
+          <div class="thumbnail site"><span class="type">site-<span class="number">5</span></span></div>
+          <div class="slideover"><p>无源图标。</p></div>
+        </div>
+      </div>
+      <h1>区域列表</h1>
+      <div class="site-grid">
+        <div class="s-wrapper">
+          <div class="thumbnail AREA"><span class="type">AREA-<span class="number">12</span></span></div>
+          <div class="slideover"><img src="/area-12.png" alt="Area-12" /></div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("secure-facilities-locations"), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+    tables = soup.find_all("table", class_="facility-grid-epub")
+
+    assert len(tables) == 2
+    assert [len(row.find_all("td", recursive=False)) for row in tables[0].find_all("tr")] == [4, 1]
+    assert [cell.get_text(" ", strip=True) for cell in tables[0].find_all("td")] == [
+        "SITE-01",
+        "SITE-02",
+        "SITE-03",
+        "SITE-04",
+        "SITE-5",
+    ]
+    assert [cell.get_text(" ", strip=True) for cell in tables[1].find_all("td")] == ["AREA-12"]
+    assert len(tables[0].find_all("img", class_="facility-icon-epub")) == 4
+    assert tables[0].find(string="SITE-5").find_parent("td").find("img") is None
+    assert result.asset_urls == (
+        "https://scp-wiki-cn.wikidot.com/local--files/secure-facilities-locations/Site-01.svg",
+        "https://scp-wiki-cn.wikidot.com/site-02.png",
+        "https://scp-wiki-cn.wikidot.com/site-03.png",
+        "https://scp-wiki-cn.wikidot.com/site-04.png",
+        "https://scp-wiki-cn.wikidot.com/area-12.png",
+    )
+
+
+def test_facility_grid_conversion_removes_interactive_markup_and_is_page_specific():
+    html = """
+    <html><body><div id="page-content">
+      <div class="site-grid">
+        <div class="s-wrapper">
+          <div class="thumbnail SITE"><span class="type">SITE-<span class="number">19</span></span></div>
+          <a href="javascript:;">/</a>
+          <div class="slideover"><div class="socontent">
+            <img src="/site-19.png" alt="Site-19" />
+            <p>隐藏设施描述。</p>
+            <div class="collapsible-block">隐藏折叠内容。</div>
+            <div class="doc-link"><a href="/secure-facility-dossier-site-19">设施档案</a></div>
+          </div></div>
+        </div>
+        <div class="s-wrapper"><div class="thumbnail SITE"><span>缺少编号</span></div></div>
+      </div>
+    </div></body></html>
+    """
+
+    converted = transform_page(page_ref("secure-facilities-locations"), html, BASE_URL)
+    converted_soup = soup_fragment(converted.xhtml)
+
+    assert converted_soup.select(".s-wrapper, .thumbnail, .slideover, .socontent") == []
+    assert converted_soup.find("a") is None
+    assert "隐藏设施描述" not in converted_soup.get_text(" ", strip=True)
+    assert "隐藏折叠内容" not in converted_soup.get_text(" ", strip=True)
+    assert "设施档案" not in converted_soup.get_text(" ", strip=True)
+    assert [cell.get_text(" ", strip=True) for cell in converted_soup.find_all("td")] == ["SITE-19"]
+
+    unrelated = transform_page(page_ref("scp-999"), html, BASE_URL)
+    unrelated_soup = soup_fragment(unrelated.xhtml)
+    assert unrelated_soup.find("div", class_="site-grid") is not None
+    assert unrelated_soup.find("div", class_="slideover") is not None
+
+
+def test_converts_facility_grid_for_generated_appendix_group_entry():
+    html = """
+    <html><body><div id="page-content">
+      <div class="site-grid">
+        <div class="s-wrapper">
+          <div class="thumbnail SITE"><span class="type">SITE-<span class="number">01</span></span></div>
+          <div class="slideover"><img src="/site-01.png" alt="Site-01" /></div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+    entry = PageRef(
+        title="基金会设施",
+        url=f"{BASE_URL}/secure-facilities-locations",
+        slug="secure-facilities-locations--appendix-group",
+        level=1,
+        role="appendix-group",
+    )
+
+    result = transform_page(entry, html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find("table", class_="facility-grid-epub") is not None
+    assert soup.select(".s-wrapper, .thumbnail, .slideover") == []
+
+
 def test_expands_wikidot_tabs_into_labeled_epub_sections():
     html = """
     <html><body><div id="page-content">
