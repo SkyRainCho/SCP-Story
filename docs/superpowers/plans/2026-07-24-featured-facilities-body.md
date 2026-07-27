@@ -129,66 +129,7 @@ def test_fetch_manifest_pages_uses_facility_source_for_generated_group(tmp_path:
     assert "设施源正文。" in results[0].path.read_text(encoding="utf-8")
 ```
 
-- [ ] **Step 2: Run the test and verify RED**
-
-Run:
-
-```powershell
-& 'C:\Users\Administrator\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m pytest tests/test_pipeline.py::test_fetch_manifest_pages_uses_facility_source_for_generated_group -q
-```
-
-Expected: FAIL because the group is currently materialized with `appendix_group_html` and the source fetcher is not called.
-
-- [ ] **Step 3: Implement facility-group source resolution**
-
-Add this helper near `_tab_source_key`:
-
-```python
-def _appendix_group_source_key(
-    config: AppConfig,
-    entry: PageRef,
-) -> tuple[str, str] | None:
-    if entry.role != APPENDIX_GROUP_ROLE or config.appendix is None:
-        return None
-    for section in config.appendix.sections:
-        if (
-            section.mode == "facility-links"
-            and entry.slug == _appendix_group_slug(section.slug)
-        ):
-            return section.slug, section.url
-    return None
-```
-
-Update the first loop in `_fetch_manifest_results` so a content-bearing group is fetched while other groups remain generated:
-
-```python
-        if entry.role == APPENDIX_GROUP_ROLE:
-            source_key = _appendix_group_source_key(config, entry)
-            if source_key is not None and provided.get(source_key) is None:
-                fetch_source[index] = source_key
-            continue
-```
-
-Update the result-resolution loop:
-
-```python
-        if entry.role == APPENDIX_GROUP_ROLE:
-            source_key = _appendix_group_source_key(config, entry)
-            if source_key is not None:
-                results.append(provided.get(source_key) or fetched[index])
-                continue
-            try:
-                results.append(_write_appendix_group_fetch_result(cache, entry))
-            except Exception as exc:
-                results.append(exc)
-            continue
-```
-
-- [ ] **Step 4: Run the targeted test and verify GREEN**
-
-Run the Task 2 targeted command. Expected: `1 passed`.
-
-- [ ] **Step 5: Add a failing prefetched-result reuse test**
+- [ ] **Step 2: Add the prefetched-result reuse test**
 
 Add:
 
@@ -241,7 +182,62 @@ def test_fetch_manifest_pages_reuses_prefetched_facility_source_for_group(tmp_pa
     assert results == [prefetched]
 ```
 
-- [ ] **Step 6: Run both tests**
+- [ ] **Step 3: Run both tests and verify RED**
+
+Run:
+
+```powershell
+& 'C:\Users\Administrator\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m pytest tests/test_config.py::test_featured_scp_config_uses_archive_mode_and_title_indexes -q
+```
+
+Expected: FAIL because the facilities section currently has empty `include_tabs` and `unwrap_single_tab == False`.
+
+- [ ] **Step 4: Implement facility-group source resolution**
+
+Add this helper near `_tab_source_key`:
+
+```python
+def _appendix_group_source_key(
+    config: AppConfig,
+    entry: PageRef,
+) -> tuple[str, str] | None:
+    if entry.role != APPENDIX_GROUP_ROLE or config.appendix is None:
+        return None
+    for section in config.appendix.sections:
+        if (
+            section.mode == "facility-links"
+            and entry.slug == _appendix_group_slug(section.slug)
+        ):
+            return section.slug, section.url
+    return None
+```
+
+Update the first loop in `_fetch_manifest_results` so a content-bearing group is fetched while other groups remain generated:
+
+```python
+        if entry.role == APPENDIX_GROUP_ROLE:
+            source_key = _appendix_group_source_key(config, entry)
+            if source_key is not None and provided.get(source_key) is None:
+                fetch_source[index] = source_key
+            continue
+```
+
+Update the result-resolution loop:
+
+```python
+        if entry.role == APPENDIX_GROUP_ROLE:
+            source_key = _appendix_group_source_key(config, entry)
+            if source_key is not None:
+                results.append(provided.get(source_key) or fetched[index])
+                continue
+            try:
+                results.append(_write_appendix_group_fetch_result(cache, entry))
+            except Exception as exc:
+                results.append(exc)
+            continue
+```
+
+- [ ] **Step 5: Run both tests and verify GREEN**
 
 Run:
 
@@ -251,7 +247,7 @@ Run:
 
 Expected: both pass with the Task 2 implementation.
 
-- [ ] **Step 7: Commit only this task's hunks**
+- [ ] **Step 6: Commit only this task's hunks**
 
 Because `src/scp_epub/pipeline.py` already contains unrelated uncommitted worker-limit changes, use interactive staging and inspect the staged patch:
 
@@ -359,6 +355,9 @@ def test_build_volume_restores_facility_body_and_keeps_only_configured_tab(tmp_p
     assert "关于此页面正文。" not in parent
     assert "tabview-epub" not in parent
     assert "标签：设施种类定义" not in parent
+    child_path = config.processed_dir / "test-volume" / "0003-site-19.xhtml"
+    child = child_path.read_text(encoding="utf-8")
+    assert "Site-19 档案正文。" in child
     assert manifest[2].parent_slug == "secure-facilities-locations--appendix-group"
 ```
 
