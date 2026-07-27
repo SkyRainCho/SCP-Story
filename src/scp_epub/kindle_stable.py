@@ -40,6 +40,7 @@ class StableImageInfo:
     height: int
     frame_count: int
     format_name: str
+    has_transparency: bool
 
     def fitted_size(self, spec: StableVariantSpec) -> tuple[int, int]:
         scale = min(
@@ -128,12 +129,14 @@ def inspect_stable_image(asset: AssetRef) -> StableImageInfo:
             orientation = image.getexif().get(274)
             if orientation in {5, 6, 7, 8}:
                 width, height = height, width
+            image.seek(0)
             return StableImageInfo(
                 href=asset.href,
                 width=width,
                 height=height,
                 frame_count=int(getattr(image, "n_frames", 1)),
                 format_name=format_name,
+                has_transparency=_frame_has_transparency(image),
             )
 
 
@@ -330,8 +333,17 @@ def prepare_stable_kindle_assets(
         for href, _spec in rendered
         if plan.image_info_by_href[href].frame_count > 1
     }
+    rendered_requests = tuple(rendered)
+    grayscale_alpha_variant_count = sum(
+        1
+        for href, _spec in rendered_requests
+        if plan.image_info_by_href[href].has_transparency
+    )
     performance: dict[str, object] = {
         "profile": "kindle-scribe-300ppi",
+        "image_encoding_profile": IMAGE_ENCODING_PROFILE,
+        "grayscale_variant_count": len(rendered_requests),
+        "grayscale_alpha_variant_count": grayscale_alpha_variant_count,
         "target_decode_bytes": TARGET_DECODE_BYTES,
         "hard_decode_bytes": HARD_DECODE_BYTES,
         "before_decode_bytes": sum(

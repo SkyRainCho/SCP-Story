@@ -13,6 +13,7 @@ from scp_epub.kindle_stable import (
     KindleStabilityError,
     StableVariantSpec,
     plan_stable_variants,
+    prepare_stable_kindle_assets,
     render_stable_variant,
 )
 from scp_epub.models import PageRef, ProcessedPage
@@ -209,6 +210,24 @@ def test_render_stable_variant_treats_mpo_as_first_frame_jpeg(
 
     assert prepared.content_type == "image/jpeg"
     assert prepared.path.suffix == ".jpg"
+
+
+def test_prepare_stable_assets_reports_grayscale_variants(tmp_path: Path):
+    opaque = _asset(tmp_path, "opaque.png", _png_bytes((200, 100)))
+    alpha = _asset(tmp_path, "alpha.png", _png_bytes((200, 100), alpha=True))
+    page = _page_with_assets("gray-report", [opaque, alpha])
+
+    result = prepare_stable_kindle_assets(
+        [page],
+        [opaque, alpha],
+        tmp_path / "stable-assets",
+    )
+
+    assert result.performance["image_encoding_profile"] == (
+        "grayscale-preserve-alpha"
+    )
+    assert result.performance["grayscale_variant_count"] == 2
+    assert result.performance["grayscale_alpha_variant_count"] == 1
 
 
 def test_plan_uses_facility_thumbnail_only_for_facility_reference(tmp_path: Path):
