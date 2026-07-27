@@ -19,6 +19,7 @@ from .models import ProcessedPage
 
 MIB = 1024 * 1024
 _SUPPORTED_RASTER_FORMATS = frozenset({"GIF", "JPEG", "MPO", "PNG"})
+IMAGE_ENCODING_PROFILE = "grayscale-preserve-alpha"
 
 
 class KindleStabilityError(RuntimeError):
@@ -361,6 +362,18 @@ def prepare_stable_kindle_assets(
     )
 
 
+def _frame_has_transparency(frame: Image.Image) -> bool:
+    return "A" in frame.getbands() or "transparency" in frame.info
+
+
+def _convert_frame_to_grayscale(frame: Image.Image) -> Image.Image:
+    if not _frame_has_transparency(frame):
+        return frame.convert("L")
+    rgba = frame.convert("RGBA")
+    luminance = rgba.convert("RGB").convert("L")
+    return Image.merge("LA", (luminance, rgba.getchannel("A")))
+
+
 def render_stable_variant(
     asset: AssetRef,
     spec: StableVariantSpec,
@@ -390,19 +403,19 @@ def render_stable_variant(
         frame = frame.resize(fitted_size, Image.Resampling.LANCZOS)
 
     output_format = "JPEG" if format_name in {"JPEG", "MPO"} else "PNG"
-    if output_format == "JPEG":
-        frame = frame.convert("RGB")
-    elif frame.mode not in {"RGB", "RGBA"}:
-        frame = frame.convert("RGBA" if "transparency" in frame.info else "RGB")
+    frame = _convert_frame_to_grayscale(frame)
+    if output_format == "JPEG" and frame.mode == "LA":
+        frame = frame.getchannel("L")
 
     digest = hashlib.sha256(
-        f"{asset.source_url}|{spec.purpose}|{spec.max_width}x{spec.max_height}".encode(
-            "utf-8"
-        )
+        (
+            f"{asset.source_url}|{IMAGE_ENCODING_PROFILE}|{spec.purpose}|"
+            f"{spec.max_width}x{spec.max_height}"
+        ).encode("utf-8")
     ).hexdigest()[:12]
     suffix = ".jpg" if output_format == "JPEG" else ".png"
     filename = (
-        f"{Path(asset.href).stem}-{digest}-{spec.purpose}-"
+        f"{Path(asset.href).stem}-{digest}-gray-{spec.purpose}-"
         f"{spec.max_width}x{spec.max_height}{suffix}"
     )
     output_dir.mkdir(parents=True, exist_ok=True)
