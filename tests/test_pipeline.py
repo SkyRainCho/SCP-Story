@@ -2579,6 +2579,7 @@ def test_build_volume_kindle_stable_writes_scribe_variants_and_report(tmp_path: 
     assert performance["image_encoding_profile"] == "grayscale-preserve-alpha"
     assert performance["grayscale_variant_count"] >= 1
     assert performance["grayscale_alpha_variant_count"] >= 0
+    assert performance["location_badge_variant_count"] == 0
     assert performance["after_decode_bytes"] < performance["before_decode_bytes"]
 
 
