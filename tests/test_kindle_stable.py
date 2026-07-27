@@ -258,10 +258,13 @@ def test_plan_uses_location_badge_spec_only_for_matching_page_contexts(
             StableVariantSpec("location-badge", 320, 320)
         )
     for occurrence in range(3, 6):
-        assert plan.spec_for("locations-of-interest", occurrence).purpose != (
-            "location-badge"
+        assert plan.spec_for("locations-of-interest", occurrence) == (
+            StableVariantSpec("adaptive", 800, 1100)
         )
-    assert plan.spec_for("another-page", 0).purpose != "location-badge"
+    assert plan.spec_for("another-page", 0) == StableVariantSpec(
+        "ordinary", 1800, 2400
+    )
+    assert plan.page_performance[0].selected_bound == (800, 1100)
 
 
 def test_adaptive_planning_does_not_expand_location_badges(tmp_path: Path):

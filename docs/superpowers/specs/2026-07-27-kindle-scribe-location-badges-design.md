@@ -80,13 +80,17 @@ Initial spec precedence is:
 
 1. facility icons use the existing 384-pixel facility spec;
 2. matching location badges use the new 320-pixel location-badge spec;
-3. all other images use the ordinary stable spec.
+3. non-badge images on `locations-of-interest` retain the page's existing minimum
+   adaptive spec of 800 by 1100;
+4. all other images use the ordinary stable spec.
 
-When the page exceeds the target budget, the existing adaptive loop must change
-only references still using the ordinary/adaptive path. Fixed facility and
-location-badge variants remain at their dedicated sizes. This keeps maps eligible
-for the current page-level adaptive bound while preventing badge assets from being
-expanded back to 800 pixels.
+When another page exceeds the target budget, the existing adaptive loop must
+change only references still using the ordinary/adaptive path. Fixed facility and
+location-badge variants remain at their dedicated sizes. On
+`locations-of-interest`, the five non-badge references begin at the existing
+800-by-1100 adaptive bound even when the 320-pixel badges bring the total below the
+budget threshold. This prevents the maps from growing back to ordinary-image
+resolution merely because badge optimization creates additional budget.
 
 Repeated use of the same badge source and spec remains deduplicated by the
 existing `(source href, StableVariantSpec)` request identity. No new cache or

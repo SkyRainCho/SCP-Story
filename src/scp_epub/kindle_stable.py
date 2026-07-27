@@ -188,6 +188,8 @@ def plan_stable_variants(
                 spec = FACILITY_SPEC
             elif _is_location_badge(slug, reference):
                 spec = LOCATION_BADGE_SPEC
+            elif slug == "locations-of-interest":
+                spec = ADAPTIVE_SPECS[-1]
             else:
                 spec = ORDINARY_SPEC
             reference_specs[(slug, reference.occurrence)] = spec
@@ -206,6 +208,20 @@ def plan_stable_variants(
             image_info_by_href,
         )
         fixed_specs = {FACILITY_SPEC, LOCATION_BADGE_SPEC}
+        non_fixed_specs = tuple(
+            reference_specs[(slug, reference.occurrence)]
+            for reference in references
+            if reference_specs[(slug, reference.occurrence)]
+            not in fixed_specs
+        )
+        if non_fixed_specs:
+            selected_spec = max(
+                non_fixed_specs,
+                key=lambda spec: (
+                    spec.max_width * spec.max_height,
+                    spec.purpose,
+                ),
+            )
         has_ordinary = any(
             reference_specs[(slug, reference.occurrence)] not in fixed_specs
             for reference in references
