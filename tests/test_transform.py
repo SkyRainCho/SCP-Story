@@ -2479,6 +2479,83 @@ def test_unwraps_selected_appendix_tab_child_without_the_tabview_heading_or_wrap
     assert "标签：研究人员" not in text
 
 
+def test_removes_o5_dossier_return_footer_from_appendix_tab_child():
+    entry = PageRef(
+        title="O5-2",
+        url=f"{BASE_URL}/o5-command-dossier",
+        slug="o5-command-dossier--tab-3",
+        level=3,
+        role="appendix-tab",
+        parent_slug="o5-command-dossier--appendix-group",
+        tab_title="O5-2",
+    )
+    html = """
+    <html><body><div id="page-content">
+      <div class="yui-navset">
+        <ul class="yui-nav"><li>概览</li><li>O5-1</li><li>O5-2</li></ul>
+        <div class="yui-content">
+          <div><p>概览正文。</p></div>
+          <div><p>O5-1正文。</p></div>
+          <div><p>O5-2正文。</p></div>
+        </div>
+      </div>
+      <hr id="return-separator-before" />
+      <blockquote id="return-footer">
+        <p>返回<a href="/personnel-and-character-dossier">人员及角色档案</a>。</p>
+      </blockquote>
+      <hr id="return-separator-after" />
+    </div></body></html>
+    """
+
+    result = transform_page(
+        entry,
+        html,
+        BASE_URL,
+        include_tab_titles={entry.tab_title},
+        unwrap_single_included_tab=True,
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert "O5-2正文。" in soup.get_text(" ", strip=True)
+    assert "返回人员及角色档案" not in soup.get_text("", strip=True)
+    assert soup.find(id="return-footer") is None
+    assert soup.find(id="return-separator-before") is None
+    assert soup.find(id="return-separator-after") is None
+
+
+def test_preserves_personnel_return_footer_on_other_appendix_tabs():
+    entry = PageRef(
+        title="研究人员",
+        url=f"{BASE_URL}/other-dossier",
+        slug="other-dossier--tab-1",
+        level=3,
+        role="appendix-tab",
+        parent_slug="other-dossier--appendix-group",
+        tab_title="研究人员",
+    )
+    html = """
+    <html><body><div id="page-content">
+      <div class="yui-navset">
+        <ul class="yui-nav"><li>研究人员</li></ul>
+        <div class="yui-content"><div><p>研究正文。</p></div></div>
+      </div>
+      <blockquote id="return-footer">
+        <p>返回<a href="/personnel-and-character-dossier">人员及角色档案</a>。</p>
+      </blockquote>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        entry,
+        html,
+        BASE_URL,
+        include_tab_titles={entry.tab_title},
+        unwrap_single_included_tab=True,
+    )
+
+    assert soup_fragment(result.xhtml).find(id="return-footer") is not None
+
+
 def test_removes_generic_hidden_css_code_styles_from_page_styles():
     html = """
     <html>

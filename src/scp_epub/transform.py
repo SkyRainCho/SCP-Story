@@ -19,6 +19,7 @@ FACILITY_LOCATION_SLUGS = frozenset(
         "secure-facilities-locations--appendix-group",
     }
 )
+O5_COMMAND_DOSSIER_PARENT_SLUG = "o5-command-dossier--appendix-group"
 HEADING_NAMES = frozenset(f"h{level}" for level in range(1, 7))
 INLINE_ANCHOR_BLOCK_TAGS = frozenset(
     {
@@ -555,6 +556,7 @@ def transform_page(
     page_styles = _applicable_page_styles(soup, page_content)
 
     _remove_creator_information_blocks(page_content)
+    _remove_o5_command_dossier_return_footer(entry, page_content)
 
     for tag in list(page_content.find_all(_is_unwanted_element)):
         tag.decompose()
@@ -1434,6 +1436,48 @@ def _remove_creator_information_blocks(page_content: Tag) -> None:
 
         for sibling in [paragraph, *_creator_information_siblings(paragraph)]:
             sibling.decompose()
+
+
+def _remove_o5_command_dossier_return_footer(
+    entry: PageRef,
+    page_content: Tag,
+) -> None:
+    if not (
+        entry.role == "appendix-tab"
+        and entry.parent_slug == O5_COMMAND_DOSSIER_PARENT_SLUG
+    ):
+        return
+
+    for footer in list(page_content.find_all("blockquote")):
+        links = footer.find_all("a", href=True)
+        if len(links) != 1:
+            continue
+        link = links[0]
+        if (
+            _normalized_text(footer) not in {
+                "返回人员及角色档案。",
+                "返回人员及角色档案.",
+            }
+            or link.get_text("", strip=True) != "人员及角色档案"
+            or urlparse(str(link.get("href", ""))).path.rstrip("/")
+            != "/personnel-and-character-dossier"
+        ):
+            continue
+
+        previous = _adjacent_tag_sibling(footer, "previous_sibling")
+        following = _adjacent_tag_sibling(footer, "next_sibling")
+        if previous is not None and previous.name == "hr":
+            previous.decompose()
+        if following is not None and following.name == "hr":
+            following.decompose()
+        footer.decompose()
+
+
+def _adjacent_tag_sibling(tag: Tag, attribute: str) -> Tag | None:
+    sibling = getattr(tag, attribute)
+    while isinstance(sibling, NavigableString) and not str(sibling).strip():
+        sibling = getattr(sibling, attribute)
+    return sibling if isinstance(sibling, Tag) else None
 
 
 def _creator_information_siblings(marker: Tag) -> list[Tag]:
