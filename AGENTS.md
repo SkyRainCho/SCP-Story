@@ -40,7 +40,7 @@ python -m scp_epub --config config/series-1.yaml build --volume 001-099
 python -m scp_epub --config config/featured-scp.yaml build --volume featured
 ```
 
-构建 Kindle Scribe 优化版精选样书：
+构建 Kindle 高清版精选样书：
 
 ```powershell
 python -m scp_epub --config config/featured-scp.yaml build --volume featured --kindle
@@ -50,8 +50,19 @@ python -m scp_epub --config config/featured-scp.yaml build --volume featured --k
 `output/azw3/SCP基金会档案精选-Kindle.azw3` 和独立构建报告。它依赖系统中可用的
 Calibre `ebook-convert`。Kindle 构建会按真实内容校验图片，把 WebP、BMP 等不兼容
 栅格图规范化为 PNG；无效图片不会进入 Kindle EPUB，并会记录在 Kindle report 的
-`missing_assets` 中。不带 `--kindle` 时，原有资源处理、report、EPUB 输出、CSS 和
-命名必须保持不变。
+`missing_assets` 中。不使用任何 Kindle 参数时，原有资源处理、report、EPUB 输出、
+CSS 和命名必须保持不变。
+
+构建 Kindle Scribe 稳定版精选样书：
+
+```powershell
+python -m scp_epub --config config/featured-scp.yaml build --volume featured --kindle-stable
+```
+
+该命令生成 `output/epub/SCP基金会档案精选-Kindle-Scribe.epub`、
+`output/azw3/SCP基金会档案精选-Kindle-Scribe.azw3` 和独立构建报告。稳定版与
+`--kindle` 高清版互斥，必须使用独立的输出名和处理目录；不带 Kindle 参数时，普通
+EPUB 的资源处理、report、CSS、文件名和输出行为必须保持不变。
 
 该配置从英文站 Featured SCP Archive 起始页递归读取归档分页，但 EPUB 正文使用中文站同 slug 的 SCP 主文档。精选书的主清单由 Featured 页面决定，并按页面条目编号排序；构建时仍可按高置信规则纳入主文档中的原文附属文档。
 
@@ -119,6 +130,20 @@ HTML 清洗逻辑需要特别注意以下已知模式：
 Grid、Flexbox、生成内容伪元素和结构伪类；许可等级等语义内容必须写入真实 XHTML，
 不能只存在于 CSS `content` 中。Calibre 转换必须使用临时 AZW3 和原子替换，失败时
 保留 Kindle EPUB、报告及已有有效 AZW3。
+
+修改 Kindle Scribe 稳定版时还必须覆盖 `tests/test_kindle_stable.py`。生成的栅格
+变体使用灰度编码：不透明图片为 `L`，透明图片为保留 alpha 的 `LA`；不得把透明图
+铺白，也不得在没有独立设计和视觉验证的情况下加入二值化、1-bit 转换、抖动、自动
+对比度或类似不可逆的墨水屏预处理。即使图片为灰度，解码预算仍按每像素 4 字节保守
+估算。设施图标上限为 384×384，固定缩略图规格不得被逐页 adaptive 规划覆盖。
+
+`locations-of-interest` 的徽标上限为 320×320，只能在该页面中通过 `enlarge`、
+`legend-box`，或同时具有 `image-container` 与 `floatright` 的祖先容器识别；地图和
+其他非徽标图片必须继续使用 800×1100 adaptive 规格，不能因为徽标变小而回升到
+1800×2400 普通图片上限。修改该规则时需覆盖祖先类解析、跨页面隔离、地图排除、
+重复徽标去重、固定规格保护、预算警告和 `location_badge_variant_count` 报告。
+`tests/test_kindle.py` 应覆盖图片直接类与祖先类元数据，`tests/test_pipeline.py` 应覆盖
+稳定版报告字段及普通/高清 Kindle 模式回归。
 
 `scan-linked-appendices` 的候选规则必须保持保守：宁可漏掉边缘链接，也不要把普通 SCP 交叉引用、系列推荐、作者页、授权页、论坛页或系统组件误报为需要打包的附属文档。正常 `build` 会并发抓取候选页面，把成功抓取的页面插入来源页面下的 `原文附属文档` 分组中，且只展开一层，不递归追踪附属页面里的链接。放宽规则、调整分组结构或修改并发去重时必须补充测试，证明普通链接不会被误报，已有故事子目录不会和附属文档混淆，并确保同 slug 候选的报告归属与 EPUB 中实际收录位置一致。
 

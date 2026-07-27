@@ -20,7 +20,7 @@
 
 - Python 3.11 或更高版本
 - Windows PowerShell、PowerShell Core 或其他可运行 Python 的终端
-- 可选：Calibre（使用 `build --kindle` 生成 AZW3 时需要，命令 `ebook-convert` 必须可用）
+- 可选：Calibre（使用 `build --kindle` 或 `build --kindle-stable` 生成 AZW3 时需要，命令 `ebook-convert` 必须可用）
 
 建议在虚拟环境中安装依赖：
 
@@ -79,9 +79,9 @@ output/epub/SCP基金会档案精选.epub
 output/reports/SCP基金会档案精选-report.json
 ```
 
-### 构建 Kindle Scribe 优化版
+### 构建 Kindle 高清版
 
-安装 Calibre 后，可为 Featured 精选集同时生成 Kindle 优化 EPUB 和 AZW3：
+安装 Calibre 后，可为 Featured 精选集同时生成 Kindle 高清 EPUB 和 AZW3：
 
 ```powershell
 python -m scp_epub --config config/featured-scp.yaml build --volume featured --kindle
@@ -104,14 +104,16 @@ Kindle 构建会按文件真实内容校验图片，将 WebP、BMP 等 AZW3 不�
 无法解码的图片不会写入 Kindle EPUB；页面会保留可用的 `alt` 文本占位，其原始 URL
 会记录在 Kindle report 的 `missing_assets` 中。
 
-`--kindle` 是可选参数。不带该参数时，原有 EPUB 文件名、样式和构建行为不变。
+`--kindle` 是可选的高清 Kindle 模式。不带 Kindle 参数时，原有 EPUB 文件名、样式和
+构建行为不变；`--kindle` 与 `--kindle-stable` 不能同时使用。
 如果未安装 Calibre 或转换失败，命令会保留已生成的 Kindle EPUB 和报告、删除临时
 AZW3，并以错误退出；不会用不完整文件覆盖已有 AZW3。
 
 ### 构建 Kindle Scribe 稳定版
 
-稳定版会限制图片像素尺寸、将动态图静态化，并按单篇 XHTML 的预计图片解码
-内存选择页面专用图片变体。现有 `--kindle` 高清版不会被覆盖。
+稳定版面向黑白 300 ppi 的 Kindle Scribe：它会限制图片像素尺寸、将动态图静态化，
+并按单篇 XHTML 的预计图片解码内存选择页面专用图片变体。现有 `--kindle` 高清版
+不会被覆盖。
 
 ```powershell
 python -m scp_epub --config config/featured-scp.yaml build --volume featured --kindle-stable
@@ -125,10 +127,20 @@ output/azw3/SCP基金会档案精选-Kindle-Scribe.azw3
 output/reports/SCP基金会档案精选-Kindle-Scribe-report.json
 ```
 
-设施卡片图标最大为 384×384；普通图片最大为 1800×2400。构建以 64 MiB 为
+稳定版生成的栅格图片统一使用灰度编码：不透明图片写为 8 位亮度 `L`，透明 PNG
+或 GIF 首帧写为保留透明通道的 `LA`。灰度编码主要降低文件体积和图片读取压力，
+不会替代像素限制或逐页解码预算；解码估算仍按每像素 4 字节保守计算。
+
+设施卡片图标最大为 384×384；“兴趣地点”徽标最大为 320×320，其地图和其他非徽标
+图片保持 800×1100 的自适应上限；普通图片最大为 1800×2400。构建以 64 MiB 为
 单篇目标、96 MiB 为硬上限。若最低稳定尺寸仍超过硬上限，命令会停止并保留已有
-稳定版产物。稳定版还会移除动画、过渡、滤镜以及固定或粘性定位，降低复杂页面在
-Kindle Scribe 上翻页时的运行时负担。
+稳定版产物。
+
+稳定版还会移除动画、过渡、滤镜以及固定或粘性定位，降低复杂页面在 Kindle Scribe
+上翻页时的运行时负担。报告的 `kindle_performance` 会记录
+`image_encoding_profile`、`grayscale_variant_count`、
+`grayscale_alpha_variant_count`、`thumbnail_variant_count`、
+`location_badge_variant_count` 以及逐页预算警告。
 
 ## 性能与并发
 
