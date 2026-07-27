@@ -230,6 +230,61 @@ def test_prepare_stable_assets_reports_grayscale_variants(tmp_path: Path):
     assert result.performance["grayscale_alpha_variant_count"] == 1
 
 
+def test_plan_uses_location_badge_spec_only_for_matching_page_contexts(
+    tmp_path: Path,
+):
+    assets = [
+        _large_png_asset(tmp_path, f"image-{index}.png", (1200, 1200))
+        for index in range(6)
+    ]
+    page = _page(
+        "locations-of-interest",
+        f'<div class="enlarge"><img src="../{assets[0].href}" /></div>'
+        f'<div class="legend-box"><p><img src="../{assets[1].href}" /></p></div>'
+        f'<div class="image-container floatright"><img src="../{assets[2].href}" /></div>'
+        f'<div class="mainmap"><img src="../{assets[3].href}" /></div>'
+        f'<div class="secmap"><img src="../{assets[4].href}" /></div>'
+        f'<p><img src="../{assets[5].href}" /></p>',
+    )
+    other_page = _page(
+        "another-page",
+        f'<div class="enlarge"><img src="../{assets[0].href}" /></div>',
+    )
+
+    plan = plan_stable_variants([page, other_page], assets)
+
+    for occurrence in range(3):
+        assert plan.spec_for("locations-of-interest", occurrence) == (
+            StableVariantSpec("location-badge", 320, 320)
+        )
+    for occurrence in range(3, 6):
+        assert plan.spec_for("locations-of-interest", occurrence).purpose != (
+            "location-badge"
+        )
+    assert plan.spec_for("another-page", 0).purpose != "location-badge"
+
+
+def test_adaptive_planning_does_not_expand_location_badges(tmp_path: Path):
+    badge = _large_png_asset(tmp_path, "badge.png", (3000, 3000))
+    ordinary = [
+        _large_png_asset(tmp_path, f"ordinary-{index}.png", (3000, 3000))
+        for index in range(12)
+    ]
+    page = _page(
+        "locations-of-interest",
+        f'<div class="enlarge"><img src="../{badge.href}" /></div>'
+        + "".join(f'<img src="../{asset.href}" />' for asset in ordinary),
+    )
+
+    plan = plan_stable_variants([page], [badge, *ordinary])
+
+    assert plan.spec_for("locations-of-interest", 0) == StableVariantSpec(
+        "location-badge", 320, 320
+    )
+    assert plan.spec_for("locations-of-interest", 1).purpose == "adaptive"
+    assert plan.page_performance[0].after_decode_bytes <= 64 * MIB
+
+
 def test_plan_uses_facility_thumbnail_only_for_facility_reference(tmp_path: Path):
     asset = _large_png_asset(tmp_path, "site.png", (4500, 4500))
     pages = [

@@ -10,6 +10,7 @@ from PIL import Image, ImageOps
 
 from .assets import AssetRef
 from .kindle import (
+    LocalImageReference,
     _rewrite_kindle_asset_references,
     local_image_references,
     rewrite_page_image_references,
@@ -55,6 +56,7 @@ class StableImageInfo:
 
 
 FACILITY_SPEC = StableVariantSpec("facility", 384, 384)
+LOCATION_BADGE_SPEC = StableVariantSpec("location-badge", 320, 320)
 ORDINARY_SPEC = StableVariantSpec("ordinary", 1800, 2400)
 ADAPTIVE_SPECS = (
     StableVariantSpec("adaptive", 1600, 2200),
@@ -140,6 +142,19 @@ def inspect_stable_image(asset: AssetRef) -> StableImageInfo:
             )
 
 
+def _is_location_badge(
+    slug: str, reference: LocalImageReference
+) -> bool:
+    if slug != "locations-of-interest":
+        return False
+    ancestor_classes = reference.ancestor_classes
+    return (
+        "enlarge" in ancestor_classes
+        or "legend-box" in ancestor_classes
+        or {"image-container", "floatright"} <= ancestor_classes
+    )
+
+
 def plan_stable_variants(
     pages: Sequence[ProcessedPage],
     assets: Sequence[AssetRef],
@@ -169,11 +184,13 @@ def plan_stable_variants(
             if reference.href in image_info_by_href
         ]
         for reference in references:
-            reference_specs[(slug, reference.occurrence)] = (
-                FACILITY_SPEC
-                if "facility-icon-epub" in reference.classes
-                else ORDINARY_SPEC
-            )
+            if "facility-icon-epub" in reference.classes:
+                spec = FACILITY_SPEC
+            elif _is_location_badge(slug, reference):
+                spec = LOCATION_BADGE_SPEC
+            else:
+                spec = ORDINARY_SPEC
+            reference_specs[(slug, reference.occurrence)] = spec
 
         before_decode_bytes = sum(
             image_info_by_href[href].width
@@ -188,15 +205,16 @@ def plan_stable_variants(
             reference_specs,
             image_info_by_href,
         )
+        fixed_specs = {FACILITY_SPEC, LOCATION_BADGE_SPEC}
         has_ordinary = any(
-            reference_specs[(slug, reference.occurrence)] is ORDINARY_SPEC
+            reference_specs[(slug, reference.occurrence)] not in fixed_specs
             for reference in references
         )
         if has_ordinary and after_decode_bytes > TARGET_DECODE_BYTES:
             for adaptive_spec in ADAPTIVE_SPECS:
                 for reference in references:
                     key = (slug, reference.occurrence)
-                    if "facility-icon-epub" not in reference.classes:
+                    if reference_specs[key] not in fixed_specs:
                         reference_specs[key] = adaptive_spec
                 selected_spec = adaptive_spec
                 after_decode_bytes = _estimate_page_decode_bytes(
@@ -208,7 +226,16 @@ def plan_stable_variants(
                 if after_decode_bytes <= TARGET_DECODE_BYTES:
                     break
         elif references and not has_ordinary:
-            selected_spec = FACILITY_SPEC
+            selected_spec = max(
+                (
+                    reference_specs[(slug, reference.occurrence)]
+                    for reference in references
+                ),
+                key=lambda spec: (
+                    spec.max_width * spec.max_height,
+                    spec.purpose,
+                ),
+            )
 
         warning = after_decode_bytes > TARGET_DECODE_BYTES
         if after_decode_bytes > HARD_DECODE_BYTES:
