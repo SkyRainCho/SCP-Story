@@ -2540,9 +2540,11 @@ def test_build_volume_kindle_stable_writes_scribe_variants_and_report(tmp_path: 
             with Image.open(io.BytesIO(archive.read(ordinary_name))) as image:
                 assert image.width <= 1800
                 assert image.height <= 2400
+                assert image.mode == "L"
             with Image.open(io.BytesIO(archive.read(facility_name))) as image:
                 assert image.width <= 384
                 assert image.height <= 384
+                assert image.mode == "L"
         azw3_path.parent.mkdir(parents=True, exist_ok=True)
         azw3_path.write_bytes(b"azw3")
         return azw3_path
@@ -2574,6 +2576,9 @@ def test_build_volume_kindle_stable_writes_scribe_variants_and_report(tmp_path: 
     )
     performance = report["kindle_performance"]
     assert performance["profile"] == "kindle-scribe-300ppi"
+    assert performance["image_encoding_profile"] == "grayscale-preserve-alpha"
+    assert performance["grayscale_variant_count"] >= 1
+    assert performance["grayscale_alpha_variant_count"] >= 0
     assert performance["after_decode_bytes"] < performance["before_decode_bytes"]
 
 
