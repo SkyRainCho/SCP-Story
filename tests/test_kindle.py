@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 import resvg_py
+from lxml import etree
 from PIL import Image
 
 import scp_epub.kindle as kindle_module
@@ -1200,6 +1201,28 @@ def test_prepare_kindle_pages_stable_removes_runtime_css_without_changing_conten
     assert "background: white" in stable.xhtml
     assert "正文" in stable.xhtml
     assert high_quality.xhtml == xhtml
+
+
+def test_prepare_kindle_pages_stable_preserves_xhtml_entities_in_css():
+    xhtml = (
+        "<style>"
+        ".cond {font-family: &#x27;Roboto Condensed&#x27;, sans-serif; "
+        "transition: opacity 1s;}"
+        "</style>"
+        '<span style="font-family: &#x27;Roboto Condensed&#x27;, sans-serif; '
+        'transition: opacity 1s">正文</span>'
+    )
+
+    [stable] = prepare_kindle_pages([_page(xhtml)], stable=True)
+
+    root = etree.fromstring(f"<root>{stable.xhtml}</root>".encode("utf-8"))
+    style_text = root.find("style").text
+    inline_style = root.find("span").get("style")
+    assert "Roboto Condensed" in style_text
+    assert "sans-serif" in style_text
+    assert "Roboto Condensed" in inline_style
+    assert "sans-serif" in inline_style
+    assert "transition" not in stable.xhtml
 
 
 def test_local_image_references_include_href_classes_and_occurrence():

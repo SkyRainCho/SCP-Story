@@ -1343,10 +1343,13 @@ def _stable_inline_style(raw_start_tag: str) -> str:
     if style_spans is None:
         return raw_start_tag
     attribute_start, attribute_end, css_start, css_end = style_spans
-    prepared_css = _stable_css_declarations(raw_start_tag[css_start:css_end])
+    prepared_css = _stable_css_declarations(
+        unescape(raw_start_tag[css_start:css_end])
+    )
     if not prepared_css:
         return raw_start_tag[:attribute_start] + raw_start_tag[attribute_end:]
-    return raw_start_tag[:css_start] + prepared_css + raw_start_tag[css_end:]
+    escaped_css = escape(prepared_css, quote=True)
+    return raw_start_tag[:css_start] + escaped_css + raw_start_tag[css_end:]
 
 
 def _stable_css_declarations(css: str) -> str:
@@ -1372,11 +1375,14 @@ def _stable_css_declarations(css: str) -> str:
 
 def _stable_stylesheet(css: str) -> str:
     rules = tinycss2.parse_stylesheet(
-        css,
+        unescape(css),
         skip_comments=False,
         skip_whitespace=False,
     )
-    return tinycss2.serialize(_stable_css_rules(rules))
+    return escape(
+        tinycss2.serialize(_stable_css_rules(rules)),
+        quote=False,
+    )
 
 
 def _stable_css_rules(rules: Sequence[object]) -> list[object]:
