@@ -108,6 +108,28 @@ Kindle 构建会按文件真实内容校验图片，将 WebP、BMP 等 AZW3 不�
 如果未安装 Calibre 或转换失败，命令会保留已生成的 Kindle EPUB 和报告、删除临时
 AZW3，并以错误退出；不会用不完整文件覆盖已有 AZW3。
 
+### 构建 Kindle Scribe 稳定版
+
+稳定版会限制图片像素尺寸、将动态图静态化，并按单篇 XHTML 的预计图片解码
+内存选择页面专用图片变体。现有 `--kindle` 高清版不会被覆盖。
+
+```powershell
+python -m scp_epub --config config/featured-scp.yaml build --volume featured --kindle-stable
+```
+
+生成：
+
+```text
+output/epub/SCP基金会档案精选-Kindle-Scribe.epub
+output/azw3/SCP基金会档案精选-Kindle-Scribe.azw3
+output/reports/SCP基金会档案精选-Kindle-Scribe-report.json
+```
+
+设施卡片图标最大为 384×384；普通图片最大为 1800×2400。构建以 64 MiB 为
+单篇目标、96 MiB 为硬上限。若最低稳定尺寸仍超过硬上限，命令会停止并保留已有
+稳定版产物。稳定版还会移除动画、过渡、滤镜以及固定或粘性定位，降低复杂页面在
+Kindle Scribe 上翻页时的运行时负担。
+
 ## 性能与并发
 
 构建分为两个并行化的阶段，输出与原串行实现逐字节一致：
@@ -230,6 +252,7 @@ src/scp_epub/
   assets.py       图片等资源本地化
   epub.py         EPUB 写入与构建报告
   kindle.py       Kindle XHTML/CSS 适配与 Calibre AZW3 转换
+  kindle_stable.py Kindle Scribe 图片变体与逐页解码预算
   styles/         EPUB 打包使用的可选样式资源
   config.py       YAML 配置加载与校验
   models.py       数据模型
@@ -301,7 +324,8 @@ pytest -q
 
 修改 Kindle 输出时，需要覆盖 CLI、pipeline、stylesheet、转换失败和普通构建回归，
 重点关注 `tests/test_kindle.py`、`tests/test_cli.py`、`tests/test_pipeline.py` 和
-`tests/test_epub.py`。
+`tests/test_epub.py`；修改 Scribe 稳定版图片预算时还需覆盖
+`tests/test_kindle_stable.py`。
 
 ## 开发注意事项
 

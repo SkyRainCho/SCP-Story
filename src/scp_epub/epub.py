@@ -879,6 +879,7 @@ def write_build_report(
     missing_assets: list[str] | tuple[str, ...] = (),
     missing_pages: list[dict[str, str]] | tuple[dict[str, str], ...] = (),
     fallback_pages: Sequence[FallbackPageRecord] = (),
+    kindle_performance: dict[str, object] | None = None,
 ) -> Path:
     ordered_pages = _ordered_pages(pages)
     page_summaries = [{"slug": page.entry.slug, "title": page.entry.title} for page in ordered_pages]
@@ -912,6 +913,8 @@ def write_build_report(
             }
             for page in fallback_pages
         ]
+    if kindle_performance is not None:
+        report["kindle_performance"] = kindle_performance
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

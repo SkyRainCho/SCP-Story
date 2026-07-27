@@ -44,8 +44,31 @@ def test_parser_accepts_kindle_only_for_build():
     assert args.command == "build"
     assert args.volume == "featured"
     assert args.kindle is True
+    assert args.kindle_stable is False
     with pytest.raises(SystemExit):
         parser.parse_args(["fetch", "--kindle"])
+
+
+def test_parser_accepts_kindle_stable_only_for_build():
+    parser = build_parser()
+
+    args = parser.parse_args(["build", "--volume", "featured", "--kindle-stable"])
+
+    assert args.command == "build"
+    assert args.volume == "featured"
+    assert args.kindle is False
+    assert args.kindle_stable is True
+    with pytest.raises(SystemExit):
+        parser.parse_args(["fetch", "--kindle-stable"])
+
+
+def test_parser_rejects_both_kindle_modes():
+    parser = build_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            ["build", "--volume", "featured", "--kindle", "--kindle-stable"]
+        )
 
 
 def test_help_returns_success(capsys):
@@ -137,14 +160,14 @@ def test_build_command_passes_kindle_and_prints_both_outputs(
 
     monkeypatch.setattr("scp_epub.pipeline.load_config", lambda _path: "config")
 
-    def fake_build_volume(config, volume, *, force=False, kindle=False):
-        calls.append((config, volume, force, kindle))
+    def fake_build_volume(config, volume, *, force=False, build_mode=None):
+        calls.append((config, volume, force, build_mode))
         return epub_path
 
     monkeypatch.setattr("scp_epub.pipeline.build_volume", fake_build_volume)
     monkeypatch.setattr(
         "scp_epub.pipeline.kindle_azw3_path_for_volume",
-        lambda _config, _volume: azw3_path,
+        lambda _config, _volume, *, build_mode=None: azw3_path,
     )
 
     result = main(
@@ -160,6 +183,47 @@ def test_build_command_passes_kindle_and_prints_both_outputs(
 
     captured = capsys.readouterr()
     assert result == 0
-    assert calls == [("config", "featured", False, True)]
+    from scp_epub.pipeline import BuildMode
+
+    assert calls == [("config", "featured", False, BuildMode.KINDLE)]
+    assert str(epub_path) in captured.out
+    assert str(azw3_path) in captured.out
+
+
+def test_build_command_passes_kindle_stable_and_prints_both_outputs(
+    monkeypatch, tmp_path, capsys
+):
+    calls = []
+    epub_path = tmp_path / "output" / "epub" / "book-Kindle-Scribe.epub"
+    azw3_path = tmp_path / "output" / "azw3" / "book-Kindle-Scribe.azw3"
+
+    monkeypatch.setattr("scp_epub.pipeline.load_config", lambda _path: "config")
+
+    def fake_build_volume(config, volume, *, force=False, build_mode=None):
+        calls.append((config, volume, force, build_mode))
+        return epub_path
+
+    monkeypatch.setattr("scp_epub.pipeline.build_volume", fake_build_volume)
+    monkeypatch.setattr(
+        "scp_epub.pipeline.kindle_azw3_path_for_volume",
+        lambda _config, _volume, *, build_mode=None: azw3_path,
+    )
+
+    result = main(
+        [
+            "build",
+            "--config",
+            "config/featured-scp.yaml",
+            "--volume",
+            "featured",
+            "--kindle-stable",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    from scp_epub.pipeline import BuildMode
+
+    assert result == 0
+    assert calls == [("config", "featured", False, BuildMode.KINDLE_STABLE)]
     assert str(epub_path) in captured.out
     assert str(azw3_path) in captured.out

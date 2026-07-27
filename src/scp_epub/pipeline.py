@@ -5,6 +5,7 @@ from argparse import Namespace
 from collections import namedtuple
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from dataclasses import replace
+from enum import StrEnum
 from html import escape
 from pathlib import Path
 from typing import Callable, Protocol
@@ -38,6 +39,7 @@ from .kindle import (
     prepare_kindle_assets,
     prepare_kindle_pages,
 )
+from .kindle_stable import prepare_stable_kindle_assets
 from .linked_appendices import (
     LINKED_APPENDIX_ROLE,
     LINKED_APPENDIX_GROUP_ROLE,
@@ -66,6 +68,24 @@ from .urls import safe_filename, slug_from_url
 
 APPENDIX_GROUP_ROLE = "appendix-group"
 KindleConverter = Callable[[Path, Path], Path]
+
+
+class BuildMode(StrEnum):
+    EPUB = "epub"
+    KINDLE = "kindle"
+    KINDLE_STABLE = "kindle-stable"
+
+    @property
+    def is_kindle(self) -> bool:
+        return self is not BuildMode.EPUB
+
+    @property
+    def output_suffix(self) -> str:
+        if self is BuildMode.KINDLE:
+            return "-Kindle"
+        if self is BuildMode.KINDLE_STABLE:
+            return "-Kindle-Scribe"
+        return ""
 
 
 class PageFetcher(Protocol):
@@ -227,7 +247,7 @@ def build_volume(
     *,
     fetcher: PageFetcher | None = None,
     force: bool = False,
-    kindle: bool = False,
+    build_mode: BuildMode = BuildMode.EPUB,
     kindle_converter: KindleConverter | None = None,
 ) -> Path:
     volume = volume_for_key(config, volume_key)
@@ -296,20 +316,38 @@ def build_volume(
     )
     remote_slugs = remote_resource_page_slugs(localized_pages, missing_assets)
 
-    output_slug = f"{volume.output_slug}-Kindle" if kindle else volume.output_slug
-    if kindle:
-        kindle_pages = prepare_kindle_pages(localized_pages)
-        output_pages, output_assets, missing_assets = prepare_kindle_assets(
+    output_slug = f"{volume.output_slug}{build_mode.output_suffix}"
+    kindle_performance: dict[str, object] | None = None
+    if build_mode.is_kindle:
+        kindle_pages = prepare_kindle_pages(
+            localized_pages,
+            stable=build_mode is BuildMode.KINDLE_STABLE,
+        )
+        prepared_pages, prepared_assets, missing_assets = prepare_kindle_assets(
             kindle_pages,
             localized_assets,
             config.processed_dir / volume.output_slug / "kindle-assets",
             missing_assets,
         )
+        if build_mode is BuildMode.KINDLE_STABLE:
+            stable = prepare_stable_kindle_assets(
+                prepared_pages,
+                prepared_assets,
+                config.processed_dir / volume.output_slug / "kindle-stable-assets",
+                missing_assets,
+            )
+            output_pages = stable.pages
+            output_assets = stable.assets
+            missing_assets = stable.missing_assets
+            kindle_performance = stable.performance
+        else:
+            output_pages = prepared_pages
+            output_assets = prepared_assets
     else:
         output_pages = localized_pages
         output_assets = localized_assets
     output_path = config.output_dir / "epub" / f"{output_slug}.epub"
-    book_css = load_kindle_css() if kindle else BOOK_CSS
+    book_css = load_kindle_css() if build_mode.is_kindle else BOOK_CSS
     write_epub(
         output_pages,
         output_path,
@@ -329,10 +367,14 @@ def build_volume(
         missing_assets=missing_assets,
         missing_pages=missing_pages,
         fallback_pages=fallback_pages,
+        kindle_performance=kindle_performance,
     )
-    if kindle:
+    if build_mode.is_kindle:
         converter = kindle_converter or convert_epub_to_azw3
-        converter(output_path, kindle_azw3_path_for_volume(config, volume))
+        converter(
+            output_path,
+            kindle_azw3_path_for_volume(config, volume, build_mode=build_mode),
+        )
     return output_path
 
 
@@ -837,16 +879,23 @@ def run_command(args: Namespace) -> None:
         return
 
     if command == "build":
-        kindle = bool(getattr(args, "kindle", False))
+        if bool(getattr(args, "kindle_stable", False)):
+            build_mode = BuildMode.KINDLE_STABLE
+        elif bool(getattr(args, "kindle", False)):
+            build_mode = BuildMode.KINDLE
+        else:
+            build_mode = BuildMode.EPUB
         output_path = build_volume(
             config,
             args.volume,
             force=force,
-            kindle=kindle,
+            build_mode=build_mode,
         )
         print(f"Wrote {output_path}")
-        if kindle:
-            print(f"Wrote {kindle_azw3_path_for_volume(config, args.volume)}")
+        if build_mode.is_kindle:
+            print(
+                f"Wrote {kindle_azw3_path_for_volume(config, args.volume, build_mode=build_mode)}"
+            )
         return
 
     if command == "scan-linked-appendices":
@@ -884,9 +933,17 @@ def manifest_path_for_volume(config: AppConfig, volume: VolumeSpec | str) -> Pat
 def kindle_azw3_path_for_volume(
     config: AppConfig,
     volume: VolumeSpec | str,
+    *,
+    build_mode: BuildMode = BuildMode.KINDLE,
 ) -> Path:
+    if not build_mode.is_kindle:
+        raise ValueError("AZW3 output requires a Kindle build mode")
     volume_spec = volume_for_key(config, volume) if isinstance(volume, str) else volume
-    return config.output_dir / "azw3" / f"{volume_spec.output_slug}-Kindle.azw3"
+    return (
+        config.output_dir
+        / "azw3"
+        / f"{volume_spec.output_slug}{build_mode.output_suffix}.azw3"
+    )
 
 
 def cover_image_path_for_volume(config: AppConfig, volume: VolumeSpec | str) -> Path | None:

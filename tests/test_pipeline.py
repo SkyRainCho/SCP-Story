@@ -30,6 +30,7 @@ from scp_epub.models import (
     VolumeSpec,
 )
 from scp_epub.pipeline import (
+    BuildMode,
     _load_or_build_manifest,
     _load_or_build_manifest_for_build,
     build_featured_manifest,
@@ -183,6 +184,12 @@ def simple_page(title: str, body: str = "Body") -> str:
 def image_bytes(format_name: str) -> bytes:
     output = io.BytesIO()
     Image.new("RGB", (2, 2), "red").save(output, format=format_name)
+    return output.getvalue()
+
+
+def sized_image_bytes(format_name: str, size: tuple[int, int]) -> bytes:
+    output = io.BytesIO()
+    Image.new("RGB", size, "red").save(output, format=format_name)
     return output.getvalue()
 
 
@@ -2438,7 +2445,7 @@ def test_build_volume_kindles_pages_css_report_and_azw3_without_mutating_process
         config,
         "001-099",
         fetcher=fetcher,
-        kindle=True,
+        build_mode=BuildMode.KINDLE,
         kindle_converter=fake_converter,
     )
 
@@ -2484,6 +2491,141 @@ def test_build_volume_kindles_pages_css_report_and_azw3_without_mutating_process
             "status": "normalized",
         }
     ]
+
+
+def test_build_volume_kindle_stable_writes_scribe_variants_and_report(tmp_path: Path):
+    config = app_config(tmp_path)
+    manifest = [
+        PageRef("SCP-001", f"{BASE_URL}/scp-001", "scp-001", 1, "scp", order=1),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    photo_url = f"{BASE_URL}/images/photo.jpg"
+    facility_url = f"{BASE_URL}/images/facility.png"
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-001": simple_page(
+                "SCP-001",
+                '<img src="/images/photo.jpg" alt="正文图片" />'
+                '<img class="facility-icon-epub" '
+                'src="/images/facility.png" alt="设施图标" />',
+            ),
+        },
+        assets={
+            photo_url: ("photo.jpg", sized_image_bytes("JPEG", (4000, 3000)), "image/jpeg"),
+            facility_url: (
+                "facility.png",
+                sized_image_bytes("PNG", (4500, 4500)),
+                "image/png",
+            ),
+        },
+    )
+    conversion_calls = []
+
+    def fake_converter(epub_path: Path, azw3_path: Path) -> Path:
+        conversion_calls.append((epub_path, azw3_path))
+        with zipfile.ZipFile(epub_path) as archive:
+            ordinary_name = next(
+                name
+                for name in archive.namelist()
+                if "ordinary-1800x2400.jpg" in name
+            )
+            facility_name = next(
+                name
+                for name in archive.namelist()
+                if "facility-384x384.png" in name
+            )
+            with Image.open(io.BytesIO(archive.read(ordinary_name))) as image:
+                assert image.width <= 1800
+                assert image.height <= 2400
+            with Image.open(io.BytesIO(archive.read(facility_name))) as image:
+                assert image.width <= 384
+                assert image.height <= 384
+        azw3_path.parent.mkdir(parents=True, exist_ok=True)
+        azw3_path.write_bytes(b"azw3")
+        return azw3_path
+
+    output_path = build_volume(
+        config,
+        "001-099",
+        fetcher=fetcher,
+        build_mode=BuildMode.KINDLE_STABLE,
+        kindle_converter=fake_converter,
+    )
+
+    assert output_path == config.output_dir / "epub" / "test-volume-Kindle-Scribe.epub"
+    assert conversion_calls == [
+        (
+            output_path,
+            config.output_dir / "azw3" / "test-volume-Kindle-Scribe.azw3",
+        )
+    ]
+    assert (config.processed_dir / "test-volume" / "kindle-stable-assets").is_dir()
+    assert not (config.output_dir / "epub" / "test-volume-Kindle.epub").exists()
+
+    report = json.loads(
+        (
+            config.output_dir
+            / "reports"
+            / "test-volume-Kindle-Scribe-report.json"
+        ).read_text(encoding="utf-8")
+    )
+    performance = report["kindle_performance"]
+    assert performance["profile"] == "kindle-scribe-300ppi"
+    assert performance["after_decode_bytes"] < performance["before_decode_bytes"]
+
+
+def test_build_volume_kindle_stable_budget_failure_preserves_existing_outputs(
+    tmp_path: Path, monkeypatch
+):
+    from scp_epub.kindle_stable import KindleStabilityError
+    from scp_epub.manifest import write_manifest
+
+    config = app_config(tmp_path)
+    manifest = [
+        PageRef("SCP-001", f"{BASE_URL}/scp-001", "scp-001", 1, "scp", order=1),
+    ]
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {"scp-001": simple_page("SCP-001")},
+    )
+    epub_path = config.output_dir / "epub" / "test-volume-Kindle-Scribe.epub"
+    report_path = (
+        config.output_dir / "reports" / "test-volume-Kindle-Scribe-report.json"
+    )
+    azw3_path = config.output_dir / "azw3" / "test-volume-Kindle-Scribe.azw3"
+    for path, content in (
+        (epub_path, b"existing epub"),
+        (report_path, b"existing report"),
+        (azw3_path, b"existing azw3"),
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+
+    def fail_stable(*_args, **_kwargs):
+        raise KindleStabilityError("Pages over 96 MiB decoded image budget: scp-001")
+
+    monkeypatch.setattr(
+        "scp_epub.pipeline.prepare_stable_kindle_assets",
+        fail_stable,
+        raising=False,
+    )
+
+    with pytest.raises(KindleStabilityError, match="over 96 MiB"):
+        build_volume(
+            config,
+            "001-099",
+            fetcher=fetcher,
+            build_mode=BuildMode.KINDLE_STABLE,
+            kindle_converter=lambda *_args: pytest.fail("converter must not run"),
+        )
+
+    assert epub_path.read_bytes() == b"existing epub"
+    assert report_path.read_bytes() == b"existing report"
+    assert azw3_path.read_bytes() == b"existing azw3"
 
 
 def test_build_volume_materializes_anomaly_diamond_for_standard_epub(tmp_path: Path):
@@ -2600,7 +2742,7 @@ def test_build_volume_prepares_only_kindle_assets_and_reports_invalid_images(
         config,
         "001-099",
         fetcher=fetcher,
-        kindle=True,
+        build_mode=BuildMode.KINDLE,
         kindle_converter=fake_converter,
     )
 
@@ -2662,7 +2804,7 @@ def test_build_volume_kindle_rejects_svg_local_file_read_before_rendering(
         config,
         "001-099",
         fetcher=fetcher,
-        kindle=True,
+        build_mode=BuildMode.KINDLE,
         kindle_converter=fake_converter,
     )
 

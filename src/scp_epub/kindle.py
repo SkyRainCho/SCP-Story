@@ -691,6 +691,13 @@ class _AssetHtmlElement:
     end_end: int | None = None
 
 
+@dataclass(frozen=True)
+class LocalImageReference:
+    href: str
+    classes: frozenset[str]
+    occurrence: int
+
+
 class _AssetReferenceParser(HTMLParser):
     def __init__(self, source: str) -> None:
         super().__init__(convert_charrefs=False)
@@ -805,6 +812,63 @@ def _parse_asset_references(xhtml: str) -> _AssetReferenceParser | None:
     except (AssertionError, ValueError):
         return None
     return parser
+
+
+def local_image_references(page: ProcessedPage) -> list[LocalImageReference]:
+    parser = _parse_asset_references(page.xhtml)
+    if parser is None:
+        return []
+    references: list[LocalImageReference] = []
+    occurrence = 0
+    for element in parser.elements:
+        if element.tag != "img":
+            continue
+        attrs = dict(element.attrs)
+        href = _local_asset_href(attrs.get("src"))
+        if href is None:
+            continue
+        references.append(
+            LocalImageReference(
+                href=href,
+                classes=frozenset(str(attrs.get("class") or "").split()),
+                occurrence=occurrence,
+            )
+        )
+        occurrence += 1
+    return references
+
+
+def rewrite_page_image_references(
+    page: ProcessedPage,
+    replacements: dict[tuple[int, str], str],
+) -> ProcessedPage:
+    if not replacements:
+        return page
+    parser = _parse_asset_references(page.xhtml)
+    if parser is None:
+        return page
+
+    occurrence = 0
+    edits: list[tuple[int, int, str]] = []
+    for element in parser.elements:
+        if element.tag != "img":
+            continue
+        attrs = dict(element.attrs)
+        href = _local_asset_href(attrs.get("src"))
+        if href is None:
+            continue
+        replacement = replacements.get((occurrence, href))
+        occurrence += 1
+        if replacement is None:
+            continue
+        raw_tag = page.xhtml[element.start : element.start_end]
+        rewritten_tag = _replace_attribute_value(raw_tag, "src", f"../{replacement}")
+        if rewritten_tag != raw_tag:
+            edits.append((element.start, element.start_end, rewritten_tag))
+
+    if not edits:
+        return page
+    return replace(page, xhtml=_apply_text_edits(page.xhtml, edits))
 
 
 def _local_asset_href(value: str | None) -> str | None:
@@ -975,6 +1039,32 @@ _VOID_ELEMENTS = frozenset(
 # the Kindle stylesheet's 42% reflowable default.
 _STANDARD_IMAGE_WIDTH_PX = 300.0
 _KINDLE_IMAGE_WIDTH_PERCENT = 42.0
+_STABLE_REMOVED_CSS_PROPERTIES = frozenset(
+    {
+        "animation",
+        "animation-delay",
+        "animation-direction",
+        "animation-duration",
+        "animation-fill-mode",
+        "animation-iteration-count",
+        "animation-name",
+        "animation-play-state",
+        "animation-timing-function",
+        "backdrop-filter",
+        "filter",
+        "transition",
+        "transition-delay",
+        "transition-duration",
+        "transition-property",
+        "transition-timing-function",
+    }
+)
+_STABLE_DECLARATION_AT_RULES = frozenset(
+    {"counter-style", "font-face", "page", "property"}
+)
+_STABLE_KEYFRAME_AT_RULES = frozenset(
+    {"keyframes", "-webkit-keyframes", "-moz-keyframes", "-o-keyframes"}
+)
 
 
 @dataclass
@@ -1066,20 +1156,23 @@ def load_kindle_css() -> str:
     )
 
 
-def prepare_kindle_pages(pages: Sequence[ProcessedPage]) -> list[ProcessedPage]:
+def prepare_kindle_pages(
+    pages: Sequence[ProcessedPage], *, stable: bool = False
+) -> list[ProcessedPage]:
     return [
         replace(
             page,
             xhtml=_prepare_kindle_xhtml(
                 page.xhtml,
                 page_slug=page.entry.slug,
+                stable=stable,
             ),
         )
         for page in pages
     ]
 
 
-def _prepare_kindle_xhtml(xhtml: str, *, page_slug: str) -> str:
+def _prepare_kindle_xhtml(xhtml: str, *, page_slug: str, stable: bool = False) -> str:
     parser = _XhtmlStructureParser(xhtml)
     try:
         parser.feed(xhtml)
@@ -1212,7 +1305,104 @@ def _prepare_kindle_xhtml(xhtml: str, *, page_slug: str) -> str:
                     )
                 )
 
-    return _replace_anomaly_diamond_frame_svg(_apply_text_edits(xhtml, edits))
+    prepared = _replace_anomaly_diamond_frame_svg(_apply_text_edits(xhtml, edits))
+    return _prepare_stable_xhtml_css(prepared) if stable else prepared
+
+
+def _prepare_stable_xhtml_css(xhtml: str) -> str:
+    parser = _XhtmlStructureParser(xhtml)
+    try:
+        parser.feed(xhtml)
+        parser.close()
+    except (AssertionError, ValueError):
+        return xhtml
+
+    edits: list[tuple[int, int, str]] = []
+    for element in parser.elements:
+        raw_start_tag = xhtml[element.start_tag_start : element.start_tag_end]
+        prepared_start_tag = _stable_inline_style(raw_start_tag)
+        if prepared_start_tag != raw_start_tag:
+            edits.append(
+                (
+                    element.start_tag_start,
+                    element.start_tag_end,
+                    prepared_start_tag,
+                )
+            )
+        if element.tag == "style" and element.end_start is not None:
+            css = xhtml[element.start_tag_end : element.end_start]
+            prepared_css = _stable_stylesheet(css)
+            if prepared_css != css:
+                edits.append((element.start_tag_end, element.end_start, prepared_css))
+
+    return _apply_text_edits(xhtml, edits)
+
+
+def _stable_inline_style(raw_start_tag: str) -> str:
+    style_spans = _find_attribute_value_spans(raw_start_tag, "style")
+    if style_spans is None:
+        return raw_start_tag
+    attribute_start, attribute_end, css_start, css_end = style_spans
+    prepared_css = _stable_css_declarations(raw_start_tag[css_start:css_end])
+    if not prepared_css:
+        return raw_start_tag[:attribute_start] + raw_start_tag[attribute_end:]
+    return raw_start_tag[:css_start] + prepared_css + raw_start_tag[css_end:]
+
+
+def _stable_css_declarations(css: str) -> str:
+    declarations = tinycss2.parse_declaration_list(
+        css,
+        skip_comments=True,
+        skip_whitespace=True,
+    )
+    kept: list[str] = []
+    for declaration in declarations:
+        if declaration.type != "declaration":
+            continue
+        name = declaration.lower_name
+        value = tinycss2.serialize(declaration.value).strip()
+        if name in _STABLE_REMOVED_CSS_PROPERTIES:
+            continue
+        if name == "position" and value.casefold() in {"fixed", "sticky"}:
+            value = "static"
+        suffix = " !important" if declaration.important else ""
+        kept.append(f"{name}: {value}{suffix}")
+    return "; ".join(kept)
+
+
+def _stable_stylesheet(css: str) -> str:
+    rules = tinycss2.parse_stylesheet(
+        css,
+        skip_comments=False,
+        skip_whitespace=False,
+    )
+    return tinycss2.serialize(_stable_css_rules(rules))
+
+
+def _stable_css_rules(rules: Sequence[object]) -> list[object]:
+    kept: list[object] = []
+    for rule in rules:
+        rule_type = getattr(rule, "type", "")
+        if rule_type == "qualified-rule":
+            prepared = _stable_css_declarations(tinycss2.serialize(rule.content))
+            rule.content = tinycss2.parse_component_value_list(prepared)
+        elif rule_type == "at-rule" and rule.content is not None:
+            keyword = rule.lower_at_keyword
+            if keyword in _STABLE_KEYFRAME_AT_RULES:
+                continue
+            content = tinycss2.serialize(rule.content)
+            if keyword in _STABLE_DECLARATION_AT_RULES:
+                prepared = _stable_css_declarations(content)
+            else:
+                nested = tinycss2.parse_rule_list(
+                    content,
+                    skip_comments=False,
+                    skip_whitespace=False,
+                )
+                prepared = tinycss2.serialize(_stable_css_rules(nested))
+            rule.content = tinycss2.parse_component_value_list(prepared)
+        kept.append(rule)
+    return kept
 
 
 def _replace_anomaly_diamond_frame_svg(xhtml: str) -> str:

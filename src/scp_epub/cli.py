@@ -20,7 +20,9 @@ def build_parser() -> argparse.ArgumentParser:
         subparser.add_argument("--refresh", action="store_true")
         subparser.add_argument("--missing-only", action="store_true")
         if command == "build":
-            subparser.add_argument("--kindle", action="store_true")
+            kindle_group = subparser.add_mutually_exclusive_group()
+            kindle_group.add_argument("--kindle", action="store_true")
+            kindle_group.add_argument("--kindle-stable", action="store_true")
 
     return parser
 

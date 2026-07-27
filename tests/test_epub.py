@@ -725,6 +725,39 @@ def test_write_build_report_writes_utf8_json_with_page_assets_and_links(tmp_path
     assert "fallback_pages" not in report
 
 
+def test_write_build_report_includes_optional_kindle_performance(tmp_path: Path):
+    report_path = tmp_path / "reports" / "stable.json"
+    performance = {
+        "profile": "kindle-scribe-300ppi",
+        "target_decode_bytes": 64 * 1024 * 1024,
+        "hard_decode_bytes": 96 * 1024 * 1024,
+        "pages": [],
+        "warnings": [],
+    }
+
+    write_build_report(
+        report_path,
+        pages=[_page("scp-001", "SCP-001", 1)],
+        output_path=tmp_path / "stable.epub",
+        kindle_performance=performance,
+    )
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["kindle_performance"] == performance
+
+
+def test_write_build_report_omits_unsupplied_kindle_performance(tmp_path: Path):
+    report_path = tmp_path / "reports" / "ordinary.json"
+    write_build_report(
+        report_path,
+        pages=[_page("scp-001", "SCP-001", 1)],
+        output_path=tmp_path / "ordinary.epub",
+    )
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert "kindle_performance" not in report
+
+
 def test_write_build_report_includes_fallback_pages_in_supplied_order(tmp_path: Path):
     fallback_pages = [
         FallbackPageRecord(

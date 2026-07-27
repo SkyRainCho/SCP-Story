@@ -16,7 +16,9 @@ from scp_epub.kindle import (
     KindleConversionError,
     convert_epub_to_azw3,
     load_kindle_css,
+    local_image_references,
     prepare_kindle_pages,
+    rewrite_page_image_references,
 )
 from scp_epub.models import PageRef, ProcessedPage
 
@@ -1172,6 +1174,61 @@ def test_prepare_kindle_pages_preserves_ordinary_xhtml_exactly():
     [prepared] = prepare_kindle_pages([_page(xhtml)])
 
     assert prepared.xhtml == xhtml
+
+
+def test_prepare_kindle_pages_stable_removes_runtime_css_without_changing_content():
+    xhtml = """
+    <style>
+      .card { animation: pulse 2s infinite; transition: all .2s; color: #111; }
+      .panel { position: fixed; filter: blur(2px); background: white; }
+    </style>
+    <div class="card" style="position: sticky; transition: opacity 1s; color: red">
+      正文
+    </div>
+    """
+
+    [stable] = prepare_kindle_pages([_page(xhtml)], stable=True)
+    [high_quality] = prepare_kindle_pages([_page(xhtml)])
+
+    assert "animation" not in stable.xhtml
+    assert "transition" not in stable.xhtml
+    assert "filter" not in stable.xhtml
+    assert "position: fixed" not in stable.xhtml
+    assert "position: sticky" not in stable.xhtml
+    assert "position: static" in stable.xhtml
+    assert "color: #111" in stable.xhtml
+    assert "background: white" in stable.xhtml
+    assert "正文" in stable.xhtml
+    assert high_quality.xhtml == xhtml
+
+
+def test_local_image_references_include_href_classes_and_occurrence():
+    page = _page(
+        '<img class="facility-icon-epub image" src="../assets/site.png" alt="S" />'
+        '<img src="../assets/site.png" alt="large" />'
+    )
+
+    references = local_image_references(page)
+
+    assert [(ref.href, ref.classes, ref.occurrence) for ref in references] == [
+        ("assets/site.png", frozenset({"facility-icon-epub", "image"}), 0),
+        ("assets/site.png", frozenset(), 1),
+    ]
+
+
+def test_rewrite_page_image_references_changes_only_selected_occurrence():
+    page = _page(
+        '<img class="facility-icon-epub" src="../assets/site.png" alt="small" />'
+        '<img src="../assets/site.png" alt="large" />'
+    )
+
+    rewritten = rewrite_page_image_references(
+        page,
+        {(0, "assets/site.png"): "assets/site-thumb.png"},
+    )
+
+    assert '../assets/site-thumb.png" alt="small"' in rewritten.xhtml
+    assert '../assets/site.png" alt="large"' in rewritten.xhtml
 
 
 def test_prepare_kindle_pages_normalizes_fixed_front_matter_panel_width():
