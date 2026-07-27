@@ -695,6 +695,7 @@ class _AssetHtmlElement:
 class LocalImageReference:
     href: str
     classes: frozenset[str]
+    ancestor_classes: frozenset[str]
     occurrence: int
 
 
@@ -827,10 +828,19 @@ def local_image_references(page: ProcessedPage) -> list[LocalImageReference]:
         href = _local_asset_href(attrs.get("src"))
         if href is None:
             continue
+        ancestor_classes: set[str] = set()
+        ancestor = element.parent
+        while ancestor is not None:
+            ancestor_attrs = dict(ancestor.attrs)
+            ancestor_classes.update(
+                str(ancestor_attrs.get("class") or "").split()
+            )
+            ancestor = ancestor.parent
         references.append(
             LocalImageReference(
                 href=href,
                 classes=frozenset(str(attrs.get("class") or "").split()),
+                ancestor_classes=frozenset(ancestor_classes),
                 occurrence=occurrence,
             )
         )

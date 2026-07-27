@@ -1225,17 +1225,29 @@ def test_prepare_kindle_pages_stable_preserves_xhtml_entities_in_css():
     assert "transition" not in stable.xhtml
 
 
-def test_local_image_references_include_href_classes_and_occurrence():
+def test_local_image_references_include_direct_and_ancestor_classes():
     page = _page(
-        '<img class="facility-icon-epub image" src="../assets/site.png" alt="S" />'
+        '<div class="map-shell outer">'
+        '<div class="enlarge">'
+        '<img class="image badge" src="../assets/site.png" alt="S" />'
+        "</div>"
+        "</div>"
         '<img src="../assets/site.png" alt="large" />'
     )
 
     references = local_image_references(page)
 
-    assert [(ref.href, ref.classes, ref.occurrence) for ref in references] == [
-        ("assets/site.png", frozenset({"facility-icon-epub", "image"}), 0),
-        ("assets/site.png", frozenset(), 1),
+    assert [
+        (ref.href, ref.classes, ref.ancestor_classes, ref.occurrence)
+        for ref in references
+    ] == [
+        (
+            "assets/site.png",
+            frozenset({"image", "badge"}),
+            frozenset({"map-shell", "outer", "enlarge"}),
+            0,
+        ),
+        ("assets/site.png", frozenset(), frozenset(), 1),
     ]
 
 
