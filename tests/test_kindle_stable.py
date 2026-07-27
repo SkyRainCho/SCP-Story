@@ -117,22 +117,43 @@ def test_render_stable_variant_bounds_jpeg_and_uses_quality_85(tmp_path: Path):
 
     prepared = render_stable_variant(source, spec, tmp_path / "stable-assets")
 
-    assert prepared.href.endswith("-ordinary-1800x2400.jpg")
+    assert prepared.href.endswith("-gray-ordinary-1800x2400.jpg")
     with Image.open(prepared.path) as image:
         assert image.size == (1800, 1350)
-        assert image.mode == "RGB"
+        assert image.mode == "L"
         assert image.format == "JPEG"
+        assert image.info.get("progressive", 0) == 0
 
 
-def test_render_stable_variant_preserves_png_transparency(tmp_path: Path):
+def test_render_stable_variant_encodes_opaque_png_as_grayscale(tmp_path: Path):
+    source = _asset(tmp_path, "diagram.png", _png_bytes((1200, 800)))
+
+    prepared = render_stable_variant(
+        source,
+        StableVariantSpec("ordinary", 1800, 2400),
+        tmp_path / "stable-assets",
+    )
+
+    assert "-gray-ordinary-1800x2400.png" in prepared.href
+    with Image.open(prepared.path) as image:
+        assert image.size == (1200, 800)
+        assert image.mode == "L"
+        assert image.format == "PNG"
+
+
+def test_render_stable_variant_preserves_png_alpha_in_grayscale(tmp_path: Path):
     source = _asset(tmp_path, "icon.png", _png_bytes((1200, 800), alpha=True))
-    spec = StableVariantSpec("facility", 384, 384)
 
-    prepared = render_stable_variant(source, spec, tmp_path / "stable-assets")
+    prepared = render_stable_variant(
+        source,
+        StableVariantSpec("facility", 384, 384),
+        tmp_path / "stable-assets",
+    )
 
     with Image.open(prepared.path) as image:
         assert image.size == (384, 256)
-        assert image.mode == "RGBA"
+        assert image.mode == "LA"
+        assert image.getchannel("A").getpixel((0, 0)) == 100
         assert image.format == "PNG"
 
 
@@ -145,7 +166,9 @@ def test_render_stable_variant_freezes_animated_gif_to_first_frame(tmp_path: Pat
     assert prepared.content_type == "image/png"
     with Image.open(prepared.path) as image:
         assert getattr(image, "n_frames", 1) == 1
-        assert image.convert("RGB").getpixel((0, 0)) == (255, 0, 0)
+        assert image.mode == "L"
+        assert image.getpixel((0, 0)) == 76
+        assert image.convert("RGB").getpixel((0, 0)) == (76, 76, 76)
 
 
 def test_render_stable_variant_applies_exif_orientation_before_sizing(tmp_path: Path):
