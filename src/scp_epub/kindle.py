@@ -421,6 +421,10 @@ _DATA_IMAGE_RE = re.compile(
 
 def _svg_references_are_safe(root: etree._Element) -> bool:
     for element in root.iter():
+        if element.tag is etree.Comment:
+            continue
+        if not isinstance(element.tag, str):
+            return False
         for name, value in element.attrib.items():
             if name == _XML_BASE_ATTRIBUTE:
                 return False

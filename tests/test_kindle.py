@@ -315,6 +315,33 @@ def test_prepare_kindle_assets_renders_svg_with_embedded_png(tmp_path: Path):
         image.verify()
 
 
+def test_prepare_kindle_assets_renders_svg_with_internal_comment(tmp_path: Path):
+    payload = (
+        b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1">'
+        b'<!-- exported facility emblem -->'
+        b'<rect width="1" height="1" fill="black"/></svg>'
+    )
+    source_path = tmp_path / "commented.svg"
+    source_path.write_bytes(payload)
+    asset = AssetRef(
+        "https://example.test/commented.svg",
+        source_path,
+        "assets/commented.svg",
+        "image/svg+xml",
+    )
+
+    [page], [prepared], missing = kindle_module.prepare_kindle_assets(
+        [_page('<img src="../assets/commented.svg" alt="设施徽标"/>')],
+        [asset],
+        tmp_path / "kindle-assets",
+        [],
+    )
+
+    assert missing == []
+    assert prepared.content_type == "image/png"
+    assert f'../{prepared.href}' in page.xhtml
+
+
 @pytest.mark.parametrize(
     ("attribute", "reference"),
     [
