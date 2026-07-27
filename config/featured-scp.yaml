@@ -140,6 +140,9 @@ appendix:
     - title: 基金会设施
       url: /secure-facilities-locations
       mode: facility-links
+      include_tabs:
+        - 设施种类定义
+      unwrap_single_tab: true
     - title: 基金会部门
       url: /departments
     - title: 人事档案

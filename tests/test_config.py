@@ -273,6 +273,14 @@ def test_featured_scp_config_uses_archive_mode_and_title_indexes():
     )
     assert config.front_matter_pages[0].unwrap_single_included_tab is True
     assert config.page_tab_includes == {"about-the-scp-foundation": ("简介",)}
+    facilities = next(
+        section
+        for section in config.appendix.sections
+        if section.slug == "secure-facilities-locations"
+    )
+    assert facilities.mode == "facility-links"
+    assert facilities.include_tabs == ("设施种类定义",)
+    assert facilities.unwrap_single_tab is True
     assert [link.slug for link in config.explicit_linked_appendices["scp-5170"]] == [
         "scp-5170/offset/1",
         "scp-5170/offset/2",
