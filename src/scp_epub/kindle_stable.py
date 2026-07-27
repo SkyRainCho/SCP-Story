@@ -371,6 +371,11 @@ def prepare_stable_kindle_assets(
         "image_encoding_profile": IMAGE_ENCODING_PROFILE,
         "grayscale_variant_count": len(rendered_requests),
         "grayscale_alpha_variant_count": grayscale_alpha_variant_count,
+        "location_badge_variant_count": sum(
+            1
+            for _href, spec in rendered_requests
+            if spec.purpose == "location-badge"
+        ),
         "target_decode_bytes": TARGET_DECODE_BYTES,
         "hard_decode_bytes": HARD_DECODE_BYTES,
         "before_decode_bytes": sum(

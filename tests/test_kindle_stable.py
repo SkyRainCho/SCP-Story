@@ -285,6 +285,69 @@ def test_adaptive_planning_does_not_expand_location_badges(tmp_path: Path):
     assert plan.page_performance[0].after_decode_bytes <= 64 * MIB
 
 
+def test_prepare_stable_assets_deduplicates_and_reports_location_badges(
+    tmp_path: Path,
+):
+    badge = _large_png_asset(tmp_path, "badge.png", (1200, 1200))
+    map_asset = _large_png_asset(tmp_path, "map.png", (1200, 800))
+    page = _page(
+        "locations-of-interest",
+        f'<div class="enlarge"><img src="../{badge.href}" /></div>'
+        f'<div class="legend-box"><img src="../{badge.href}" /></div>'
+        f'<div class="mainmap"><img src="../{map_asset.href}" /></div>',
+    )
+
+    result = prepare_stable_kindle_assets(
+        [page],
+        [badge, map_asset],
+        tmp_path / "stable-assets",
+    )
+
+    badge_assets = [
+        asset
+        for asset in result.assets
+        if "gray-location-badge-320x320" in asset.href
+    ]
+    assert len(badge_assets) == 1
+    with Image.open(badge_assets[0].path) as image:
+        assert image.size == (320, 320)
+        assert image.mode == "L"
+    assert result.performance["location_badge_variant_count"] == 1
+    assert result.performance["warnings"] == []
+
+
+def test_location_badge_policy_brings_representative_page_below_target(
+    tmp_path: Path,
+):
+    badges = [
+        _large_png_asset(tmp_path, f"badge-{index}.png", (800, 800))
+        for index in range(46)
+    ]
+    maps = [
+        _large_png_asset(tmp_path, f"map-{index}.png", (800, 600))
+        for index in range(5)
+    ]
+    page = _page(
+        "locations-of-interest",
+        "".join(
+            '<div class="image-container floatright">'
+            f'<img src="../{asset.href}" /></div>'
+            for asset in badges
+        )
+        + "".join(
+            f'<div class="mainmap"><img src="../{asset.href}" /></div>'
+            for asset in maps
+        ),
+    )
+
+    plan = plan_stable_variants([page], [*badges, *maps])
+    performance = plan.page_performance[0]
+
+    assert performance.after_decode_bytes < 64 * MIB
+    assert performance.warning is False
+    assert plan.warnings == ()
+
+
 def test_plan_uses_facility_thumbnail_only_for_facility_reference(tmp_path: Path):
     asset = _large_png_asset(tmp_path, "site.png", (4500, 4500))
     pages = [
