@@ -894,6 +894,95 @@ def test_build_volume_materializes_appendix_groups_and_unwraps_tab_children(tmp_
     assert "档案正文。" not in second_tab
 
 
+def test_build_volume_restores_facility_body_and_keeps_only_configured_tab(tmp_path: Path):
+    source_url = f"{BASE_URL}/secure-facilities-locations"
+    appendix = AppendixSpec(
+        title="附录",
+        slug="appendix",
+        sections=(
+            AppendixSection(
+                "基金会设施",
+                source_url,
+                "secure-facilities-locations",
+                mode="facility-links",
+                include_tabs=("设施种类定义",),
+                unwrap_single_tab=True,
+            ),
+        ),
+    )
+    config = app_config(tmp_path, include_linked_appendices=False, appendix=appendix)
+    manifest = [
+        PageRef("附录", f"{BASE_URL}/appendix", "appendix", 1, "appendix-group", order=1),
+        PageRef(
+            "基金会设施",
+            source_url,
+            "secure-facilities-locations--appendix-group",
+            2,
+            "appendix-group",
+            parent_slug="appendix",
+            order=2,
+        ),
+        PageRef(
+            "安保设施档案：Site-19",
+            f"{BASE_URL}/site-19",
+            "site-19",
+            3,
+            "appendix-facility",
+            parent_slug="secure-facilities-locations--appendix-group",
+            order=3,
+        ),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    facilities_html = """
+      <div id="page-content">
+        <p>设施简介正文。</p>
+        <div class="site-grid"><p>站点列表正文。</p></div>
+        <div class="site-grid"><p>区域列表正文。</p></div>
+        <div class="yui-navset">
+          <ul class="yui-nav">
+            <li>进一步阅读</li><li>设施种类定义</li><li>关于此页面</li>
+          </ul>
+          <div class="yui-content">
+            <div><p>进一步阅读正文。</p></div>
+            <div><h2>设施种类</h2><p>站点与区域的定义。</p></div>
+            <div><p>关于此页面正文。</p></div>
+          </div>
+        </div>
+      </div>
+    """
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "secure-facilities-locations": facilities_html,
+            "site-19": simple_page("Site-19 档案正文。"),
+        },
+    )
+
+    build_volume(config, "001-099", fetcher=fetcher)
+
+    parent_path = (
+        config.processed_dir
+        / "test-volume"
+        / "0002-secure-facilities-locations--appendix-group.xhtml"
+    )
+    parent = parent_path.read_text(encoding="utf-8")
+    assert "设施简介正文。" in parent
+    assert "站点列表正文。" in parent
+    assert "区域列表正文。" in parent
+    assert "设施种类" in parent
+    assert "站点与区域的定义。" in parent
+    assert "进一步阅读正文。" not in parent
+    assert "关于此页面正文。" not in parent
+    assert "tabview-epub" not in parent
+    assert "标签：设施种类定义" not in parent
+    child_path = config.processed_dir / "test-volume" / "0003-site-19.xhtml"
+    child = child_path.read_text(encoding="utf-8")
+    assert "Site-19 档案正文。" in child
+    assert manifest[2].parent_slug == "secure-facilities-locations--appendix-group"
+
+
 def test_fetch_manifest_pages_fetches_each_manifest_entry(tmp_path: Path):
     config = app_config(tmp_path)
     manifest = [

@@ -1280,15 +1280,21 @@ def _process_pages(
     processed_dir = config.processed_dir / volume.output_slug
     processed_dir.mkdir(parents=True, exist_ok=True)
     configured_pages_by_slug = {page.slug: page for page in config.front_matter_pages}
-    appendix_sections_by_slug = {
-        section.slug: section for section in config.appendix.sections
-    } if config.appendix is not None else {}
+    appendix_sections_by_entry_slug = {}
+    if config.appendix is not None:
+        for section in config.appendix.sections:
+            entry_slug = (
+                section.slug
+                if section.mode == "page"
+                else _appendix_group_slug(section.slug)
+            )
+            appendix_sections_by_entry_slug[entry_slug] = section
 
     tasks: list[_PageProcessTask] = []
     for entry in manifest:
         result = results_by_slug[entry.slug]
         configured_page = configured_pages_by_slug.get(entry.slug)
-        appendix_section = appendix_sections_by_slug.get(entry.slug)
+        appendix_section = appendix_sections_by_entry_slug.get(entry.slug)
         include_tab_titles = set(config.page_tab_includes.get(entry.slug, ()))
         unwrap_single_included_tab = bool(
             configured_page and configured_page.unwrap_single_included_tab
