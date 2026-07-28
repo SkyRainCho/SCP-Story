@@ -304,6 +304,13 @@ def test_featured_scp_config_uses_archive_mode_and_title_indexes():
         (link.title, link.slug)
         for link in config.explicit_linked_appendices["scp-6445"]
     ] == [("SCP-6445 Offset 1", "scp-6445/offset/1")]
+    assert [
+        (link.title, link.slug)
+        for link in config.explicit_linked_appendices["scp-882"]
+    ] == [
+        ("SCP-217 - 机械化病毒", "scp-217"),
+        ("SCP-271 - 雕文圆盘", "scp-271"),
+    ]
     assert list(config.volumes) == ["featured"]
 
 

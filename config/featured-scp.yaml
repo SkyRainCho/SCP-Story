@@ -38,6 +38,11 @@ explicit_linked_appendices:
   scp-6445:
     - title: SCP-6445 Offset 1
       url: https://scp-wiki-cn.wikidot.com/scp-6445/offset/1
+  scp-882:
+    - title: SCP-217 - 机械化病毒
+      url: https://scp-wiki-cn.wikidot.com/scp-217
+    - title: SCP-271 - 雕文圆盘
+      url: https://scp-wiki-cn.wikidot.com/scp-271
 page_tab_includes:
   about-the-scp-foundation:
     - 简介
