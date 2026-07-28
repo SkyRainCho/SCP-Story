@@ -293,6 +293,17 @@ def test_featured_scp_config_uses_archive_mode_and_title_indexes():
         ("SCP-7472 Offset 1", "scp-7472/offset/1"),
         ("SCP-7472 Offset 2", "scp-7472/offset/2"),
     ]
+    assert [
+        (link.title, link.slug)
+        for link in config.explicit_linked_appendices["scp-7503"]
+    ] == [
+        (f"SCP-7503 Offset {index}", f"scp-7503/offset/{index}")
+        for index in range(1, 5)
+    ]
+    assert [
+        (link.title, link.slug)
+        for link in config.explicit_linked_appendices["scp-6445"]
+    ] == [("SCP-6445 Offset 1", "scp-6445/offset/1")]
     assert list(config.volumes) == ["featured"]
 
 
@@ -406,6 +417,12 @@ def test_featured_scp_config_declares_page_overrides():
         "scp-5109",
         "scp-5494",
         "scp-6781",
+        "scp-7503",
+        "scp-7503/offset/1",
+        "scp-7503/offset/2",
+        "scp-7503/offset/3",
+        "scp-7503/offset/4",
+        "scp-6445",
     }
     assert config.page_overrides["scp-5464"].remove_leading_metadata is True
     assert {
@@ -433,19 +450,27 @@ def test_featured_scp_config_declares_page_overrides():
             "附录-1898-1：相关SCP-1898图片",
         )
     ]
-    assert [document.url for document in config.page_overrides["scp-7503"].inline_documents] == [
-        f"https://scp-wiki-cn.wikidot.com/scp-7503/offset/{index}" for index in range(1, 5)
-    ]
-    assert [document.position for document in config.page_overrides["scp-7503"].inline_documents] == [
-        "append",
-        "append",
-        "append",
-        "append",
-    ]
-    assert [
-        (document.url, document.position)
-        for document in config.page_overrides["scp-6445"].inline_documents
-    ] == [("https://scp-wiki-cn.wikidot.com/scp-6445/offset/1", "append")]
+    assert config.page_overrides["scp-7503"].inline_documents == ()
+    assert config.page_overrides["scp-6445"].inline_documents == ()
+    assert {
+        slug
+        for slug in (
+            "scp-7503",
+            "scp-7503/offset/1",
+            "scp-7503/offset/2",
+            "scp-7503/offset/3",
+            "scp-7503/offset/4",
+            "scp-6445",
+        )
+        if config.page_overrides[slug].remove_terminal_navigation
+    } == {
+        "scp-7503",
+        "scp-7503/offset/1",
+        "scp-7503/offset/2",
+        "scp-7503/offset/3",
+        "scp-7503/offset/4",
+        "scp-6445",
+    }
     assert [
         (document.url, document.position, document.anchor_text)
         for document in config.page_overrides["scp-2814"].inline_documents

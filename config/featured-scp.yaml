@@ -26,6 +26,18 @@ explicit_linked_appendices:
       url: https://scp-wiki-cn.wikidot.com/scp-7472/offset/1
     - title: SCP-7472 Offset 2
       url: https://scp-wiki-cn.wikidot.com/scp-7472/offset/2
+  scp-7503:
+    - title: SCP-7503 Offset 1
+      url: https://scp-wiki-cn.wikidot.com/scp-7503/offset/1
+    - title: SCP-7503 Offset 2
+      url: https://scp-wiki-cn.wikidot.com/scp-7503/offset/2
+    - title: SCP-7503 Offset 3
+      url: https://scp-wiki-cn.wikidot.com/scp-7503/offset/3
+    - title: SCP-7503 Offset 4
+      url: https://scp-wiki-cn.wikidot.com/scp-7503/offset/4
+  scp-6445:
+    - title: SCP-6445 Offset 1
+      url: https://scp-wiki-cn.wikidot.com/scp-6445/offset/1
 page_tab_includes:
   about-the-scp-foundation:
     - 简介
@@ -102,24 +114,17 @@ page_overrides:
         position: after_text
         anchor_text: 附录-1898-1：相关SCP-1898图片
   scp-7503:
-    inline_documents:
-      - title: SCP-7503 Offset 1
-        url: /scp-7503/offset/1
-        position: append
-      - title: SCP-7503 Offset 2
-        url: /scp-7503/offset/2
-        position: append
-      - title: SCP-7503 Offset 3
-        url: /scp-7503/offset/3
-        position: append
-      - title: SCP-7503 Offset 4
-        url: /scp-7503/offset/4
-        position: append
+    remove_terminal_navigation: true
+  scp-7503/offset/1:
+    remove_terminal_navigation: true
+  scp-7503/offset/2:
+    remove_terminal_navigation: true
+  scp-7503/offset/3:
+    remove_terminal_navigation: true
+  scp-7503/offset/4:
+    remove_terminal_navigation: true
   scp-6445:
-    inline_documents:
-      - title: SCP-6445 Offset 1
-        url: /scp-6445/offset/1
-        position: append
+    remove_terminal_navigation: true
   scp-2814:
     inline_documents:
       - title: Document 2814-Gamma

@@ -1975,6 +1975,104 @@ def test_build_volume_includes_configured_linked_appendix_chain(tmp_path: Path):
     ]
 
 
+def test_build_volume_separates_iteration_documents_and_removes_their_navigation(
+    tmp_path: Path,
+):
+    config = app_config(
+        tmp_path,
+        explicit_linked_appendices={
+            "scp-7503": tuple(
+                ConfiguredLink(
+                    title=f"SCP-7503 Offset {index}",
+                    url=f"{BASE_URL}/scp-7503/offset/{index}",
+                    slug=f"scp-7503/offset/{index}",
+                )
+                for index in range(1, 5)
+            ),
+            "scp-6445": (
+                ConfiguredLink(
+                    title="SCP-6445 Offset 1",
+                    url=f"{BASE_URL}/scp-6445/offset/1",
+                    slug="scp-6445/offset/1",
+                ),
+            ),
+        },
+        page_overrides={
+            slug: PageOverride(remove_terminal_navigation=True)
+            for slug in (
+                "scp-7503",
+                "scp-7503/offset/1",
+                "scp-7503/offset/2",
+                "scp-7503/offset/3",
+                "scp-7503/offset/4",
+                "scp-6445",
+            )
+        },
+    )
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(
+        [
+            PageRef("SCP-7503", f"{BASE_URL}/scp-7503", "scp-7503", 1, "scp", order=1),
+            PageRef("SCP-6445", f"{BASE_URL}/scp-6445", "scp-6445", 1, "scp", order=2),
+        ],
+        config.manifest_dir / "test-volume.json",
+    )
+    pages = {
+        "scp-7503": simple_page(
+            "SCP-7503",
+            '<p>主文档正文。</p><div id="next"><a href="/scp-7503/offset/1">下一迭代---&gt;</a></div>',
+        ),
+        "scp-6445": simple_page(
+            "SCP-6445",
+            '<p>主文档正文。</p><p id="open"><a href="/scp-6445/offset/1">打开文档</a></p>',
+        ),
+        "scp-6445/offset/1": simple_page("SCP-6445 Offset 1", "附属文档正文。"),
+    }
+    for index in range(1, 5):
+        next_link = (
+            f'<div id="next-{index}"><a href="/scp-7503/offset/{index + 1}">下一迭代---&gt;</a></div>'
+            if index < 4
+            else '<div id="next-4"><a href="javascript:;">下一迭代---&gt;</a></div>'
+        )
+        pages[f"scp-7503/offset/{index}"] = simple_page(
+            f"SCP-7503 Offset {index}",
+            f"<p>Offset {index} 正文。</p>{next_link}",
+        )
+    fetcher = FakeFetcher(tmp_path / "cache", pages)
+
+    build_volume(config, "001-099", fetcher=fetcher)
+
+    report = json.loads(
+        (config.output_dir / "reports" / "test-volume-report.json").read_text(encoding="utf-8")
+    )
+    assert report["slugs"] == [
+        "scp-7503",
+        "scp-7503--linked-appendices",
+        "scp-7503/offset/1",
+        "scp-7503/offset/2",
+        "scp-7503/offset/3",
+        "scp-7503/offset/4",
+        "scp-6445",
+        "scp-6445--linked-appendices",
+        "scp-6445/offset/1",
+    ]
+    processed_dir = config.processed_dir / "test-volume"
+    for path in processed_dir.glob("*.xhtml"):
+        xhtml = path.read_text(encoding="utf-8")
+        assert "下一迭代" not in xhtml
+        assert "打开文档" not in xhtml
+    assert "Offset 1 正文" not in (
+        processed_dir / "0001-scp-7503.xhtml"
+    ).read_text(encoding="utf-8")
+    assert "原文附属文档" in (
+        processed_dir / "0002-scp-7503--linked-appendices.xhtml"
+    ).read_text(encoding="utf-8")
+    assert "原文附属文档" in (
+        processed_dir / "0008-scp-6445--linked-appendices.xhtml"
+    ).read_text(encoding="utf-8")
+
+
 def test_build_volume_cleans_scp7472_recommendations_and_adds_offsets(tmp_path: Path):
     config = app_config(
         tmp_path,

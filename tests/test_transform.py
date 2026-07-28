@@ -2884,6 +2884,72 @@ def test_preserves_terminal_navigation_when_cleanup_is_disabled():
     assert soup_fragment(result.xhtml).find(id="terminal-nav") is not None
 
 
+@pytest.mark.parametrize(
+    ("slug", "label", "href"),
+    (
+        ("scp-7503", "下一迭代--->", "/scp-7503/offset/1"),
+        ("scp-7503/offset/2", "下一迭代--->", "/scp-7503/offset/3"),
+        ("scp-6445", "打开文档", "/scp-6445/offset/1"),
+    ),
+)
+def test_removes_configured_iteration_navigation_links(slug: str, label: str, href: str):
+    html = f"""
+    <html><body><div id="page-content">
+      <p id="article">应保留的正文。</p>
+      <div style="text-align: right" id="iteration-nav">
+        <p><a href="{href}">{label}</a></p>
+      </div>
+      <div class="footnotes-footer" id="footnotes">
+        <div class="title">脚注</div><div>应保留的脚注。</div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref(slug),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="iteration-nav") is None
+    assert soup.find(id="article") is not None
+    assert soup.find(id="footnotes") is not None
+
+
+def test_removes_scp7503_final_collapsible_iteration_navigation():
+    html = """
+    <html><body><div id="page-content">
+      <p id="article">最终迭代正文。</p>
+      <div style="text-align: right" id="iteration-nav">
+        <div class="collapsible-block">
+          <div class="collapsible-block-folded">
+            <a class="collapsible-block-link" href="javascript:;">下一迭代---&gt;</a>
+          </div>
+          <div class="collapsible-block-unfolded">
+            <div class="collapsible-block-unfolded-link">
+              <a class="collapsible-block-link" href="javascript:;">下一迭代---&gt;</a>
+            </div>
+            <div class="collapsible-block-content"></div>
+          </div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-7503/offset/4"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="iteration-nav") is None
+    assert soup.find(id="article") is not None
+
+
 def test_removes_scp6781_terminal_previous_and_next_navigation_when_enabled():
     html = """
     <html><body><div id="page-content">

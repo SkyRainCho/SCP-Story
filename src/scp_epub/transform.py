@@ -509,6 +509,7 @@ AUTHOR_WORK_LIST_LABELS = (
 RECOMMENDATION_PANEL_LABELS = frozenset({"你可能也会喜欢", "您可能也会喜欢"})
 SUBSTANTIVE_MEDIA_TAGS = ("audio", "figure", "img", "object", "picture", "svg", "table", "video")
 TWO_LINK_TERMINAL_NAVIGATION_SLUGS = frozenset({"scp-7261", "scp-3662"})
+ITERATION_NAVIGATION_PAGE_PREFIXES = ("scp-7503", "scp-6445")
 
 
 @dataclass(frozen=True)
@@ -538,6 +539,7 @@ def transform_page(
     background_asset_url: str | None = None,
     page_options: PageTransformOptions | None = None,
 ) -> ProcessedPage:
+    options = page_options or PageTransformOptions()
     soup = BeautifulSoup(html, "html.parser")
     page_content = soup.select_one("#page-content")
     if page_content is None and entry.role == "appendix-group":
@@ -557,6 +559,8 @@ def transform_page(
 
     _remove_creator_information_blocks(page_content)
     _remove_o5_command_dossier_return_footer(entry, page_content)
+    if options.remove_terminal_navigation:
+        _remove_configured_iteration_navigation(entry, page_content)
 
     for tag in list(page_content.find_all(_is_unwanted_element)):
         tag.decompose()
@@ -572,7 +576,7 @@ def transform_page(
     profile_style_rules = _apply_page_cleanup_options(
         entry,
         page_content,
-        page_options or PageTransformOptions(),
+        options,
     )
     page_styles = _append_page_style_rules(page_styles, profile_style_rules)
     page_styles = _append_page_style_rules(
@@ -782,6 +786,57 @@ def _remove_terminal_navigation(entry: PageRef, page_content: Tag) -> None:
             entry.slug == "scp-6781" and _is_scp_6781_previous_next_navigation(block)
         ):
             block.decompose()
+
+
+def _remove_configured_iteration_navigation(entry: PageRef, page_content: Tag) -> None:
+    if not entry.slug.startswith(ITERATION_NAVIGATION_PAGE_PREFIXES):
+        return
+
+    for link in list(page_content.find_all("a")):
+        if link.parent is None or not _is_iteration_navigation_label(
+            entry.slug,
+            link.get_text(" ", strip=True),
+        ):
+            continue
+        wrapper = _highest_iteration_navigation_wrapper(link, page_content, entry.slug)
+        wrapper.decompose()
+
+
+def _is_iteration_navigation_label(slug: str, value: str) -> bool:
+    normalized = re.sub(r"\s+", "", value)
+    if slug.startswith("scp-7503"):
+        return normalized.startswith("下一迭代")
+    return slug.startswith("scp-6445") and normalized == "打开文档"
+
+
+def _highest_iteration_navigation_wrapper(link: Tag, page_content: Tag, slug: str) -> Tag:
+    wrapper = link
+    current = link.parent
+    while isinstance(current, Tag) and current is not page_content:
+        if current.name not in {"blockquote", "div", "p", "section", "span", "strong"}:
+            break
+        if not _contains_only_iteration_navigation(current, slug):
+            break
+        wrapper = current
+        current = current.parent
+    return wrapper
+
+
+def _contains_only_iteration_navigation(block: Tag, slug: str) -> bool:
+    if block.name in SUBSTANTIVE_MEDIA_TAGS or block.find(SUBSTANTIVE_MEDIA_TAGS) is not None:
+        return False
+    links = block.find_all("a")
+    if not links or any(
+        not _is_iteration_navigation_label(slug, link.get_text(" ", strip=True))
+        for link in links
+    ):
+        return False
+
+    remaining_text = re.sub(r"\s+", "", block.get_text(" ", strip=True))
+    for link in links:
+        label = re.sub(r"\s+", "", link.get_text(" ", strip=True))
+        remaining_text = remaining_text.replace(label, "", 1)
+    return not remaining_text
 
 
 def _terminal_article_blocks(
