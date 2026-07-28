@@ -2535,15 +2535,15 @@ def test_build_volume_kindle_stable_writes_scribe_variants_and_report(tmp_path: 
             facility_name = next(
                 name
                 for name in archive.namelist()
-                if "facility-384x384.png" in name
+                if "facility-192x192.png" in name
             )
             with Image.open(io.BytesIO(archive.read(ordinary_name))) as image:
                 assert image.width <= 1800
                 assert image.height <= 2400
                 assert image.mode == "L"
             with Image.open(io.BytesIO(archive.read(facility_name))) as image:
-                assert image.width <= 384
-                assert image.height <= 384
+                assert image.width <= 192
+                assert image.height <= 192
                 assert image.mode == "L"
         azw3_path.parent.mkdir(parents=True, exist_ok=True)
         azw3_path.write_bytes(b"azw3")

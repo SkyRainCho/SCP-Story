@@ -363,7 +363,9 @@ def test_plan_uses_facility_thumbnail_only_for_facility_reference(tmp_path: Path
 
     plan = plan_stable_variants(pages, [asset])
 
-    assert plan.spec_for("facilities", 0).max_width == 384
+    assert plan.spec_for("facilities", 0) == StableVariantSpec(
+        "facility", 192, 192
+    )
     assert plan.spec_for("dossier", 0) == StableVariantSpec(
         "ordinary", 1800, 2400
     )

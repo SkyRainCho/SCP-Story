@@ -55,7 +55,7 @@ class StableImageInfo:
         )
 
 
-FACILITY_SPEC = StableVariantSpec("facility", 384, 384)
+FACILITY_SPEC = StableVariantSpec("facility", 192, 192)
 LOCATION_BADGE_SPEC = StableVariantSpec("location-badge", 320, 320)
 ORDINARY_SPEC = StableVariantSpec("ordinary", 1800, 2400)
 ADAPTIVE_SPECS = (
