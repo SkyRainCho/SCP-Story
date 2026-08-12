@@ -2088,6 +2088,70 @@ def test_build_volume_includes_configured_linked_appendix_chain(tmp_path: Path):
     ]
 
 
+def test_build_volume_includes_configured_scp_517_incident_once_without_recursion(
+    tmp_path: Path,
+):
+    incident = ConfiguredLink(
+        title="事件517-1997-M",
+        url=f"{BASE_URL}/incident-517-1997-m",
+        slug="incident-517-1997-m",
+    )
+    config = app_config(
+        tmp_path,
+        explicit_linked_appendices={"scp-517": (incident,)},
+    )
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(
+        [
+            PageRef(
+                "SCP-517 - 自动预言机",
+                f"{BASE_URL}/scp-517",
+                "scp-517",
+                1,
+                "scp",
+                order=1,
+            )
+        ],
+        config.manifest_dir / "test-volume.json",
+    )
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-517": simple_page(
+                "SCP-517 - 自动预言机",
+                '<a href="/incident-517-1997-m">事件517-1997-M</a>',
+            ),
+            "incident-517-1997-m": simple_page(
+                "事件517-1997-M",
+                '<p>事件记录正文。</p><a href="/unrelated-followup">不得递归收录</a>',
+            ),
+        },
+    )
+
+    build_volume(config, "001-099", fetcher=fetcher)
+
+    report = json.loads(
+        (config.output_dir / "reports" / "test-volume-report.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert report["slugs"] == [
+        "scp-517",
+        "scp-517--linked-appendices",
+        "incident-517-1997-m",
+    ]
+    assert [slug for slug, _url, _force in fetcher.calls].count(
+        "incident-517-1997-m"
+    ) == 1
+    assert "unrelated-followup" not in [slug for slug, _url, _force in fetcher.calls]
+
+    incident_xhtml = (
+        config.processed_dir / "test-volume" / "0003-incident-517-1997-m.xhtml"
+    ).read_text(encoding="utf-8")
+    assert "事件记录正文" in incident_xhtml
+
+
 def test_build_volume_separates_iteration_documents_and_removes_their_navigation(
     tmp_path: Path,
 ):

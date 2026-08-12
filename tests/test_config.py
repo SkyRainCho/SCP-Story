@@ -293,6 +293,29 @@ def test_series_1_config_includes_scp001_proposals():
     assert config.include_scp001_proposals is True
 
 
+def assert_scp_517_incident_appendix(config_path: str) -> None:
+    config = load_config(Path(config_path))
+
+    assert [
+        (link.title, link.url, link.slug)
+        for link in config.explicit_linked_appendices["scp-517"]
+    ] == [
+        (
+            "事件517-1997-M",
+            "https://scp-wiki-cn.wikidot.com/incident-517-1997-m",
+            "incident-517-1997-m",
+        )
+    ]
+
+
+def test_featured_scp_config_includes_scp_517_incident_appendix():
+    assert_scp_517_incident_appendix("config/featured-scp.yaml")
+
+
+def test_series_1_config_includes_scp_517_incident_appendix():
+    assert_scp_517_incident_appendix("config/series-1.yaml")
+
+
 def test_featured_scp_config_uses_archive_mode_and_title_indexes():
     config = load_config(Path("config/featured-scp.yaml"))
 
