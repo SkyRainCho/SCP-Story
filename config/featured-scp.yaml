@@ -77,6 +77,13 @@ page_fallbacks:
     translated_title: 暗寿司档案 No.233「简体字卷」
     snapshot_path: translations/featured/yamizushi-file-no233.zh-CN.html
     layout_signature: 4864120fb8918478e7d032eb1df32b8153dd845c6ff47b11f375102165ece18d
+  scp-597:
+    source_url: https://scp-wiki.wikidot.com/scp-597
+    source_language: en
+    translated_title: SCP-597 - 万物之母
+    snapshot_path: translations/featured/scp-597.zh-CN.html
+    layout_signature: de383244c3a83c4c4ca93adf317e88334f7bad92f8d6c02918bcb11a1d6830bf
+    primary_page_rejection: adult-gate-only
 page_overrides:
   scp-9928:
     remove_terminal_navigation: true

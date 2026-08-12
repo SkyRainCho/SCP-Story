@@ -5,6 +5,7 @@ import pytest
 from scp_epub.models import PageFallback
 from scp_epub.page_fallbacks import (
     load_fallback_fetch_result,
+    primary_page_should_fallback,
     snapshot_layout_signature,
 )
 
@@ -17,6 +18,62 @@ SOURCE_HTML = """
 <img src="https://example.test/image.png" alt="Source image" aria-label="Source label"></section></main>
 </body></html>
 """
+
+
+def primary_page(body: str) -> str:
+    return f'<html><body><div id="page-content">{body}</div></body></html>'
+
+
+def test_primary_page_should_fallback_recognizes_same_slug_chinese_adult_gate():
+    html = primary_page(
+        '<p>本文包含成人内容，可能并不适合所有读者。'
+        '如果你已年满 18 周岁并愿意阅读相关内容，'
+        '<a href="/adult:scp-597/noredirect/true">点击这里继续</a>。</p>'
+    )
+
+    assert primary_page_should_fallback(html, "scp-597", "adult-gate-only") is True
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        (
+            '<p>本文包含成人内容。如果你已年满 18 周岁，'
+            '<a href="/adult:scp-598/noredirect/true">点击这里继续</a>。</p>'
+        ),
+        '<p>本文包含成人内容。如果你已年满 18 周岁，请谨慎阅读。</p>',
+        '<p><a href="/adult:scp-597/noredirect/true">点击这里继续</a>。</p>',
+        (
+            '<p>本文包含成人内容。如果你已年满 18 周岁，'
+            '<a href="/adult:scp-597/noredirect/true">点击这里继续</a>。</p>'
+            '<p><strong>项目编号：</strong>SCP-597</p>'
+            '<p><strong>特殊收容措施：</strong>完整正文。</p>'
+        ),
+    ],
+)
+def test_primary_page_should_fallback_rejects_ambiguous_or_complete_pages(body: str):
+    assert primary_page_should_fallback(
+        primary_page(body), "scp-597", "adult-gate-only"
+    ) is False
+
+
+def test_primary_page_should_fallback_requires_exactly_one_page_content():
+    html = (
+        '<div id="page-content"><p>本文包含成人内容，已满 18 周岁'
+        '<a href="/adult:scp-597/noredirect/true">继续</a></p></div>'
+        '<div id="page-content"></div>'
+    )
+
+    assert primary_page_should_fallback(html, "scp-597", "adult-gate-only") is False
+
+
+def test_primary_page_should_fallback_returns_false_without_configured_mode():
+    html = primary_page(
+        '<p>本文包含成人内容，已满 18 周岁'
+        '<a href="/adult:scp-597/noredirect/true">继续</a></p>'
+    )
+
+    assert primary_page_should_fallback(html, "scp-597", None) is False
 
 TRANSLATED_HTML = """
 <html><head><style>

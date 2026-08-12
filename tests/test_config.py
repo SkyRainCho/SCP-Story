@@ -98,6 +98,7 @@ def test_load_config_parses_page_fallbacks(tmp_path: Path):
     translated_title: SCP-4846 - 友善化石
     snapshot_path: translations/featured/scp-4846.zh-CN.html
     layout_signature: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    primary_page_rejection: adult-gate-only
 """,
     )
 
@@ -110,6 +111,28 @@ def test_load_config_parses_page_fallbacks(tmp_path: Path):
     assert fallback.layout_signature == (
         "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     )
+    assert fallback.primary_page_rejection == "adult-gate-only"
+
+
+def test_load_config_defaults_page_fallback_primary_rejection_to_none(tmp_path: Path):
+    snapshot = tmp_path / "translations" / "featured" / "scp-4846.zh-CN.html"
+    snapshot.parent.mkdir(parents=True)
+    snapshot.write_text('<div id="page-content"><p>译文</p></div>', encoding="utf-8")
+    config_path = tmp_path / "series.yaml"
+    write_config_with_page_fallbacks(
+        config_path,
+        """  scp-4846:
+    source_url: https://scp-wiki.wikidot.com/scp-4846
+    source_language: en
+    translated_title: SCP-4846 - 友善化石
+    snapshot_path: translations/featured/scp-4846.zh-CN.html
+    layout_signature: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+""",
+    )
+
+    fallback = load_config(config_path).page_fallbacks["scp-4846"]
+
+    assert fallback.primary_page_rejection is None
 
 
 @pytest.mark.parametrize(
@@ -166,6 +189,17 @@ def test_load_config_parses_page_fallbacks(tmp_path: Path):
     translate_at_build_time: true
 """,
             "page_fallbacks.scp-4846 contains unknown keys: translate_at_build_time",
+        ),
+        (
+            """  scp-4846:
+    source_url: https://scp-wiki.wikidot.com/scp-4846
+    source_language: en
+    translated_title: SCP-4846 - 友善化石
+    snapshot_path: translations/featured/scp-4846.zh-CN.html
+    layout_signature: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    primary_page_rejection: any-short-page
+""",
+            "page_fallbacks.scp-4846.primary_page_rejection must be one of: adult-gate-only",
         ),
         (
             """  SCP-4846:
@@ -324,6 +358,7 @@ def test_featured_scp_config_declares_translated_page_fallbacks():
             fallback.source_language,
             fallback.translated_title,
             fallback.snapshot_path.relative_to(config.workspace).as_posix(),
+            fallback.primary_page_rejection,
         )
         for slug, fallback in config.page_fallbacks.items()
     ] == [
@@ -333,6 +368,7 @@ def test_featured_scp_config_declares_translated_page_fallbacks():
             "en",
             "SCP-4846 - 友善化石",
             "translations/featured/scp-4846.zh-CN.html",
+            None,
         ),
         (
             "scp-8304",
@@ -340,6 +376,7 @@ def test_featured_scp_config_declares_translated_page_fallbacks():
             "en",
             "SCP-8304 - 现代安慰",
             "translations/featured/scp-8304.zh-CN.html",
+            None,
         ),
         (
             "scp-8274",
@@ -347,6 +384,7 @@ def test_featured_scp_config_declares_translated_page_fallbacks():
             "en",
             "SCP-8274 - 帝王蝶",
             "translations/featured/scp-8274.zh-CN.html",
+            None,
         ),
         (
             "scp-7875",
@@ -354,6 +392,7 @@ def test_featured_scp_config_declares_translated_page_fallbacks():
             "en",
             "SCP-7875 - 患上正常症",
             "translations/featured/scp-7875.zh-CN.html",
+            None,
         ),
         (
             "yamizushi-file-no233",
@@ -361,6 +400,15 @@ def test_featured_scp_config_declares_translated_page_fallbacks():
             "ja",
             "暗寿司档案 No.233「简体字卷」",
             "translations/featured/yamizushi-file-no233.zh-CN.html",
+            None,
+        ),
+        (
+            "scp-597",
+            "https://scp-wiki.wikidot.com/scp-597",
+            "en",
+            "SCP-597 - 万物之母",
+            "translations/featured/scp-597.zh-CN.html",
+            "adult-gate-only",
         ),
     ]
 

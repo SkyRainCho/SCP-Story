@@ -61,7 +61,7 @@ from .models import (
     ProcessedPage,
     VolumeSpec,
 )
-from .page_fallbacks import load_fallback_fetch_result
+from .page_fallbacks import load_fallback_fetch_result, primary_page_should_fallback
 from .transform import PageTransformOptions, insert_inline_fragments, transform_page
 from .urls import safe_filename, slug_from_url
 
@@ -645,9 +645,29 @@ def fetch_build_pages(
         appendix_fetch_results=appendix_fetch_results,
     )
     for entry, result in zip(manifest, resolved, strict=True):
-        if isinstance(result, Exception):
-            exc = result
-            fallback = config.page_fallbacks.get(entry.slug)
+        fallback = config.page_fallbacks.get(entry.slug)
+        primary_error = result if isinstance(result, Exception) else None
+        if (
+            primary_error is None
+            and fallback is not None
+            and fallback.primary_page_rejection is not None
+        ):
+            try:
+                reject_primary = primary_page_should_fallback(
+                    result.path.read_text(encoding="utf-8"),
+                    entry.slug,
+                    fallback.primary_page_rejection,
+                )
+            except (OSError, UnicodeError) as exc:
+                primary_error = ValueError(f"primary page evaluation failed: {exc}")
+            else:
+                if reject_primary:
+                    primary_error = ValueError(
+                        "primary page rejected by "
+                        f"{fallback.primary_page_rejection}"
+                    )
+
+        if primary_error is not None:
             if fallback is not None:
                 try:
                     result = load_fallback_fetch_result(entry.slug, fallback)
@@ -657,7 +677,9 @@ def fetch_build_pages(
                             "slug": entry.slug,
                             "title": entry.title,
                             "url": entry.url,
-                            "reason": f"{exc}; fallback failed: {fallback_exc}",
+                            "reason": (
+                                f"{primary_error}; fallback failed: {fallback_exc}"
+                            ),
                         }
                     )
                     continue
@@ -679,7 +701,7 @@ def fetch_build_pages(
                         "slug": entry.slug,
                         "title": entry.title,
                         "url": entry.url,
-                        "reason": str(exc),
+                        "reason": str(primary_error),
                     }
                 )
                 continue

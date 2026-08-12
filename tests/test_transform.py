@@ -20,6 +20,7 @@ FEATURED_FALLBACK_SLUGS = (
     "scp-8274",
     "scp-7875",
     "yamizushi-file-no233",
+    "scp-597",
 )
 
 
@@ -171,6 +172,42 @@ def test_featured_fallback_snapshots_transform_with_foreign_source_urls():
 
         assert page.xhtml
         assert "page-options-bottom" not in page.xhtml
+
+
+def test_scp_597_translation_is_complete_chinese_body_with_visible_warning():
+    html = (FEATURED_TRANSLATIONS / "scp-597.zh-CN.html").read_text(encoding="utf-8")
+    soup = BeautifulSoup(html, "html.parser")
+    content = soup.select_one("#page-content")
+    assert content is not None
+    text = content.get_text(" ", strip=True)
+
+    assert "成人内容警告" in text
+    assert all(label in text for label in ("性暗示", "露骨性内容", "性侵", "血腥内容"))
+    assert text.index("成人内容警告") < text.index("项目编号")
+    assert all(
+        marker in text
+        for marker in (
+            "项目编号： SCP-597",
+            "项目等级： Euclid",
+            "特殊收容措施：",
+            "描述：",
+            "文档 597-XX-23",
+            "文档 597-XD-12",
+            "文档 597-XX-25",
+            "文档 597-XY-C13",
+        )
+    )
+    assert text.count("[数据删除]") >= 10
+    assert "ADULT CONTENT" not in text
+    assert "Special Containment Procedures" not in text
+    assert "Description:" not in text
+    assert content.find("script") is None
+    assert content.select_one(".adult-content-warning") is not None
+    assert len(soup.find_all("style")) == 0
+    assert len(content.find_all("img")) == 0
+    assert len(content.find_all("table")) == 0
+    assert len(content.select(".collapsible-block")) == 0
+    assert len(content.select(".yui-navset")) == 0
 
 
 def page_ref(slug: str = "scp-999") -> PageRef:

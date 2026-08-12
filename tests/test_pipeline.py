@@ -1248,6 +1248,119 @@ def test_fetch_build_pages_keeps_primary_chinese_page_without_fallback_record(
     assert fallback_pages == []
 
 
+def scp_597_fallback(tmp_path: Path, *, valid_signature: bool = True) -> PageFallback:
+    snapshot = tmp_path / "translations" / "scp-597.zh-CN.html"
+    snapshot.parent.mkdir(exist_ok=True)
+    translated_html = simple_page(
+        "SCP-597 - 万物之母",
+        "<p><strong>项目编号：</strong>SCP-597</p><p>完整中文正文。</p>",
+    )
+    snapshot.write_text(translated_html, encoding="utf-8")
+    signature = snapshot_layout_signature(translated_html) if valid_signature else "0" * 64
+    return PageFallback(
+        source_url="https://scp-wiki.wikidot.com/scp-597",
+        source_language="en",
+        translated_title="SCP-597 - 万物之母",
+        snapshot_path=snapshot,
+        layout_signature=signature,
+        primary_page_rejection="adult-gate-only",
+    )
+
+
+def scp_597_manifest() -> list[PageRef]:
+    return [
+        PageRef(
+            "SCP-597 - 万物之母",
+            f"{BASE_URL}/scp-597",
+            "scp-597",
+            1,
+            "scp",
+            order=1,
+        )
+    ]
+
+
+def scp_597_gate_page() -> str:
+    return simple_page(
+        "SCP-597",
+        '<p>本文包含成人内容，可能并不适合所有读者。'
+        '如果你已年满 18 周岁并愿意阅读相关内容，'
+        '<a href="/adult:scp-597/noredirect/true">点击这里继续</a>。</p>',
+    )
+
+
+def test_fetch_build_pages_uses_fallback_when_successful_primary_is_adult_gate(
+    tmp_path: Path,
+):
+    fallback = scp_597_fallback(tmp_path)
+    config = app_config(tmp_path, page_fallbacks={"scp-597": fallback})
+    fetcher = FakeFetcher(tmp_path / "fetcher", {"scp-597": scp_597_gate_page()})
+
+    available, results, missing, records = fetch_build_pages(
+        config, scp_597_manifest(), fetcher
+    )
+
+    assert [page.slug for page in available] == ["scp-597"]
+    assert results[0].path == fallback.snapshot_path
+    assert results[0].url == fallback.source_url
+    assert missing == []
+    assert records == [
+        FallbackPageRecord(
+            slug="scp-597",
+            title="SCP-597 - 万物之母",
+            source_url=fallback.source_url,
+            source_language="en",
+            snapshot_path="translations/scp-597.zh-CN.html",
+        )
+    ]
+
+
+def test_fetch_build_pages_prefers_future_official_body_over_adult_gate_fallback(
+    tmp_path: Path,
+):
+    fallback = scp_597_fallback(tmp_path)
+    config = app_config(tmp_path, page_fallbacks={"scp-597": fallback})
+    fetcher = FakeFetcher(
+        tmp_path / "fetcher",
+        {
+            "scp-597": simple_page(
+                "SCP-597",
+                "<p>本文包含成人内容，请谨慎阅读。</p>"
+                "<p><strong>项目编号：</strong>SCP-597</p>"
+                "<p><strong>特殊收容措施：</strong>官方中文正文。</p>",
+            )
+        },
+    )
+
+    _available, results, missing, records = fetch_build_pages(
+        config, scp_597_manifest(), fetcher
+    )
+
+    assert results[0].url == f"{BASE_URL}/scp-597"
+    assert results[0].path != fallback.snapshot_path
+    assert records == []
+    assert missing == []
+
+
+def test_fetch_build_pages_omits_adult_gate_when_fallback_snapshot_is_invalid(
+    tmp_path: Path,
+):
+    fallback = scp_597_fallback(tmp_path, valid_signature=False)
+    config = app_config(tmp_path, page_fallbacks={"scp-597": fallback})
+    fetcher = FakeFetcher(tmp_path / "fetcher", {"scp-597": scp_597_gate_page()})
+
+    available, results, missing, records = fetch_build_pages(
+        config, scp_597_manifest(), fetcher
+    )
+
+    assert available == []
+    assert results == []
+    assert records == []
+    assert missing[0]["slug"] == "scp-597"
+    assert "primary page rejected by adult-gate-only" in missing[0]["reason"]
+    assert "fallback snapshot layout signature mismatch" in missing[0]["reason"]
+
+
 def test_fetch_build_pages_uses_validated_fallback_and_localizes_relative_images(
     tmp_path: Path,
 ):

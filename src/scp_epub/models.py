@@ -57,6 +57,7 @@ class PageFallback:
     translated_title: str
     snapshot_path: Path
     layout_signature: str
+    primary_page_rejection: str | None = None
 
 
 @dataclass(frozen=True)

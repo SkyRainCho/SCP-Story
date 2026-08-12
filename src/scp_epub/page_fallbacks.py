@@ -14,6 +14,44 @@ _CSS_CONTENT_RE = re.compile(
     r"(?<![-\w])(\bcontent\s*:\s*)(['\"])(.*?)(?<!\\)\2",
     flags=re.IGNORECASE | re.DOTALL,
 )
+_ADULT_GATE_TEXT_MARKERS = ("成人内容", "18周岁")
+_ARTICLE_BODY_MARKERS = (
+    "项目编号",
+    "项目等级",
+    "特殊收容措施",
+    "描述",
+    "objectclass",
+    "specialcontainmentprocedures",
+    "description",
+)
+
+
+def primary_page_should_fallback(
+    html: str,
+    slug: str,
+    mode: str | None,
+) -> bool:
+    """Return whether a successful primary page is only a configured gate."""
+    if mode != "adult-gate-only":
+        return False
+
+    soup = BeautifulSoup(html, "html.parser")
+    page_contents = soup.select("#page-content")
+    if len(page_contents) != 1:
+        return False
+    page_content = page_contents[0]
+    normalized_text = re.sub(r"\s+", "", page_content.get_text(" ", strip=True)).lower()
+    if not all(marker in normalized_text for marker in _ADULT_GATE_TEXT_MARKERS):
+        return False
+    if any(marker in normalized_text for marker in _ARTICLE_BODY_MARKERS):
+        return False
+
+    expected_path = f"/adult:{slug.lower()}/noredirect/true"
+    return any(
+        (link.get("href") or "").split("?", 1)[0].rstrip("/").lower()
+        == expected_path
+        for link in page_content.find_all("a", href=True)
+    )
 
 
 def snapshot_layout_signature(html: str) -> str:

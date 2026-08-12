@@ -43,6 +43,7 @@ REQUIRED_TOP_LEVEL = {
 
 REQUIRED_VOLUME_KEYS = {"start", "end", "title", "output_slug"}
 _SHA256_RE = re.compile(r"[0-9a-fA-F]{64}\Z")
+_PRIMARY_PAGE_REJECTION_MODES = frozenset({"adult-gate-only"})
 
 
 def load_config(path: str | Path) -> AppConfig:
@@ -316,6 +317,16 @@ def _layout_signature(value: Any, name: str) -> str:
     return signature
 
 
+def _optional_primary_page_rejection(value: Any, name: str) -> str | None:
+    if value is None:
+        return None
+    mode = _required_string(value, name).strip()
+    if mode not in _PRIMARY_PAGE_REJECTION_MODES:
+        allowed = ", ".join(sorted(_PRIMARY_PAGE_REJECTION_MODES))
+        raise ValueError(f"{name} must be one of: {allowed}")
+    return mode
+
+
 def _load_page_fallbacks(
     value: Any,
     name: str,
@@ -338,6 +349,7 @@ def _load_page_fallbacks(
                 "translated_title",
                 "snapshot_path",
                 "layout_signature",
+                "primary_page_rejection",
             },
             fallback_name,
         )
@@ -365,6 +377,10 @@ def _load_page_fallbacks(
             layout_signature=_layout_signature(
                 fallback.get("layout_signature"),
                 f"{fallback_name}.layout_signature",
+            ),
+            primary_page_rejection=_optional_primary_page_rejection(
+                fallback.get("primary_page_rejection"),
+                f"{fallback_name}.primary_page_rejection",
             ),
         )
     return fallbacks
