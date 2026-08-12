@@ -316,6 +316,36 @@ def test_series_1_config_includes_scp_517_incident_appendix():
     assert_scp_517_incident_appendix("config/series-1.yaml")
 
 
+def assert_scp_450_457_appendices(config_path: str) -> None:
+    config = load_config(Path(config_path))
+
+    assert [
+        (link.title, link.url, link.slug)
+        for link in config.explicit_linked_appendices["scp-450"]
+    ] == [
+        (
+            "在恐惧中永世逃亡",
+            "https://scp-wiki-cn.wikidot.com/but-when-they-opened-it-they-turned-and-swift",
+            "but-when-they-opened-it-they-turned-and-swift",
+        )
+    ]
+    assert [
+        (link.title, link.url, link.slug)
+        for link in config.explicit_linked_appendices["scp-457"]
+    ] == [
+        ("SCP-1689", "https://scp-wiki-cn.wikidot.com/scp-1689", "scp-1689"),
+        ("SCP-124", "https://scp-wiki-cn.wikidot.com/scp-124", "scp-124"),
+    ]
+
+
+def test_featured_scp_config_includes_scp_450_457_appendices():
+    assert_scp_450_457_appendices("config/featured-scp.yaml")
+
+
+def test_series_1_config_includes_scp_450_457_appendices():
+    assert_scp_450_457_appendices("config/series-1.yaml")
+
+
 def test_featured_scp_config_uses_archive_mode_and_title_indexes():
     config = load_config(Path("config/featured-scp.yaml"))
 

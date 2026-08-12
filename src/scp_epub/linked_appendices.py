@@ -166,9 +166,22 @@ def expand_manifest_with_linked_appendices(
         if document.candidates
     }
     known_slugs = {entry.slug for entry in manifest}
+    configured_existing_owner_by_slug: dict[str, str] = {}
+    for document in documents:
+        for candidate in document.candidates:
+            if (
+                candidate.reason == "configured-appendix"
+                and candidate.slug in known_slugs
+            ):
+                configured_existing_owner_by_slug.setdefault(
+                    candidate.slug,
+                    document.entry.slug,
+                )
     expanded: list[PageRef] = []
 
     for entry in manifest:
+        if entry.slug in configured_existing_owner_by_slug:
+            continue
         expanded.append(entry)
         document = documents_by_slug.get(entry.slug)
         if document is None:
@@ -177,7 +190,9 @@ def expand_manifest_with_linked_appendices(
         group_slug = linked_appendix_group_slug(entry.slug)
         group_added = False
         for candidate in document.candidates:
-            if candidate.slug in known_slugs:
+            if candidate.slug in known_slugs and (
+                configured_existing_owner_by_slug.get(candidate.slug) != entry.slug
+            ):
                 continue
             if not group_added:
                 expanded.append(

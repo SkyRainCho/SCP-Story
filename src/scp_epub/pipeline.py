@@ -461,9 +461,19 @@ def include_linked_appendices(
             else:
                 fetch_successes[slug] = outcome
 
+    claimed_existing_configured_slugs: set[str] = set()
     for document in documents:
         successful_candidates: list[LinkedAppendixCandidate] = []
         for candidate in document.candidates:
+            if (
+                candidate.reason == "configured-appendix"
+                and candidate.slug in manifest_slugs
+            ):
+                if candidate.slug in claimed_existing_configured_slugs:
+                    continue
+                claimed_existing_configured_slugs.add(candidate.slug)
+                successful_candidates.append(candidate)
+                continue
             if candidate.slug in manifest_slugs or candidate.slug in fetched_results_by_slug_pre:
                 # Already in the manifest or already fetched/cached before this
                 # expansion pass; the original loop skipped these without

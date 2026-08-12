@@ -20,6 +20,14 @@ explicit_linked_appendices:
   scp-517:
     - title: 事件517-1997-M
       url: https://scp-wiki-cn.wikidot.com/incident-517-1997-m
+  scp-450:
+    - title: 在恐惧中永世逃亡
+      url: https://scp-wiki-cn.wikidot.com/but-when-they-opened-it-they-turned-and-swift
+  scp-457:
+    - title: SCP-1689
+      url: https://scp-wiki-cn.wikidot.com/scp-1689
+    - title: SCP-124
+      url: https://scp-wiki-cn.wikidot.com/scp-124
 volumes:
   001-099:
     start: 1

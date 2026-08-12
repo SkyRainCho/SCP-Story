@@ -218,3 +218,51 @@ def test_expand_manifest_preserves_appendix_tab_title_when_renumbering():
     expanded_tab = next(entry for entry in expanded if entry.slug == appendix_tab.slug)
     assert expanded_tab.tab_title == "人事档案"
     assert [entry.order for entry in expanded] == list(range(1, len(expanded) + 1))
+
+
+def test_expand_manifest_moves_configured_existing_page_into_appendix_group():
+    source = PageRef(
+        title="SCP-450",
+        url="https://scp-wiki-cn.wikidot.com/scp-450",
+        slug="scp-450",
+        level=1,
+        role="scp",
+        order=1,
+    )
+    existing_story = PageRef(
+        title="在恐惧中永世逃亡",
+        url="https://scp-wiki-cn.wikidot.com/but-when-they-opened-it-they-turned-and-swift",
+        slug="but-when-they-opened-it-they-turned-and-swift",
+        level=2,
+        role="related",
+        parent_slug="scp-450",
+        order=2,
+    )
+    documents = [
+        LinkedAppendixDocument(
+            entry=source,
+            candidates=(
+                LinkedAppendixCandidate(
+                    title=existing_story.title,
+                    url=existing_story.url,
+                    slug=existing_story.slug,
+                    reason="configured-appendix",
+                ),
+            ),
+        )
+    ]
+
+    expanded = expand_manifest_with_linked_appendices(
+        [source, existing_story],
+        documents,
+    )
+
+    assert [entry.slug for entry in expanded] == [
+        "scp-450",
+        "scp-450--linked-appendices",
+        "but-when-they-opened-it-they-turned-and-swift",
+    ]
+    moved_story = expanded[-1]
+    assert moved_story.role == "linked-appendix"
+    assert moved_story.parent_slug == "scp-450--linked-appendices"
+    assert [entry.order for entry in expanded] == [1, 2, 3]

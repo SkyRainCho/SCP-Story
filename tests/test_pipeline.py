@@ -2152,6 +2152,178 @@ def test_build_volume_includes_configured_scp_517_incident_once_without_recursio
     assert "事件记录正文" in incident_xhtml
 
 
+def test_build_volume_groups_configured_scp_450_457_appendices_once_without_recursion(
+    tmp_path: Path,
+):
+    story_slug = "but-when-they-opened-it-they-turned-and-swift"
+    config = app_config(
+        tmp_path,
+        explicit_linked_appendices={
+            "scp-450": (
+                ConfiguredLink(
+                    title="在恐惧中永世逃亡",
+                    url=f"{BASE_URL}/{story_slug}",
+                    slug=story_slug,
+                ),
+            ),
+            "scp-457": (
+                ConfiguredLink(
+                    title="SCP-1689",
+                    url=f"{BASE_URL}/scp-1689",
+                    slug="scp-1689",
+                ),
+                ConfiguredLink(
+                    title="SCP-124",
+                    url=f"{BASE_URL}/scp-124",
+                    slug="scp-124",
+                ),
+            ),
+        },
+    )
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(
+        [
+            PageRef("SCP-450", f"{BASE_URL}/scp-450", "scp-450", 1, "scp", order=1),
+            PageRef(
+                "在恐惧中永世逃亡",
+                f"{BASE_URL}/{story_slug}",
+                story_slug,
+                2,
+                "related",
+                parent_slug="scp-450",
+                order=2,
+            ),
+            PageRef("SCP-457", f"{BASE_URL}/scp-457", "scp-457", 1, "scp", order=3),
+        ],
+        config.manifest_dir / "test-volume.json",
+    )
+    followup_link = '<a href="/unrelated-followup">不得递归收录</a>'
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-450": simple_page(
+                "SCP-450",
+                f'<a href="/{story_slug}">在恐惧中永世逃亡</a>',
+            ),
+            story_slug: simple_page(
+                "在恐惧中永世逃亡",
+                f"<p>恐惧故事正文。</p>{followup_link}",
+            ),
+            "scp-457": simple_page(
+                "SCP-457",
+                '<a href="/scp-1689">SCP-1689</a><a href="/scp-124">SCP-124</a>',
+            ),
+            "scp-1689": simple_page(
+                "SCP-1689",
+                f"<p>无限土豆袋正文。</p>{followup_link}",
+            ),
+            "scp-124": simple_page(
+                "SCP-124",
+                f"<p>肥沃土壤正文。</p>{followup_link}",
+            ),
+        },
+    )
+
+    build_volume(config, "001-099", fetcher=fetcher)
+
+    report = json.loads(
+        (config.output_dir / "reports" / "test-volume-report.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert report["slugs"] == [
+        "scp-450",
+        "scp-450--linked-appendices",
+        story_slug,
+        "scp-457",
+        "scp-457--linked-appendices",
+        "scp-1689",
+        "scp-124",
+    ]
+    fetched_slugs = [slug for slug, _url, _force in fetcher.calls]
+    for appendix_slug in (story_slug, "scp-1689", "scp-124"):
+        assert fetched_slugs.count(appendix_slug) == 1
+    assert "unrelated-followup" not in fetched_slugs
+
+    expected_bodies = {
+        f"0003-{story_slug}.xhtml": "恐惧故事正文",
+        "0006-scp-1689.xhtml": "无限土豆袋正文",
+        "0007-scp-124.xhtml": "肥沃土壤正文",
+    }
+    for filename, marker in expected_bodies.items():
+        xhtml = (config.processed_dir / "test-volume" / filename).read_text(
+            encoding="utf-8"
+        )
+        assert marker in xhtml
+
+
+def test_build_volume_assigns_existing_configured_appendix_to_first_source_once(
+    tmp_path: Path,
+):
+    shared = ConfiguredLink(
+        title="共享附件",
+        url=f"{BASE_URL}/shared-appendix",
+        slug="shared-appendix",
+    )
+    config = app_config(
+        tmp_path,
+        explicit_linked_appendices={
+            "scp-450": (shared,),
+            "scp-457": (shared,),
+        },
+    )
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(
+        [
+            PageRef("SCP-450", f"{BASE_URL}/scp-450", "scp-450", 1, "scp", order=1),
+            PageRef(
+                "共享附件",
+                f"{BASE_URL}/shared-appendix",
+                "shared-appendix",
+                2,
+                "related",
+                parent_slug="scp-450",
+                order=2,
+            ),
+            PageRef("SCP-457", f"{BASE_URL}/scp-457", "scp-457", 1, "scp", order=3),
+        ],
+        config.manifest_dir / "test-volume.json",
+    )
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-450": simple_page("SCP-450", "正文。"),
+            "shared-appendix": simple_page("共享附件", "附件正文。"),
+            "scp-457": simple_page("SCP-457", "正文。"),
+        },
+    )
+
+    build_volume(config, "001-099", fetcher=fetcher)
+
+    report = json.loads(
+        (config.output_dir / "reports" / "test-volume-report.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert report["slugs"] == [
+        "scp-450",
+        "scp-450--linked-appendices",
+        "shared-appendix",
+        "scp-457",
+    ]
+    linked_report = json.loads(
+        (
+            config.output_dir
+            / "reports"
+            / "test-volume-linked-appendices.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert [document["source_slug"] for document in linked_report] == ["scp-450"]
+    assert [slug for slug, _url, _force in fetcher.calls].count("shared-appendix") == 1
+
+
 def test_build_volume_separates_iteration_documents_and_removes_their_navigation(
     tmp_path: Path,
 ):
