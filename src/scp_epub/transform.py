@@ -81,6 +81,10 @@ SAFE_STYLE_PROPERTIES = {
     "vertical-align",
     "width",
 }
+CENTERED_INLINE_BLOCK_EPUB_STYLE_RULES = (
+    ".centered-inline-block-container-epub {text-align: center;}"
+    "\n.centered-inline-block-card-epub {display: inline-block;}"
+)
 UNSAFE_STYLE_VALUE_TOKENS = ("behavior:", "expression(", "javascript:", "-moz-binding", "url(")
 CSS_CODE_MARKERS = (
     "@import",
@@ -556,6 +560,11 @@ def transform_page(
     else:
         anomaly_icon_urls, anomaly_quadrant_colors = {}, {}
     page_styles = _applicable_page_styles(soup, page_content)
+    if _restore_centered_inline_block_cards(soup, page_content):
+        page_styles = _append_page_style_rules(
+            page_styles,
+            CENTERED_INLINE_BLOCK_EPUB_STYLE_RULES,
+        )
 
     _remove_creator_information_blocks(page_content)
     _remove_o5_command_dossier_return_footer(entry, page_content)
@@ -1262,6 +1271,52 @@ def _append_page_style_rules(page_styles: str, extra_rules: str) -> str:
     if not page_styles:
         return extra_rules
     return f"{page_styles}\n{extra_rules}"
+
+
+def _restore_centered_inline_block_cards(
+    soup: BeautifulSoup,
+    page_content: Tag,
+) -> bool:
+    if not _has_centered_collapsible_source_rule(soup):
+        return False
+
+    restored = False
+    for container in page_content.select(".collapsible-block-content"):
+        cards = [
+            tag
+            for tag in container.find_all(style=True)
+            if _style_property_value(tag, "display") == "inline-block"
+        ]
+        if not cards:
+            continue
+        _add_class_token(container, "centered-inline-block-container-epub")
+        for card in cards:
+            _add_class_token(card, "centered-inline-block-card-epub")
+        restored = True
+    return restored
+
+
+def _has_centered_collapsible_source_rule(soup: BeautifulSoup) -> bool:
+    for style in soup.find_all("style"):
+        css_text = _css_rule_source(style.get_text("\n", strip=True))
+        for selector_text, body, _, _ in iter_css_rules(css_text):
+            selectors = _split_css_selector_list(
+                re.sub(r"\s+", " ", selector_text).strip()
+            )
+            if "#page-content .collapsible-block" not in selectors:
+                continue
+            if _css_declaration_value(body, "text-align") == "center":
+                return True
+    return False
+
+
+def _css_declaration_value(style_body: str, property_name: str) -> str | None:
+    normalized_property = property_name.casefold()
+    for declaration in style_body.split(";"):
+        name, separator, value = declaration.partition(":")
+        if separator and name.strip().casefold() == normalized_property:
+            return value.strip().casefold()
+    return None
 
 
 def _stabilize_scp_6747_splash(page_content: Tag) -> None:

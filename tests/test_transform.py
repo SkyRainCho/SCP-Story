@@ -535,6 +535,73 @@ def test_strips_event_handlers_and_sanitizes_inline_styles_but_keeps_harmless_at
     assert "javascript:alert" not in result.xhtml
 
 
+def test_restores_centered_inline_block_cards_from_collapsible_source_layout():
+    html = """
+    <html><head><style>
+      #page-content .collapsible-block {
+        text-align: center;
+      }
+      .collapsible-block-content p {
+        text-align: left;
+      }
+    </style></head><body><div id="page-content">
+      <div class="collapsible-block">
+        <div class="collapsible-block-unfolded" style="display:none">
+          <div class="collapsible-block-content">
+            <div id="department-card" style="display: inline-block; border: 1px solid black">
+              <h2>外务部制备</h2>
+            </div>
+            <p><strong>主题：</strong>SCP-3934-1的发现与回收</p>
+          </div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref("scp-3934"), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    container = soup.select_one(".centered-inline-block-container-epub")
+    card = soup.find(id="department-card")
+    assert container is not None
+    assert "centered-inline-block-card-epub" in card["class"].split()
+    styles = soup.find("style").get_text()
+    assert ".centered-inline-block-container-epub {text-align: center;}" in styles
+    assert ".centered-inline-block-card-epub {display: inline-block;}" in styles
+    assert ".collapsible-block-content p {text-align: left;}" in styles
+
+
+@pytest.mark.parametrize(
+    ("collapsible_rule", "card_display"),
+    [
+        ("text-align: left", "inline-block"),
+        ("text-align: center", "none"),
+        ("text-align: center", "flex"),
+    ],
+)
+def test_does_not_restore_unmatched_collapsible_card_layouts(
+    collapsible_rule: str,
+    card_display: str,
+):
+    html = f"""
+    <html><head><style>
+      #page-content .collapsible-block {{ {collapsible_rule}; }}
+    </style></head><body><div id="page-content">
+      <div class="collapsible-block"><div class="collapsible-block-content">
+        <div id="card" style="display: {card_display}">卡片</div>
+      </div></div>
+    </div></body></html>
+    """
+
+    result = transform_page(page_ref(), html, BASE_URL)
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.select_one(".centered-inline-block-container-epub") is None
+    assert soup.select_one(".centered-inline-block-card-epub") is None
+    assert "centered-inline-block-container-epub" not in result.xhtml
+    assert "centered-inline-block-card-epub" not in result.xhtml
+
+
 def test_removes_hidden_css_code_with_split_highlight_tokens():
     html = """
     <html><body><div id="page-content">
