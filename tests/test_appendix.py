@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 from scp_epub.appendix import (
     appendix_group_html,
     extract_facility_children,
+    extract_organization_children,
     extract_tab_children,
 )
 from scp_epub.models import PageRef
@@ -116,6 +117,53 @@ def test_extract_tab_children_uses_only_direct_tabviews_and_panels():
         (3, parent.slug, "appendix-tab"),
         (3, parent.slug, "appendix-tab"),
     ]
+
+
+def test_extract_organization_children_selects_heading_hubs_only_and_deduplicates():
+    parent = page_ref("groups-of-interest", title="相关组织")
+    html = """
+    <div id="page-content">
+      <div class="content-panel standalone series">
+        <h1><a href="/alexylva-university-hub?source=index#top">Alexylva大学</a>（Alexylva University）</h1>
+        <p><a href="/wayward">田纳西州</a><a href="/scp-123">SCP-123</a></p>
+      </div>
+      <div class="content-panel standalone series">
+        <h1><a href="https://SCP-WIKI-CN.WIKIDOT.COM/ambrose-restaurant-hub">安布罗斯餐厅</a>（Ambrose Restaurants）</h1>
+        <p><a href="/ambrose-london-prix-fixe">普通正文链接</a></p>
+      </div>
+      <div class="content-panel standalone series"><h1>没有链接</h1></div>
+      <a href="https://example.test/not-an-organization">站外噪声</a>
+    </div>
+    """
+
+    children = extract_organization_children(parent, html, BASE_URL)
+
+    assert [(entry.title, entry.slug, entry.url) for entry in children] == [
+        (
+            "Alexylva大学",
+            "alexylva-university-hub",
+            f"{BASE_URL}/alexylva-university-hub",
+        ),
+        (
+            "安布罗斯餐厅",
+            "ambrose-restaurant-hub",
+            f"{BASE_URL}/ambrose-restaurant-hub",
+        ),
+    ]
+    assert [(entry.level, entry.parent_slug, entry.role) for entry in children] == [
+        (3, parent.slug, "appendix-organization"),
+        (3, parent.slug, "appendix-organization"),
+    ]
+
+
+def test_extract_organization_children_returns_empty_without_cards():
+    parent = page_ref("groups-of-interest", title="相关组织")
+
+    assert extract_organization_children(
+        parent,
+        '<div id="page-content"><p>相关组织正文</p></div>',
+        BASE_URL,
+    ) == []
 
 
 def test_extract_tab_children_rejects_a_tabview_without_direct_navigation():

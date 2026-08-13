@@ -492,7 +492,12 @@ def test_build_featured_manifest_appends_configured_appendix_sections_and_childr
                 "o5-command-dossier",
                 mode="tabs-as-pages",
             ),
-            AppendixSection("相关组织", f"{BASE_URL}/groups-of-interest", "groups-of-interest"),
+            AppendixSection(
+                "相关组织",
+                f"{BASE_URL}/groups-of-interest",
+                "groups-of-interest",
+                mode="organization-links",
+            ),
             AppendixSection("相关地点", f"{BASE_URL}/locations-of-interest", "locations-of-interest"),
         ),
     )
@@ -535,7 +540,19 @@ def test_build_featured_manifest_appends_configured_appendix_sections_and_childr
                 </ul><div class="yui-content"><div>成员</div><div>历任</div></div></div>
               </div>
             """,
-            "groups-of-interest": simple_page("相关组织"),
+            "groups-of-interest": """
+              <div id="page-content">
+                <div class="content-panel standalone series">
+                  <h1><a href="/alexylva-university-hub">Alexylva大学</a>（Alexylva University）</h1>
+                  <p><a href="/scp-should-not-follow">正文链接</a></p>
+                </div>
+                <div class="content-panel standalone series">
+                  <h1><a href="/ambrose-restaurant-hub">安布罗斯餐厅</a>（Ambrose Restaurants）</h1>
+                </div>
+              </div>
+            """,
+            "alexylva-university-hub": simple_page("Alexylva大学", "Alexylva正文"),
+            "ambrose-restaurant-hub": simple_page("安布罗斯餐厅", "安布罗斯正文"),
             "locations-of-interest": simple_page("相关地点"),
         },
     )
@@ -586,8 +603,145 @@ def test_build_featured_manifest_appends_configured_appendix_sections_and_childr
         ("研究人员", "personnel-and-character-dossier--appendix-group"),
         ("O5成员", "o5-command-dossier--appendix-group"),
         ("历任成员", "o5-command-dossier--appendix-group"),
+        ("Alexylva大学", "groups-of-interest"),
+        ("安布罗斯餐厅", "groups-of-interest"),
+    ]
+    organization_children = [
+        entry for entry in manifest if entry.parent_slug == "groups-of-interest"
+    ]
+    assert [entry.slug for entry in organization_children] == [
+        "alexylva-university-hub",
+        "ambrose-restaurant-hub",
+    ]
+    assert [entry.role for entry in organization_children] == [
+        "appendix-organization",
+        "appendix-organization",
     ]
     assert [entry.order for entry in manifest] == list(range(1, len(manifest) + 1))
+
+
+def test_build_volume_fetches_organization_children_once_without_recursion(
+    tmp_path: Path,
+):
+    config = app_config(
+        tmp_path,
+        volume_key="featured",
+        index_mode="featured-scp-archive",
+        featured_archive_url="https://scp-wiki.wikidot.com/featured-scp-archive",
+        appendix=AppendixSpec(
+            title="附录",
+            slug="appendix",
+            sections=(
+                AppendixSection(
+                    "相关组织",
+                    f"{BASE_URL}/groups-of-interest",
+                    "groups-of-interest",
+                    mode="organization-links",
+                ),
+            ),
+        ),
+    )
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "featured-scp-archive": simple_page("Featured"),
+            "groups-of-interest": """
+              <div id="page-content">
+                <div class="content-panel standalone series">
+                  <h1><a href="/alexylva-university-hub">Alexylva大学</a>（Alexylva University）</h1>
+                </div>
+                <div class="content-panel standalone series">
+                  <h1><a href="/ambrose-restaurant-hub">安布罗斯餐厅</a>（Ambrose Restaurants）</h1>
+                </div>
+              </div>
+            """,
+            "alexylva-university-hub": simple_page(
+                "Alexylva大学",
+                '<p>组织正文。</p><a href="/scp-should-not-follow">不递归</a>',
+            ),
+            "ambrose-restaurant-hub": simple_page("安布罗斯餐厅", "餐厅正文。"),
+        },
+    )
+
+    build_volume(config, "featured", fetcher=fetcher)
+
+    report = json.loads(
+        (config.output_dir / "reports" / "test-volume-report.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert report["slugs"] == [
+        "appendix",
+        "groups-of-interest",
+        "alexylva-university-hub",
+        "ambrose-restaurant-hub",
+    ]
+    fetched_slugs = [slug for slug, _url, _force in fetcher.calls]
+    assert fetched_slugs.count("alexylva-university-hub") == 1
+    assert fetched_slugs.count("ambrose-restaurant-hub") == 1
+    assert "scp-should-not-follow" not in fetched_slugs
+
+
+def test_build_volume_keeps_valid_organization_when_another_fails(
+    tmp_path: Path,
+):
+    config = app_config(
+        tmp_path,
+        volume_key="featured",
+        index_mode="featured-scp-archive",
+        featured_archive_url="https://scp-wiki.wikidot.com/featured-scp-archive",
+        appendix=AppendixSpec(
+            title="附录",
+            slug="appendix",
+            sections=(
+                AppendixSection(
+                    "相关组织",
+                    f"{BASE_URL}/groups-of-interest",
+                    "groups-of-interest",
+                    mode="organization-links",
+                ),
+            ),
+        ),
+    )
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "featured-scp-archive": simple_page("Featured"),
+            "groups-of-interest": """
+              <div id="page-content">
+                <div class="content-panel standalone series">
+                  <h1><a href="/alexylva-university-hub">Alexylva大学</a></h1>
+                </div>
+                <div class="content-panel standalone series">
+                  <h1><a href="/missing-organization-hub">缺失组织</a></h1>
+                </div>
+              </div>
+            """,
+            "alexylva-university-hub": simple_page("Alexylva大学", "组织正文。"),
+        },
+        failed_pages={"missing-organization-hub"},
+    )
+
+    build_volume(config, "featured", fetcher=fetcher)
+
+    report = json.loads(
+        (config.output_dir / "reports" / "test-volume-report.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert report["slugs"] == [
+        "appendix",
+        "groups-of-interest",
+        "alexylva-university-hub",
+    ]
+    assert report["missing_pages"] == [
+        {
+            "slug": "missing-organization-hub",
+            "title": "缺失组织",
+            "url": f"{BASE_URL}/missing-organization-hub",
+            "reason": "failed fake page for missing-organization-hub",
+        }
+    ]
 
 
 def test_build_featured_manifest_preserves_configured_appendix_tab_titles(

@@ -181,6 +181,7 @@ appendix:
       mode: tabs-as-pages
     - title: 相关组织
       url: /groups-of-interest
+      mode: organization-links
     - title: 相关地点
       url: /locations-of-interest
 index_path: /featured-scp-archive

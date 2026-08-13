@@ -713,6 +713,7 @@ def test_featured_scp_config_declares_appendix_structure():
     assert sections_by_title["基金会设施"].mode == "facility-links"
     assert sections_by_title["人事档案"].mode == "tabs-as-pages"
     assert sections_by_title["O5指挥部档案"].mode == "tabs-as-pages"
+    assert sections_by_title["相关组织"].mode == "organization-links"
 
 
 def test_load_config_rejects_empty_appendix_sections(tmp_path: Path):
@@ -763,7 +764,7 @@ def test_load_config_rejects_invalid_appendix_mappings(
     [
         (
             "mode: grouped",
-            "appendix.sections[0].mode must be 'page', 'facility-links', or 'tabs-as-pages'",
+            "appendix.sections[0].mode must be 'page', 'facility-links', 'tabs-as-pages', or 'organization-links'",
         ),
         (
             "include_tabs: false",

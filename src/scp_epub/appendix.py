@@ -13,6 +13,7 @@ from .urls import normalize_url, slug_from_url
 FACILITY_LINK_PREFIX = "安保设施档案："
 APPENDIX_FACILITY_ROLE = "appendix-facility"
 APPENDIX_TAB_ROLE = "appendix-tab"
+APPENDIX_ORGANIZATION_ROLE = "appendix-organization"
 
 
 def extract_facility_children(parent: PageRef, html: str, base_url: str) -> list[PageRef]:
@@ -40,6 +41,44 @@ def extract_facility_children(parent: PageRef, html: str, base_url: str) -> list
                 slug=slug_from_url(url),
                 level=parent.level + 1,
                 role=APPENDIX_FACILITY_ROLE,
+                parent_slug=parent.slug,
+                source=parent.source,
+            )
+        )
+
+    return children
+
+
+def extract_organization_children(parent: PageRef, html: str, base_url: str) -> list[PageRef]:
+    """Return organization hub links from direct related-organization cards."""
+
+    soup = BeautifulSoup(html, "html.parser")
+    content = soup.select_one("#page-content") or soup
+    children: list[PageRef] = []
+    seen_slugs: set[str] = set()
+
+    for card in content.select("div.content-panel.standalone.series"):
+        heading = card.find("h1", recursive=False)
+        anchor = heading.find("a", href=True) if heading else None
+        if anchor is None:
+            continue
+
+        title = " ".join(anchor.get_text(" ", strip=True).split())
+        url = _same_site_page_url(anchor.get("href", ""), base_url)
+        if not title or url is None:
+            continue
+
+        slug = slug_from_url(url)
+        if slug in seen_slugs:
+            continue
+        seen_slugs.add(slug)
+        children.append(
+            PageRef(
+                title=title,
+                url=url,
+                slug=slug,
+                level=parent.level + 1,
+                role=APPENDIX_ORGANIZATION_ROLE,
                 parent_slug=parent.slug,
                 source=parent.source,
             )

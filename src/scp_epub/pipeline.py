@@ -12,9 +12,11 @@ from typing import Callable, Protocol
 from urllib.parse import urlparse
 
 from .appendix import (
+    APPENDIX_ORGANIZATION_ROLE,
     APPENDIX_TAB_ROLE,
     appendix_group_html,
     extract_facility_children,
+    extract_organization_children,
     extract_tab_children,
 )
 from .assets import (
@@ -1065,9 +1067,13 @@ def _featured_appendix_entries(
         entry = PageRef(
             title=section.title,
             url=section.url,
-            slug=section.slug if section.mode == "page" else group_slug,
+            slug=section.slug if section.mode in {"page", "organization-links"} else group_slug,
             level=2,
-            role="appendix-section" if section.mode == "page" else APPENDIX_GROUP_ROLE,
+            role=(
+                "appendix-section"
+                if section.mode in {"page", "organization-links"}
+                else APPENDIX_GROUP_ROLE
+            ),
             parent_slug=appendix.slug,
             source=source,
         )
@@ -1082,6 +1088,13 @@ def _featured_appendix_entries(
             )
         elif section.mode == "tabs-as-pages":
             entries.extend(_with_parent_slug(extract_tab_children(source_entry, html), entry.slug))
+        elif section.mode == "organization-links":
+            entries.extend(
+                _with_parent_slug(
+                    extract_organization_children(source_entry, html, config.base_url),
+                    entry.slug,
+                )
+            )
 
     return entries
 
@@ -1344,10 +1357,29 @@ def _cached_featured_manifest_requires_appendix_root_rebuild(
     manifest: list[PageRef],
 ) -> bool:
     appendix = config.appendix
+    organization_sections = (
+        tuple(
+            section
+            for section in appendix.sections
+            if section.mode == "organization-links"
+        )
+        if appendix is not None
+        else ()
+    )
     return (
         config.index_mode == "featured-scp-archive"
         and appendix is not None
-        and not any(entry.slug == appendix.slug for entry in manifest)
+        and (
+            not any(entry.slug == appendix.slug for entry in manifest)
+            or any(
+                not any(
+                    entry.role == APPENDIX_ORGANIZATION_ROLE
+                    and entry.parent_slug == section.slug
+                    for entry in manifest
+                )
+                for section in organization_sections
+            )
+        )
     )
 
 
@@ -1374,7 +1406,7 @@ def _process_pages(
         for section in config.appendix.sections:
             entry_slug = (
                 section.slug
-                if section.mode == "page"
+                if section.mode in {"page", "organization-links"}
                 else _appendix_group_slug(section.slug)
             )
             appendix_sections_by_entry_slug[entry_slug] = section

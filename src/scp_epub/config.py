@@ -595,9 +595,9 @@ def _optional_index_mode(value: Any) -> str:
 
 def _optional_appendix_mode(value: Any, name: str) -> str:
     mode = _required_string(value, name)
-    if mode not in {"page", "facility-links", "tabs-as-pages"}:
+    if mode not in {"page", "facility-links", "tabs-as-pages", "organization-links"}:
         raise ValueError(
-            f"{name} must be 'page', 'facility-links', or 'tabs-as-pages'"
+            f"{name} must be 'page', 'facility-links', 'tabs-as-pages', or 'organization-links'"
         )
     return mode
 
