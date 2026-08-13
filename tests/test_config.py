@@ -398,6 +398,10 @@ def test_featured_scp_config_uses_archive_mode_and_title_indexes():
         ("SCP-217 - 机械化病毒", "scp-217"),
         ("SCP-271 - 雕文圆盘", "scp-271"),
     ]
+    assert [
+        (link.title, link.slug)
+        for link in config.explicit_linked_appendices["scp-2858"]
+    ] == [("SCP-1425 - 星星信号", "scp-1425")]
     assert list(config.volumes) == ["featured"]
 
 

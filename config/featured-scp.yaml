@@ -14,6 +14,9 @@ front_matter_pages:
     epub_background_url: https://scp-wiki.wdfiles.com/local--files/about-the-scp-foundation/bg-marble.png
     unwrap_single_included_tab: true
 explicit_linked_appendices:
+  scp-2858:
+    - title: SCP-1425 - 星星信号
+      url: https://scp-wiki-cn.wikidot.com/scp-1425
   scp-450:
     - title: 在恐惧中永世逃亡
       url: https://scp-wiki-cn.wikidot.com/but-when-they-opened-it-they-turned-and-swift
