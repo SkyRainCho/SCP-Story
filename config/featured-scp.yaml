@@ -131,6 +131,8 @@ page_overrides:
     layout_profile: scp-6183
   scp-4612:
     layout_profile: scp-4612
+  scp-4833:
+    layout_profile: scp-4833
   scp-6599:
     layout_profile: scp-6599
   scp-1898:

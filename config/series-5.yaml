@@ -16,6 +16,9 @@ retry_count: 3
 asset_timeout_seconds: 15
 asset_retry_count: 2
 include_scp001_proposals: false
+page_overrides:
+  scp-4833:
+    layout_profile: scp-4833
 volumes:
   4000-4099:
     start: 4000

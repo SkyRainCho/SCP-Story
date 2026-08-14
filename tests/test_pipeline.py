@@ -2165,6 +2165,45 @@ def test_build_volume_applies_configured_layout_profile(tmp_path: Path):
     assert 'style="width: 320px; float: right; clear: right; max-width: 45%"' in page_xhtml
 
 
+def test_build_volume_applies_configured_scp4833_layout_profile(tmp_path: Path):
+    config = app_config(
+        tmp_path,
+        page_overrides={"scp-4833": PageOverride(layout_profile="scp-4833")},
+    )
+    manifest = [
+        PageRef("SCP-4833", f"{BASE_URL}/scp-4833", "scp-4833", 1, "scp", order=1),
+    ]
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(manifest, config.manifest_dir / "test-volume.json")
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-4833": simple_page(
+                "SCP-4833",
+                (
+                    '<div class="meta-title"><p><strong>SCP-4833</strong></p></div>'
+                    '<div style="background: url(http://kaktuskontainer.wdfiles.com/'
+                    'local--files/format-hell/scp_trans.png) bottom center no-repeat; '
+                    'width: 600px">'
+                    '<div><h2>据O5议会指示</h2>'
+                    '<p>以下文件为5/4833级机密。</p></div>'
+                    '<p><strong>未经授权的访问将招致立即处决。</strong></p>'
+                    '</div>'
+                ),
+            ),
+        },
+    )
+
+    build_volume(config, "001-099", fetcher=fetcher)
+
+    page_xhtml = (
+        config.processed_dir / "test-volume" / "0001-scp-4833.xhtml"
+    ).read_text(encoding="utf-8")
+    assert "layout-profile-scp-4833-title" in page_xhtml
+    assert "layout-profile-scp-4833-warning" in page_xhtml
+
+
 def test_build_volume_can_disable_linked_appendices_for_featured_books(tmp_path: Path):
     config = app_config(tmp_path, include_linked_appendices=False)
     manifest = [

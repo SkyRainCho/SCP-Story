@@ -1320,6 +1320,19 @@ def test_prepare_kindle_pages_preserves_special_layout_profile_widths():
     assert prepared.xhtml == xhtml
 
 
+def test_prepare_kindle_pages_preserves_scp4833_profile_dimensions():
+    xhtml = (
+        '<div class="layout-profile-scp-4833-warning" '
+        'style="width: 100%; max-width: 600px; height: 26em; margin: 0 auto">'
+        "警示"
+        "</div>"
+    )
+
+    [prepared] = prepare_kindle_pages([_page(xhtml, slug="scp-4833")])
+
+    assert prepared.xhtml == xhtml
+
+
 def test_prepare_kindle_pages_disables_runtime_rotation_for_scp6183_symbol():
     xhtml = (
         '<img class="image layout-profile-scp-6183-symbol" '

@@ -546,10 +546,11 @@ def test_featured_scp_config_declares_page_overrides():
     assert config.page_overrides["scp-7472"].remove_recommendation_panel is True
     assert {
         slug: config.page_overrides[slug].layout_profile
-        for slug in ("scp-6183", "scp-4612", "scp-6599")
+        for slug in ("scp-6183", "scp-4612", "scp-4833", "scp-6599")
     } == {
         "scp-6183": "scp-6183",
         "scp-4612": "scp-4612",
+        "scp-4833": "scp-4833",
         "scp-6599": "scp-6599",
     }
     assert [
@@ -589,6 +590,12 @@ def test_featured_scp_config_declares_page_overrides():
     ] == [
         ("https://scp-wiki-cn.wikidot.com/document-2814-gamma", "before_text", "Footnotes")
     ]
+
+
+def test_series_5_config_declares_scp4833_layout_profile():
+    config = load_config(Path("config/series-5.yaml"))
+
+    assert config.page_overrides["scp-4833"].layout_profile == "scp-4833"
 
 
 @pytest.mark.parametrize(
