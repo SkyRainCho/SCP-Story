@@ -12,6 +12,7 @@ from .models import (
     AppendixSection,
     AppendixSpec,
     AppConfig,
+    CollapsibleAppendixSpec,
     ConfiguredLink,
     ConfiguredPage,
     InlineDocumentSpec,
@@ -265,6 +266,7 @@ def _load_page_overrides(
                 "remove_recommendation_panel",
                 "layout_profile",
                 "inline_documents",
+                "collapsible_appendices",
             },
             override_name,
         )
@@ -297,6 +299,10 @@ def _load_page_overrides(
                 override.get("inline_documents"),
                 f"{override_name}.inline_documents",
                 base_url,
+            ),
+            collapsible_appendices=_load_collapsible_appendices(
+                override.get("collapsible_appendices"),
+                f"{override_name}.collapsible_appendices",
             ),
         )
     return overrides
@@ -427,6 +433,44 @@ def _load_inline_documents(
             )
         )
     return tuple(documents)
+
+
+def _load_collapsible_appendices(
+    value: Any,
+    name: str,
+) -> tuple[CollapsibleAppendixSpec, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, list):
+        raise ValueError(f"{name} must be a list of collapsible appendix mappings")
+
+    specs: list[CollapsibleAppendixSpec] = []
+    seen_slugs: set[str] = set()
+    seen_matches: set[str] = set()
+    for index, raw_spec in enumerate(value):
+        spec_name = f"{name}[{index}]"
+        spec = _mapping(raw_spec, spec_name)
+        _reject_unknown_keys(spec, {"title", "slug", "match_text"}, spec_name)
+        title = _required_string(spec.get("title"), f"{spec_name}.title").strip()
+        slug = _required_string(spec.get("slug"), f"{spec_name}.slug").strip().lower()
+        match_text = _required_string(
+            spec.get("match_text"), f"{spec_name}.match_text"
+        ).strip()
+        normalized_match = " ".join(match_text.split())
+        if slug in seen_slugs:
+            raise ValueError(f"{name} contains duplicate slug: {slug}")
+        if normalized_match in seen_matches:
+            raise ValueError(f"{name} contains duplicate match_text: {match_text}")
+        seen_slugs.add(slug)
+        seen_matches.add(normalized_match)
+        specs.append(
+            CollapsibleAppendixSpec(
+                title=title,
+                slug=slug,
+                match_text=match_text,
+            )
+        )
+    return tuple(specs)
 
 
 def _load_appendix(value: Any, name: str, base_url: str) -> AppendixSpec | None:

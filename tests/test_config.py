@@ -598,6 +598,29 @@ def test_series_5_config_declares_scp4833_layout_profile():
     assert config.page_overrides["scp-4833"].layout_profile == "scp-4833"
 
 
+def test_load_config_parses_collapsible_appendices_in_order(tmp_path: Path):
+    config_path = tmp_path / "series.yaml"
+    write_config_with_page_overrides(
+        config_path,
+        """  scp-3986:
+    collapsible_appendices:
+      - title: 《金册》
+        slug: scp-3986-golden-register
+        match_text: 《金册》
+      - title: 《上都演义》
+        slug: scp-3986-shangdu-romance
+        match_text: 《上都演义》
+""",
+    )
+
+    specs = load_config(config_path).page_overrides["scp-3986"].collapsible_appendices
+
+    assert [(spec.title, spec.slug, spec.match_text) for spec in specs] == [
+        ("《金册》", "scp-3986-golden-register", "《金册》"),
+        ("《上都演义》", "scp-3986-shangdu-romance", "《上都演义》"),
+    ]
+
+
 @pytest.mark.parametrize(
     ("overrides_yaml", "expected"),
     [
@@ -689,6 +712,88 @@ def test_series_5_config_declares_scp4833_layout_profile():
         anchor_text: ""
 """,
             "page_overrides.scp-1234.inline_documents[0].anchor_text is required for position 'before_text'",
+        ),
+        (
+            """\
+  scp-3986:
+    collapsible_appendices: invalid
+""",
+            "page_overrides.scp-3986.collapsible_appendices must be a list of collapsible appendix mappings",
+        ),
+        (
+            """\
+  scp-3986:
+    collapsible_appendices:
+      - invalid
+""",
+            "page_overrides.scp-3986.collapsible_appendices[0] must be a mapping",
+        ),
+        (
+            """\
+  scp-3986:
+    collapsible_appendices:
+      - title: 《金册》
+        slug: scp-3986-golden-register
+        match_text: 《金册》
+        selector: .golden-register
+""",
+            "page_overrides.scp-3986.collapsible_appendices[0] contains unknown keys: selector",
+        ),
+        (
+            """\
+  scp-3986:
+    collapsible_appendices:
+      - title: ""
+        slug: scp-3986-golden-register
+        match_text: 《金册》
+""",
+            "page_overrides.scp-3986.collapsible_appendices[0].title must be a non-empty string",
+        ),
+        (
+            """\
+  scp-3986:
+    collapsible_appendices:
+      - title: 《金册》
+        slug: ""
+        match_text: 《金册》
+""",
+            "page_overrides.scp-3986.collapsible_appendices[0].slug must be a non-empty string",
+        ),
+        (
+            """\
+  scp-3986:
+    collapsible_appendices:
+      - title: 《金册》
+        slug: scp-3986-golden-register
+        match_text: ""
+""",
+            "page_overrides.scp-3986.collapsible_appendices[0].match_text must be a non-empty string",
+        ),
+        (
+            """\
+  scp-3986:
+    collapsible_appendices:
+      - title: 《金册》
+        slug: SCP-3986-GOLDEN-REGISTER
+        match_text: 《金册》
+      - title: 《上都演义》
+        slug: scp-3986-golden-register
+        match_text: 《上都演义》
+""",
+            "page_overrides.scp-3986.collapsible_appendices contains duplicate slug: scp-3986-golden-register",
+        ),
+        (
+            """\
+  scp-3986:
+    collapsible_appendices:
+      - title: 《金册》
+        slug: scp-3986-golden-register
+        match_text: 《金册》
+      - title: 《金册》副本
+        slug: scp-3986-golden-register-copy
+        match_text: "  《金册》  "
+""",
+            "page_overrides.scp-3986.collapsible_appendices contains duplicate match_text: 《金册》",
         ),
     ],
 )

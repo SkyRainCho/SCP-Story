@@ -40,6 +40,13 @@ class InlineDocumentSpec:
 
 
 @dataclass(frozen=True)
+class CollapsibleAppendixSpec:
+    title: str
+    slug: str
+    match_text: str
+
+
+@dataclass(frozen=True)
 class PageOverride:
     remove_terminal_navigation: bool = False
     remove_leading_metadata: bool = False
@@ -48,6 +55,7 @@ class PageOverride:
     remove_recommendation_panel: bool = False
     layout_profile: str | None = None
     inline_documents: tuple[InlineDocumentSpec, ...] = ()
+    collapsible_appendices: tuple[CollapsibleAppendixSpec, ...] = ()
 
 
 @dataclass(frozen=True)
