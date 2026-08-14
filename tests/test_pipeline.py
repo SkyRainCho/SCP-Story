@@ -2259,6 +2259,52 @@ def test_build_volume_creates_collapsible_appendices_without_child_fetches(tmp_p
     ]
 
 
+def test_build_volume_applies_paperstack_theme_logo_override(tmp_path: Path):
+    config = app_config(
+        tmp_path,
+        include_linked_appendices=False,
+        page_overrides={
+            "scp-7900": PageOverride(remove_paperstack_theme_logo=True),
+        },
+    )
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(
+        [
+            PageRef(
+                "SCP-7900",
+                f"{BASE_URL}/scp-7900",
+                "scp-7900",
+                1,
+                "scp",
+                order=1,
+            )
+        ],
+        config.manifest_dir / "test-volume.json",
+    )
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-7900": """
+              <html><body><div id="page-content">
+                <div class="logo"><img
+                  src="https://scp-wiki.wdfiles.com/local--files/theme%3Apaperstack/lgtrans.png"
+                  alt="lgtrans.png"></div>
+                <p>正文</p>
+              </div></body></html>
+            """,
+        },
+    )
+
+    build_volume(config, "001-099", fetcher=fetcher)
+
+    chapter = (
+        config.processed_dir / "test-volume" / "0001-scp-7900.xhtml"
+    ).read_text(encoding="utf-8")
+    assert "lgtrans.png" not in chapter
+    assert "正文" in chapter
+
+
 def test_build_volume_collapsible_appendices_match_serial_and_process_pool(
     tmp_path: Path,
     monkeypatch,

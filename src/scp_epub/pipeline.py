@@ -1779,6 +1779,9 @@ def _page_transform_options(config: AppConfig, entry: PageRef) -> PageTransformO
         remove_recommendation_panel=bool(
             override and override.remove_recommendation_panel
         ),
+        remove_paperstack_theme_logo=bool(
+            override and override.remove_paperstack_theme_logo
+        ),
         layout_profile=override.layout_profile if override is not None else None,
     )
 
