@@ -598,6 +598,35 @@ def test_series_5_config_declares_scp4833_layout_profile():
     assert config.page_overrides["scp-4833"].layout_profile == "scp-4833"
 
 
+EXPECTED_SCP3986_COLLAPSIBLE_APPENDICES = [
+    ("《金册》", "scp-3986-golden-register", "《金册》"),
+    ("《蒙古诸部志略》", "scp-3986-mongol-tribes", "《蒙古诸部志略》"),
+    ("《阿夫沙尔诗集》", "scp-3986-afshar-poems", "《阿夫沙尔诗集》"),
+    ("《罗乞湿密·罗乌如是说》", "scp-3986-lakshmidhara", "《罗乞湿密·罗乌如是说》"),
+    ("《上都演义》", "scp-3986-shangdu-romance", "《上都演义》"),
+    (
+        "《Nikolai Karensky致Katerina Karenskaya的信》",
+        "scp-3986-karensky-letter",
+        "《Nikolai Karensky致Katerina Karenskaya的信》",
+    ),
+    (
+        "《俄罗斯及突厥斯坦记行》",
+        "scp-3986-russia-turkestan-travels",
+        "《俄罗斯及突厥斯坦记行》",
+    ),
+]
+
+
+@pytest.mark.parametrize("config_path", ["config/featured-scp.yaml", "config/series-4.yaml"])
+def test_production_configs_declare_scp3986_collapsible_appendices(config_path: str):
+    config = load_config(Path(config_path))
+
+    assert [
+        (spec.title, spec.slug, spec.match_text)
+        for spec in config.page_overrides["scp-3986"].collapsible_appendices
+    ] == EXPECTED_SCP3986_COLLAPSIBLE_APPENDICES
+
+
 def test_load_config_parses_collapsible_appendices_in_order(tmp_path: Path):
     config_path = tmp_path / "series.yaml"
     write_config_with_page_overrides(

@@ -133,6 +133,29 @@ page_overrides:
     layout_profile: scp-4612
   scp-4833:
     layout_profile: scp-4833
+  scp-3986:
+    collapsible_appendices:
+      - title: 《金册》
+        slug: scp-3986-golden-register
+        match_text: 《金册》
+      - title: 《蒙古诸部志略》
+        slug: scp-3986-mongol-tribes
+        match_text: 《蒙古诸部志略》
+      - title: 《阿夫沙尔诗集》
+        slug: scp-3986-afshar-poems
+        match_text: 《阿夫沙尔诗集》
+      - title: 《罗乞湿密·罗乌如是说》
+        slug: scp-3986-lakshmidhara
+        match_text: 《罗乞湿密·罗乌如是说》
+      - title: 《上都演义》
+        slug: scp-3986-shangdu-romance
+        match_text: 《上都演义》
+      - title: 《Nikolai Karensky致Katerina Karenskaya的信》
+        slug: scp-3986-karensky-letter
+        match_text: 《Nikolai Karensky致Katerina Karenskaya的信》
+      - title: 《俄罗斯及突厥斯坦记行》
+        slug: scp-3986-russia-turkestan-travels
+        match_text: 《俄罗斯及突厥斯坦记行》
   scp-6599:
     layout_profile: scp-6599
   scp-1898:
