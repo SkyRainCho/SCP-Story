@@ -133,6 +133,8 @@ page_overrides:
     layout_profile: scp-4612
   scp-4833:
     layout_profile: scp-4833
+  scp-7900:
+    remove_paperstack_theme_logo: true
   scp-3986:
     collapsible_appendices:
       - title: 《金册》

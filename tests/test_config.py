@@ -481,6 +481,7 @@ def test_load_config_parses_page_overrides_and_inline_documents(tmp_path: Path):
     remove_adult_content_warning: true
     remove_author_work_list: true
     remove_recommendation_panel: true
+    remove_paperstack_theme_logo: true
     layout_profile: scp-1234
     inline_documents:
       - title: Supplement
@@ -505,6 +506,7 @@ def test_load_config_parses_page_overrides_and_inline_documents(tmp_path: Path):
     assert override.remove_adult_content_warning is True
     assert override.remove_author_work_list is True
     assert override.remove_recommendation_panel is True
+    assert override.remove_paperstack_theme_logo is True
     assert override.layout_profile == "scp-1234"
     assert [(document.title, document.url, document.slug, document.position, document.anchor_text) for document in override.inline_documents] == [
         ("Supplement", "https://example.test/supplement", "supplement", "after_text", "Anchor"),
@@ -627,6 +629,16 @@ def test_production_configs_declare_scp3986_collapsible_appendices(config_path: 
     ] == EXPECTED_SCP3986_COLLAPSIBLE_APPENDICES
 
 
+@pytest.mark.parametrize(
+    "config_path",
+    ["config/featured-scp.yaml", "config/series-8.yaml"],
+)
+def test_production_configs_remove_scp7900_paperstack_theme_logo(config_path: str):
+    config = load_config(Path(config_path))
+
+    assert config.page_overrides["scp-7900"].remove_paperstack_theme_logo is True
+
+
 def test_load_config_parses_collapsible_appendices_in_order(tmp_path: Path):
     config_path = tmp_path / "series.yaml"
     write_config_with_page_overrides(
@@ -684,6 +696,13 @@ def test_load_config_parses_collapsible_appendices_in_order(tmp_path: Path):
     layout_profile: false
 """,
             "page_overrides.scp-1234.layout_profile must be a non-empty string",
+        ),
+        (
+            """\
+  scp-7900:
+    remove_paperstack_theme_logo: enabled
+""",
+            "page_overrides.scp-7900.remove_paperstack_theme_logo must be a boolean",
         ),
         (
             """\

@@ -53,6 +53,7 @@ class PageOverride:
     remove_adult_content_warning: bool = False
     remove_author_work_list: bool = False
     remove_recommendation_panel: bool = False
+    remove_paperstack_theme_logo: bool = False
     layout_profile: str | None = None
     inline_documents: tuple[InlineDocumentSpec, ...] = ()
     collapsible_appendices: tuple[CollapsibleAppendixSpec, ...] = ()
