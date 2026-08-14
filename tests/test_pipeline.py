@@ -19,6 +19,7 @@ from scp_epub.models import (
     AppConfig,
     AppendixSection,
     AppendixSpec,
+    CollapsibleAppendixSpec,
     ConfiguredLink,
     ConfiguredPage,
     FallbackPageRecord,
@@ -179,6 +180,51 @@ def simple_page(title: str, body: str = "Body") -> str:
   </body>
 </html>
 """
+
+
+def collapsible_appendix_page() -> str:
+    return """
+<html><body><div id="page-content">
+  <h1>SCP-3986</h1>
+  <div class="collapsible-block" id="golden-register">
+    <div class="collapsible-block-folded"><a class="collapsible-block-link">+《金册》</a></div>
+    <div class="collapsible-block-unfolded"><div class="collapsible-block-content">
+      <p>金册正文<sup><a id="footnoteref-1">1</a></sup></p>
+    </div></div>
+  </div>
+  <div class="collapsible-block" id="shangdu-romance">
+    <div class="collapsible-block-folded"><a class="collapsible-block-link">+《上都演义》</a></div>
+    <div class="collapsible-block-unfolded"><div class="collapsible-block-content">
+      <p>上都正文</p>
+    </div></div>
+  </div>
+  <div class="collapsible-block" id="file-block">
+    <div class="collapsible-block-folded"><a class="collapsible-block-link">+文件</a></div>
+    <div class="collapsible-block-unfolded"><div class="collapsible-block-content">
+      <p>文件正文</p>
+    </div></div>
+  </div>
+  <div class="footnotes-footer">
+    <div class="title">脚注</div>
+    <div class="footnote-footer" id="footnote-1">1. 金册脚注</div>
+  </div>
+</div></body></html>
+"""
+
+
+def collapsible_appendix_specs() -> tuple[CollapsibleAppendixSpec, ...]:
+    return (
+        CollapsibleAppendixSpec(
+            "《金册》",
+            "scp-3986-golden-register",
+            "《金册》",
+        ),
+        CollapsibleAppendixSpec(
+            "《上都演义》",
+            "scp-3986-shangdu-romance",
+            "《上都演义》",
+        ),
+    )
 
 
 def image_bytes(format_name: str) -> bytes:
@@ -2006,6 +2052,264 @@ def test_build_volume_includes_high_confidence_linked_appendices_under_group(tmp
         "SCP-093“蓝色”测试",
         "SCP-093 Story",
     ]
+
+
+def test_include_collapsible_appendices_expands_manifest_and_derived_sources(
+    tmp_path: Path,
+):
+    from scp_epub.linked_appendices import (
+        LINKED_APPENDIX_GROUP_ROLE,
+        LINKED_APPENDIX_ROLE,
+        linked_appendix_group_slug,
+    )
+    from scp_epub.pipeline import include_collapsible_appendices
+
+    config = app_config(
+        tmp_path,
+        page_overrides={
+            "scp-3986": PageOverride(
+                collapsible_appendices=collapsible_appendix_specs()
+            )
+        },
+    )
+    volume = config.volumes["001-099"]
+    owner = PageRef(
+        "SCP-3986",
+        f"{BASE_URL}/scp-3986",
+        "scp-3986",
+        1,
+        "scp",
+        order=1,
+    )
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {"scp-3986": collapsible_appendix_page()},
+    )
+    owner_result = fetcher.fetch_page(owner.slug, owner.url)
+
+    expanded_manifest, expanded_results = include_collapsible_appendices(
+        config,
+        volume,
+        [owner],
+        [owner_result],
+    )
+
+    group_slug = linked_appendix_group_slug("scp-3986")
+    assert [(entry.slug, entry.role, entry.parent_slug) for entry in expanded_manifest] == [
+        ("scp-3986", "scp", None),
+        (group_slug, LINKED_APPENDIX_GROUP_ROLE, "scp-3986"),
+        ("scp-3986-golden-register", LINKED_APPENDIX_ROLE, group_slug),
+        ("scp-3986-shangdu-romance", LINKED_APPENDIX_ROLE, group_slug),
+    ]
+    assert len(expanded_results) == len(expanded_manifest)
+    assert "金册正文" not in expanded_results[0].path.read_text(encoding="utf-8")
+    assert "金册正文" in expanded_results[2].path.read_text(encoding="utf-8")
+    assert all("collapsible-sources" in result.path.parts for result in expanded_results)
+
+
+def test_include_collapsible_appendices_reuses_existing_group_before_external_child(
+    tmp_path: Path,
+):
+    from scp_epub.linked_appendices import (
+        LINKED_APPENDIX_GROUP_ROLE,
+        LINKED_APPENDIX_GROUP_TITLE,
+        LINKED_APPENDIX_ROLE,
+        linked_appendix_group_slug,
+    )
+    from scp_epub.pipeline import include_collapsible_appendices
+
+    specs = (collapsible_appendix_specs()[0],)
+    config = app_config(
+        tmp_path,
+        page_overrides={
+            "scp-3986": PageOverride(collapsible_appendices=specs)
+        },
+    )
+    volume = config.volumes["001-099"]
+    group_slug = linked_appendix_group_slug("scp-3986")
+    manifest = [
+        PageRef("SCP-3986", f"{BASE_URL}/scp-3986", "scp-3986", 1, "scp", order=1),
+        PageRef(
+            LINKED_APPENDIX_GROUP_TITLE,
+            f"{BASE_URL}/scp-3986#linked-appendices",
+            group_slug,
+            2,
+            LINKED_APPENDIX_GROUP_ROLE,
+            parent_slug="scp-3986",
+        ),
+        PageRef(
+            "外部附件",
+            f"{BASE_URL}/scp-3986-external",
+            "scp-3986-external",
+            3,
+            LINKED_APPENDIX_ROLE,
+            parent_slug=group_slug,
+        ),
+    ]
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-3986": collapsible_appendix_page(),
+            group_slug: simple_page(LINKED_APPENDIX_GROUP_TITLE),
+            "scp-3986-external": simple_page("外部附件", "外部正文"),
+        },
+    )
+    results = [fetcher.fetch_page(entry.slug, entry.url) for entry in manifest]
+
+    expanded_manifest, expanded_results = include_collapsible_appendices(
+        config,
+        volume,
+        manifest,
+        results,
+    )
+
+    assert [entry.slug for entry in expanded_manifest] == [
+        "scp-3986",
+        group_slug,
+        "scp-3986-golden-register",
+        "scp-3986-external",
+    ]
+    assert [entry.slug for entry in expanded_manifest].count(group_slug) == 1
+    group_html = expanded_results[1].path.read_text(encoding="utf-8")
+    assert "《金册》" in group_html
+    assert "外部附件" in group_html
+
+
+def test_include_collapsible_appendices_rejects_synthetic_slug_collision(tmp_path: Path):
+    from scp_epub.pipeline import include_collapsible_appendices
+
+    config = app_config(
+        tmp_path,
+        page_overrides={
+            "scp-3986": PageOverride(
+                collapsible_appendices=(
+                    CollapsibleAppendixSpec(
+                        "《金册》",
+                        "existing-page",
+                        "《金册》",
+                    ),
+                )
+            )
+        },
+    )
+    volume = config.volumes["001-099"]
+    manifest = [
+        PageRef("SCP-3986", f"{BASE_URL}/scp-3986", "scp-3986", 1, "scp", order=1),
+        PageRef("Existing", f"{BASE_URL}/existing-page", "existing-page", 1, "scp", order=2),
+    ]
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {
+            "scp-3986": collapsible_appendix_page(),
+            "existing-page": simple_page("Existing"),
+        },
+    )
+    results = [fetcher.fetch_page(entry.slug, entry.url) for entry in manifest]
+
+    with pytest.raises(
+        ValueError,
+        match="scp-3986.*collapsible appendix slug collides with manifest: existing-page",
+    ):
+        include_collapsible_appendices(config, volume, manifest, results)
+
+
+def test_build_volume_creates_collapsible_appendices_without_child_fetches(tmp_path: Path):
+    config = app_config(
+        tmp_path,
+        include_linked_appendices=False,
+        page_overrides={
+            "scp-3986": PageOverride(
+                collapsible_appendices=collapsible_appendix_specs()
+            )
+        },
+    )
+    from scp_epub.manifest import write_manifest
+
+    write_manifest(
+        [
+            PageRef(
+                "SCP-3986",
+                f"{BASE_URL}/scp-3986",
+                "scp-3986",
+                1,
+                "scp",
+                order=1,
+            )
+        ],
+        config.manifest_dir / "test-volume.json",
+    )
+    fetcher = FakeFetcher(
+        tmp_path / "cache",
+        {"scp-3986": collapsible_appendix_page()},
+    )
+
+    build_volume(config, "001-099", fetcher=fetcher)
+
+    assert [slug for slug, _url, _force in fetcher.calls] == ["scp-3986"]
+    report = json.loads(
+        (config.output_dir / "reports" / "test-volume-report.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert report["slugs"] == [
+        "scp-3986",
+        "scp-3986--linked-appendices",
+        "scp-3986-golden-register",
+        "scp-3986-shangdu-romance",
+    ]
+
+
+def test_build_volume_collapsible_appendices_match_serial_and_process_pool(
+    tmp_path: Path,
+    monkeypatch,
+):
+    from scp_epub.manifest import write_manifest
+
+    def build(root: Path, workers: str) -> list[tuple[str, str]]:
+        monkeypatch.setenv("SCP_EPUB_WORKERS", workers)
+        config = app_config(
+            root,
+            include_linked_appendices=False,
+            page_overrides={
+                "scp-3986": PageOverride(
+                    collapsible_appendices=collapsible_appendix_specs()
+                )
+            },
+        )
+        write_manifest(
+            [
+                PageRef(
+                    "SCP-3986",
+                    f"{BASE_URL}/scp-3986",
+                    "scp-3986",
+                    1,
+                    "scp",
+                    order=1,
+                )
+            ],
+            config.manifest_dir / "test-volume.json",
+        )
+        fetcher = FakeFetcher(
+            root / "cache",
+            {"scp-3986": collapsible_appendix_page()},
+        )
+        build_volume(config, "001-099", fetcher=fetcher)
+        report = json.loads(
+            (config.output_dir / "reports" / "test-volume-report.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        processed = config.processed_dir / "test-volume"
+        return [
+            (slug, path.read_text(encoding="utf-8"))
+            for slug, path in zip(
+                report["slugs"],
+                sorted(processed.glob("*.xhtml")),
+                strict=True,
+            )
+        ]
+
+    assert build(tmp_path / "serial", "1") == build(tmp_path / "parallel", "2")
 
 
 def test_build_volume_uses_fallback_for_failed_linked_appendix_candidate(tmp_path: Path):

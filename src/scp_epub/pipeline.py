@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 from argparse import Namespace
 from collections import namedtuple
@@ -25,6 +27,7 @@ from .assets import (
     remote_resource_page_slugs,
 )
 from .cache import CacheStore
+from .collapsible_appendices import extract_collapsible_appendices
 from .config import load_config
 from .epub import BOOK_CSS, write_build_report, write_epub
 from .fetcher import Fetcher
@@ -43,8 +46,9 @@ from .kindle import (
 )
 from .kindle_stable import prepare_stable_kindle_assets
 from .linked_appendices import (
-    LINKED_APPENDIX_ROLE,
     LINKED_APPENDIX_GROUP_ROLE,
+    LINKED_APPENDIX_GROUP_TITLE,
+    LINKED_APPENDIX_ROLE,
     LinkedAppendixCandidate,
     LinkedAppendixDocument,
     expand_manifest_with_linked_appendices,
@@ -293,6 +297,12 @@ def build_volume(
             linked_appendix_documents,
             config.output_dir / "reports" / f"{volume.output_slug}-linked-appendices.json",
         )
+    available_manifest, fetch_results = include_collapsible_appendices(
+        config,
+        volume,
+        available_manifest,
+        fetch_results,
+    )
     inline_document_results = fetch_inline_document_results(
         config,
         available_manifest,
@@ -566,6 +576,201 @@ def include_linked_appendices(
         missing_pages,
         fallback_pages,
     )
+
+
+def include_collapsible_appendices(
+    config: AppConfig,
+    volume: VolumeSpec,
+    manifest: list[PageRef],
+    fetch_results: list[FetchResult],
+) -> tuple[list[PageRef], list[FetchResult]]:
+    pairs = list(zip(manifest, fetch_results, strict=True))
+    configured_owners = {
+        slug: override.collapsible_appendices
+        for slug, override in config.page_overrides.items()
+        if override.collapsible_appendices
+    }
+    if not configured_owners:
+        return manifest, fetch_results
+
+    entries_by_slug = {entry.slug: entry for entry in manifest}
+    results_by_slug = {
+        entry.slug: result for entry, result in pairs
+    }
+    manifest_slugs = set(entries_by_slug)
+    derived_dir = (
+        config.processed_dir / volume.output_slug / "collapsible-sources"
+    )
+    expansions: dict[
+        str,
+        tuple[
+            FetchResult,
+            PageRef,
+            FetchResult,
+            tuple[tuple[PageRef, FetchResult], ...],
+        ],
+    ] = {}
+    consumed_slugs: set[str] = set()
+
+    for owner_slug, specs in configured_owners.items():
+        owner = entries_by_slug.get(owner_slug)
+        if owner is None:
+            continue
+        for spec in specs:
+            if spec.slug in manifest_slugs:
+                raise ValueError(
+                    f"{owner_slug} collapsible appendix slug collides with manifest: "
+                    f"{spec.slug}"
+                )
+
+        extraction = extract_collapsible_appendices(
+            results_by_slug[owner_slug].path.read_text(encoding="utf-8"),
+            specs,
+        )
+        owner_result = _write_collapsible_source_fetch_result(
+            derived_dir,
+            owner.slug,
+            owner.url,
+            extraction.owner_html,
+        )
+
+        group_slug = linked_appendix_group_slug(owner.slug)
+        existing_group = entries_by_slug.get(group_slug)
+        if existing_group is None:
+            group = PageRef(
+                title=LINKED_APPENDIX_GROUP_TITLE,
+                url=f"{owner.url}#linked-appendices",
+                slug=group_slug,
+                level=owner.level + 1,
+                role=LINKED_APPENDIX_GROUP_ROLE,
+                parent_slug=owner.slug,
+                source="configured-collapsible-appendix",
+            )
+        else:
+            group = existing_group
+            consumed_slugs.add(group.slug)
+
+        extracted_children: list[tuple[PageRef, FetchResult]] = []
+        extracted_by_slug = {
+            appendix.spec.slug: appendix for appendix in extraction.appendices
+        }
+        for spec in specs:
+            appendix = extracted_by_slug[spec.slug]
+            entry = PageRef(
+                title=spec.title,
+                url=f"{owner.url}#{spec.slug}",
+                slug=spec.slug,
+                level=owner.level + 2,
+                role=LINKED_APPENDIX_ROLE,
+                parent_slug=group_slug,
+                source="configured-collapsible-appendix",
+            )
+            result = _write_collapsible_source_fetch_result(
+                derived_dir,
+                entry.slug,
+                entry.url,
+                appendix.html,
+            )
+            extracted_children.append((entry, result))
+
+        existing_children = [
+            (entry, results_by_slug[entry.slug])
+            for entry in manifest
+            if entry.parent_slug == group_slug
+        ]
+        consumed_slugs.update(entry.slug for entry, _result in existing_children)
+        all_children = tuple(extracted_children + existing_children)
+        group_result = _write_collapsible_source_fetch_result(
+            derived_dir,
+            group.slug,
+            group.url,
+            _collapsible_appendix_group_html(owner, all_children),
+        )
+        expansions[owner_slug] = (
+            owner_result,
+            group,
+            group_result,
+            all_children,
+        )
+
+    expanded_manifest: list[PageRef] = []
+    expanded_results: list[FetchResult] = []
+    for entry, result in pairs:
+        if entry.slug in consumed_slugs:
+            continue
+        expansion = expansions.get(entry.slug)
+        if expansion is None:
+            expanded_manifest.append(entry)
+            expanded_results.append(result)
+            continue
+        owner_result, group, group_result, children = expansion
+        expanded_manifest.extend((entry, group, *(child for child, _ in children)))
+        expanded_results.extend(
+            (owner_result, group_result, *(child_result for _, child_result in children))
+        )
+
+    ordered_manifest = [
+        replace(entry, order=index)
+        for index, entry in enumerate(expanded_manifest, start=1)
+    ]
+    return ordered_manifest, expanded_results
+
+
+def _write_collapsible_source_fetch_result(
+    directory: Path,
+    slug: str,
+    url: str,
+    html: str,
+) -> FetchResult:
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{safe_filename(slug)}.html"
+    metadata_path = directory / f"{safe_filename(slug)}.json"
+    path.write_text(html, encoding="utf-8")
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "url": url,
+                "status_code": 200,
+                "content_type": "text/html",
+                "sha256": hashlib.sha256(html.encode("utf-8")).hexdigest(),
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    return FetchResult(
+        url=url,
+        path=path,
+        metadata_path=metadata_path,
+        from_cache=False,
+        status_code=200,
+        content_type="text/html",
+    )
+
+
+def _collapsible_appendix_group_html(
+    owner: PageRef,
+    children: tuple[tuple[PageRef, FetchResult], ...],
+) -> str:
+    items = "\n".join(
+        (
+            f'      <li><a href="{escape(child.url, quote=True)}">'
+            f"{escape(child.title)}</a></li>"
+        )
+        for child, _result in children
+    )
+    return f"""<html>
+  <body>
+    <div id="page-content">
+      <h1>{LINKED_APPENDIX_GROUP_TITLE}</h1>
+      <p>以下页面是《{escape(owner.title)}》的原文附属文档。</p>
+      <ul>
+{items}
+      </ul>
+    </div>
+  </body>
+</html>"""
 
 
 def scan_linked_appendices_for_volume(
