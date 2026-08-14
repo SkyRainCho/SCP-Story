@@ -81,6 +81,16 @@ SAFE_STYLE_PROPERTIES = {
     "vertical-align",
     "width",
 }
+EPUB_BACKGROUND_ASSET_ATTRIBUTE = "data-epub-background-url"
+EPUB_BACKGROUND_REPEAT_ATTRIBUTE = "data-epub-background-repeat"
+SCP_4833_BACKGROUND_URL = (
+    "http://kaktuskontainer.wdfiles.com/local--files/format-hell/scp_trans.png"
+)
+SCP_4833_WARNING_TEXTS = (
+    "据O5议会指示",
+    "以下文件为5/4833级机密。",
+    "未经授权的访问将招致立即处决。",
+)
 CENTERED_INLINE_BLOCK_EPUB_STYLE_RULES = (
     ".centered-inline-block-container-epub {text-align: center;}"
     "\n.centered-inline-block-card-epub {display: inline-block;}"
@@ -620,6 +630,12 @@ def transform_page(
     _apply_configured_background_asset(
         page_content,
         background_asset_url,
+        asset_urls,
+        seen_assets,
+    )
+    _register_epub_background_assets(
+        page_content,
+        base_url,
         asset_urls,
         seen_assets,
     )
@@ -2590,10 +2606,25 @@ def _apply_configured_background_asset(
     if panel is None:
         return
 
-    panel["data-epub-background-url"] = background_asset_url
+    panel[EPUB_BACKGROUND_ASSET_ATTRIBUTE] = background_asset_url
     if background_asset_url not in seen_assets:
         seen_assets.add(background_asset_url)
         asset_urls.append(background_asset_url)
+
+
+def _register_epub_background_assets(
+    page_content: Tag,
+    base_url: str,
+    asset_urls: list[str],
+    seen_assets: set[str],
+) -> None:
+    for tag in page_content.find_all(attrs={EPUB_BACKGROUND_ASSET_ATTRIBUTE: True}):
+        raw_url = tag.get(EPUB_BACKGROUND_ASSET_ATTRIBUTE)
+        if not isinstance(raw_url, str) or _should_ignore_url(raw_url):
+            continue
+        normalized = normalize_url(base_url, raw_url)
+        tag[EPUB_BACKGROUND_ASSET_ATTRIBUTE] = normalized
+        _append_once(asset_urls, seen_assets, normalized)
 
 
 def _tab_labels(nav: Tag) -> list[str]:
@@ -2907,6 +2938,90 @@ def _apply_scp_6599_layout_profile(page_content: Tag) -> None:
         _append_style_declaration(image_block, "width", "100%")
 
 
+def _apply_scp_4833_layout_profile(page_content: Tag) -> None:
+    title = next(
+        (
+            candidate
+            for candidate in page_content.select(".meta-title")
+            if candidate.get_text(" ", strip=True) == "SCP-4833"
+        ),
+        None,
+    )
+    if title is not None:
+        _add_class_token(title, "layout-profile-scp-4833-title")
+
+    panel = next(
+        (
+            candidate
+            for candidate in page_content.find_all("div", style=True)
+            if _is_scp_4833_warning_panel(candidate)
+        ),
+        None,
+    )
+    if panel is None:
+        return
+
+    content = next(
+        (
+            child
+            for child in panel.find_all("div", recursive=False)
+            if SCP_4833_WARNING_TEXTS[0] in child.get_text(" ", strip=True)
+            and SCP_4833_WARNING_TEXTS[1] in child.get_text(" ", strip=True)
+        ),
+        None,
+    )
+    warning = next(
+        (
+            paragraph
+            for paragraph in panel.find_all("p", recursive=False)
+            if paragraph.get_text(" ", strip=True) == SCP_4833_WARNING_TEXTS[2]
+        ),
+        None,
+    )
+    if content is None or warning is None:
+        return
+
+    for paragraph in list(panel.find_all("p", recursive=False)):
+        if paragraph is not warning and not paragraph.get_text(" ", strip=True):
+            paragraph.decompose()
+
+    subtitle = next(
+        (
+            paragraph
+            for paragraph in content.find_all("p", recursive=False)
+            if paragraph.get_text(" ", strip=True) == SCP_4833_WARNING_TEXTS[1]
+        ),
+        None,
+    )
+    content.append(warning.extract())
+    _add_class_token(panel, "layout-profile-scp-4833-warning")
+    _add_class_token(content, "layout-profile-scp-4833-warning-content")
+    if subtitle is not None:
+        _add_class_token(subtitle, "layout-profile-scp-4833-subtitle")
+    _add_class_token(warning, "layout-profile-scp-4833-execution-warning")
+
+    panel[EPUB_BACKGROUND_ASSET_ATTRIBUTE] = SCP_4833_BACKGROUND_URL
+    panel[EPUB_BACKGROUND_REPEAT_ATTRIBUTE] = "no-repeat"
+    for property_name, value in (
+        ("width", "100%"),
+        ("max-width", "600px"),
+        ("height", "26em"),
+        ("margin", "0 auto"),
+        ("padding", "0"),
+        ("font-size", "1.25em"),
+        ("text-align", "center"),
+    ):
+        _append_style_declaration(panel, property_name, value)
+
+
+def _is_scp_4833_warning_panel(tag: Tag) -> bool:
+    style = tag.get("style")
+    if not isinstance(style, str) or "format-hell/scp_trans.png" not in style:
+        return False
+    text = tag.get_text(" ", strip=True)
+    return all(marker in text for marker in SCP_4833_WARNING_TEXTS)
+
+
 def _stabilize_profile_image_block(image_block: Tag, class_name: str) -> None:
     _add_class_token(image_block, class_name)
     _append_style_declaration(image_block, "float", "none")
@@ -2988,6 +3103,24 @@ LAYOUT_PROFILE_RULES: dict[str, LayoutProfileRule] = {
             "\n.layout-profile-scp-4612-intro-image img {max-width: 100%; height: auto;}"
             "\n.layout-profile-scp-4612-image {float: none; clear: both; max-width: 100%;}"
             "\n.layout-profile-scp-4612-image img {max-width: 100%; height: auto;}"
+        ),
+    ),
+    "scp-4833": LayoutProfileRule(
+        apply=_apply_scp_4833_layout_profile,
+        style_rules=(
+            ".layout-profile-scp-4833-title {font-size: 3em; line-height: 1.2;}"
+            "\n.layout-profile-scp-4833-title p {margin: 0;}"
+            "\n.layout-profile-scp-4833-warning {display: table; width: 100%; "
+            "max-width: 600px; height: 26em; margin: 0 auto; padding: 0; "
+            "box-sizing: border-box; background-position: center; "
+            "background-size: contain; text-align: center;}"
+            "\n.layout-profile-scp-4833-warning-content {display: table-cell; "
+            "vertical-align: middle; padding: 1em; text-align: center;}"
+            "\n.layout-profile-scp-4833-warning-content h2 {font-size: 2.4em; "
+            "line-height: 1.2; margin: 0.4em 0;}"
+            "\n.layout-profile-scp-4833-subtitle {font-size: 1.25em; margin: 1em 0;}"
+            "\n.layout-profile-scp-4833-execution-warning {font-size: 1.15em; "
+            "margin: 1.5em 0 0;}"
         ),
     ),
     "scp-6599": LayoutProfileRule(

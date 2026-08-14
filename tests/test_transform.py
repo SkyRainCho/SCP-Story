@@ -22,6 +22,9 @@ FEATURED_FALLBACK_SLUGS = (
     "yamizushi-file-no233",
     "scp-597",
 )
+SCP_4833_BACKGROUND_URL = (
+    "http://kaktuskontainer.wdfiles.com/local--files/format-hell/scp_trans.png"
+)
 
 
 @pytest.mark.parametrize(
@@ -228,7 +231,7 @@ def soup_fragment(xhtml: str) -> BeautifulSoup:
     return BeautifulSoup(f"<root>{xhtml}</root>", "xml")
 
 
-@pytest.mark.parametrize("profile", ("scp-6183", "scp-4612", "scp-6599"))
+@pytest.mark.parametrize("profile", ("scp-6183", "scp-4612", "scp-4833", "scp-6599"))
 def test_featured_layout_profiles_leave_unselected_fixture_output_unchanged(profile: str):
     html = (FEATURED_LAYOUT_FIXTURES / f"{profile}.html").read_text(encoding="utf-8")
 
@@ -414,6 +417,60 @@ def test_scp6599_layout_profile_normalizes_reddit_posts_and_nested_media():
     assert portrait_image["class"].split() == ["scp-image-block", "block-right"]
     assert portrait_image["style"] == "width: 35%"
     assert "附录继续。" in soup.get_text(" ", strip=True)
+
+
+def test_scp4833_layout_profile_restores_title_warning_panel_and_background_asset():
+    html = (FEATURED_LAYOUT_FIXTURES / "scp-4833.html").read_text(encoding="utf-8")
+
+    result = transform_page(
+        page_ref("scp-4833"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(layout_profile="scp-4833"),
+    )
+    soup = soup_fragment(result.xhtml)
+    title = soup.select_one(".layout-profile-scp-4833-title")
+    panel = soup.select_one(".layout-profile-scp-4833-warning")
+    content = soup.select_one(".layout-profile-scp-4833-warning-content")
+
+    assert title is not None
+    assert ".layout-profile-scp-4833-title {font-size: 3em" in result.xhtml
+    assert panel is not None
+    assert "width: 100%" in panel["style"]
+    assert "max-width: 600px" in panel["style"]
+    assert "height: 26em" in panel["style"]
+    assert panel["data-epub-background-url"] == SCP_4833_BACKGROUND_URL
+    assert panel["data-epub-background-repeat"] == "no-repeat"
+    assert content is not None
+    assert content.select_one("#execution-warning") is not None
+    assert not [
+        paragraph
+        for paragraph in panel.find_all("p", recursive=False)
+        if not paragraph.get_text(" ", strip=True)
+    ]
+    assert "据O5议会指示" in content.get_text(" ", strip=True)
+    assert "以下文件为5/4833级机密。" in content.get_text(" ", strip=True)
+    assert "未经授权的访问将招致立即处决。" in content.get_text(" ", strip=True)
+    assert "display: table-cell" in result.xhtml
+    assert "background-size: contain" in result.xhtml
+    assert result.asset_urls == (SCP_4833_BACKGROUND_URL,)
+
+
+def test_scp4833_layout_profile_ignores_warning_panel_without_exact_source_markers():
+    html = (FEATURED_LAYOUT_FIXTURES / "scp-4833.html").read_text(encoding="utf-8")
+    html = html.replace("未经授权的访问将招致立即处决。", "普通提示。")
+
+    result = transform_page(
+        page_ref("scp-4833"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(layout_profile="scp-4833"),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.select_one(".layout-profile-scp-4833-warning") is None
+    assert soup.select_one("[data-epub-background-url]") is None
+    assert result.asset_urls == ()
 
 
 def test_transforms_only_page_content_and_removes_wikidot_chrome():
