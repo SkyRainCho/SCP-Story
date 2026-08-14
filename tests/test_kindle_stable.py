@@ -230,6 +230,67 @@ def test_prepare_stable_assets_reports_grayscale_variants(tmp_path: Path):
     assert result.performance["grayscale_alpha_variant_count"] == 1
 
 
+def test_prepare_stable_assets_preserves_collapsible_appendix_documents(
+    tmp_path: Path,
+):
+    group_slug = "scp-3986--linked-appendices"
+    entries = [
+        PageRef(
+            "SCP-3986",
+            "https://scp-wiki-cn.wikidot.com/scp-3986",
+            "scp-3986",
+            1,
+            "scp",
+            order=1,
+        ),
+        PageRef(
+            "原文附属文档",
+            "https://scp-wiki-cn.wikidot.com/scp-3986#linked-appendices",
+            group_slug,
+            2,
+            "linked-appendix-group",
+            parent_slug="scp-3986",
+            order=2,
+        ),
+        PageRef(
+            "《金册》",
+            "https://scp-wiki-cn.wikidot.com/scp-3986#scp-3986-golden-register",
+            "scp-3986-golden-register",
+            3,
+            "linked-appendix",
+            parent_slug=group_slug,
+            order=3,
+        ),
+    ]
+    pages = [
+        ProcessedPage(
+            entry=entry,
+            xhtml=xhtml,
+            asset_urls=(),
+            internal_links=(),
+            external_links=(),
+        )
+        for entry, xhtml in zip(
+            entries,
+            (
+                '<p class="collapsible-appendix-title">《金册》</p>',
+                "<p>附件目录</p>",
+                "<p>金册正文</p>",
+            ),
+            strict=True,
+        )
+    ]
+
+    result = prepare_stable_kindle_assets(
+        pages,
+        [],
+        tmp_path / "stable-assets",
+    )
+
+    assert [page.entry for page in result.pages] == entries
+    assert [page.xhtml for page in result.pages] == [page.xhtml for page in pages]
+
+
 def test_plan_uses_location_badge_spec_only_for_matching_page_contexts(
     tmp_path: Path,
 ):

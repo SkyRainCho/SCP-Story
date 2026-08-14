@@ -1177,6 +1177,61 @@ def test_prepare_kindle_pages_preserves_ordinary_xhtml_exactly():
     assert prepared.xhtml == xhtml
 
 
+def test_prepare_kindle_pages_preserves_collapsible_appendix_documents():
+    group_slug = "scp-3986--linked-appendices"
+    pages = [
+        ProcessedPage(
+            entry=PageRef(
+                "SCP-3986",
+                "https://scp-wiki-cn.wikidot.com/scp-3986",
+                "scp-3986",
+                1,
+                "scp",
+                order=1,
+            ),
+            xhtml='<p class="collapsible-appendix-title">《金册》</p>',
+            asset_urls=(),
+            internal_links=(),
+            external_links=(),
+        ),
+        ProcessedPage(
+            entry=PageRef(
+                "原文附属文档",
+                "https://scp-wiki-cn.wikidot.com/scp-3986#linked-appendices",
+                group_slug,
+                2,
+                "linked-appendix-group",
+                parent_slug="scp-3986",
+                order=2,
+            ),
+            xhtml="<p>附件目录</p>",
+            asset_urls=(),
+            internal_links=(),
+            external_links=(),
+        ),
+        ProcessedPage(
+            entry=PageRef(
+                "《金册》",
+                "https://scp-wiki-cn.wikidot.com/scp-3986#scp-3986-golden-register",
+                "scp-3986-golden-register",
+                3,
+                "linked-appendix",
+                parent_slug=group_slug,
+                order=3,
+            ),
+            xhtml="<p>金册正文</p>",
+            asset_urls=(),
+            internal_links=(),
+            external_links=(),
+        ),
+    ]
+
+    prepared = prepare_kindle_pages(pages)
+
+    assert [page.entry for page in prepared] == [page.entry for page in pages]
+    assert [page.xhtml for page in prepared] == [page.xhtml for page in pages]
+
+
 def test_prepare_kindle_pages_stable_removes_runtime_css_without_changing_content():
     xhtml = """
     <style>

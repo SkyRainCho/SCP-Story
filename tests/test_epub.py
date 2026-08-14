@@ -4,6 +4,7 @@ import zipfile
 from pathlib import Path
 
 import pytest
+from bs4 import BeautifulSoup
 
 from scp_epub.assets import AssetRef
 from scp_epub.epub import BOOK_CSS, write_build_report, write_epub
@@ -451,6 +452,76 @@ def test_write_epub_nav_preserves_hierarchical_manifest_structure(tmp_path: Path
         '          <content src="text/0003-ouroborealis.xhtml"/>\n'
         in ncx
     )
+
+
+def test_write_epub_scp3986_appendices_preserve_navigation_and_plain_titles(
+    tmp_path: Path,
+):
+    titles_and_slugs = [
+        ("《金册》", "scp-3986-golden-register"),
+        ("《蒙古诸部志略》", "scp-3986-mongol-tribes"),
+        ("《阿夫沙尔诗集》", "scp-3986-afshar-poems"),
+        ("《罗乞湿密·罗乌如是说》", "scp-3986-lakshmidhara"),
+        ("《上都演义》", "scp-3986-shangdu-romance"),
+        (
+            "《Nikolai Karensky致Katerina Karenskaya的信》",
+            "scp-3986-karensky-letter",
+        ),
+        ("《俄罗斯及突厥斯坦记行》", "scp-3986-russia-turkestan-travels"),
+    ]
+    owner_xhtml = "".join(
+        f'<p class="collapsible-appendix-title">{title}</p>'
+        for title, _slug in titles_and_slugs
+    )
+    pages = [
+        _page("scp-3986", "SCP-3986", 1, xhtml=owner_xhtml),
+        _page(
+            "scp-3986--linked-appendices",
+            "原文附属文档",
+            2,
+            level=2,
+            parent_slug="scp-3986",
+        ),
+        *[
+            _page(
+                slug,
+                title,
+                order,
+                level=3,
+                parent_slug="scp-3986--linked-appendices",
+            )
+            for order, (title, slug) in enumerate(titles_and_slugs, start=3)
+        ],
+        _page("scp-3987", "SCP-3987", 10),
+    ]
+    output_path = tmp_path / "scp-3986.epub"
+
+    write_epub(pages, output_path, title="SCP", language="zh-CN", creator="SCP")
+
+    with zipfile.ZipFile(output_path) as archive:
+        nav = archive.read("OEBPS/nav.xhtml").decode("utf-8")
+        owner = BeautifulSoup(
+            archive.read("OEBPS/text/0001-scp-3986.xhtml"),
+            "html.parser",
+        )
+
+    group = (
+        '<li class="level-2"><a href="text/0002-scp-3986--linked-appendices.xhtml">'
+        "原文附属文档</a>"
+    )
+    assert nav.count(group) == 1
+    positions = [nav.index(group)]
+    for order, (title, slug) in enumerate(titles_and_slugs, start=3):
+        link = f'<li class="level-3"><a href="text/{order:04d}-{slug}.xhtml">{title}</a></li>'
+        positions.append(nav.index(link))
+    positions.append(nav.index("SCP-3987"))
+    assert positions == sorted(positions)
+
+    plain_titles = owner.select("p.collapsible-appendix-title")
+    assert [item.get_text(strip=True) for item in plain_titles] == [
+        title for title, _slug in titles_and_slugs
+    ]
+    assert all(item.find("a") is None for item in plain_titles)
 
 
 def test_write_epub_nav_places_appendix_after_scp_roots_and_nests_facility(tmp_path: Path):
