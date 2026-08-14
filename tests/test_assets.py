@@ -158,6 +158,46 @@ def test_localize_assets_rewrites_explicit_epub_background_asset(tmp_path: Path)
     assert "data-epub-background-url" not in localized_pages[0].xhtml
 
 
+def test_localize_assets_preserves_explicit_no_repeat_background_mode(tmp_path: Path):
+    watermark_url = "https://example.test/scp_trans.png"
+    page = _page(
+        "scp-4833",
+        1,
+        (
+            '<div data-epub-background-url="https://example.test/scp_trans.png" '
+            'data-epub-background-repeat="no-repeat">警示</div>'
+        ),
+        (watermark_url,),
+    )
+    fetcher = FakeAssetFetcher(tmp_path, {watermark_url: ("scp_trans.png", b"image")})
+
+    localized_pages, _assets, missing_assets = localize_assets([page], fetcher)
+
+    assert missing_assets == []
+    assert "background-repeat: no-repeat" in localized_pages[0].xhtml
+    assert "data-epub-background-repeat" not in localized_pages[0].xhtml
+
+
+def test_localize_assets_falls_back_to_repeat_for_invalid_background_mode(tmp_path: Path):
+    watermark_url = "https://example.test/scp_trans.png"
+    page = _page(
+        "scp-4833",
+        1,
+        (
+            '<div data-epub-background-url="https://example.test/scp_trans.png" '
+            'data-epub-background-repeat="space">警示</div>'
+        ),
+        (watermark_url,),
+    )
+    fetcher = FakeAssetFetcher(tmp_path, {watermark_url: ("scp_trans.png", b"image")})
+
+    [localized], _assets, missing_assets = localize_assets([page], fetcher)
+
+    assert missing_assets == []
+    assert "background-repeat: repeat" in localized.xhtml
+    assert "data-epub-background-repeat" not in localized.xhtml
+
+
 def test_remote_resource_page_slugs_returns_only_pages_with_missing_asset_refs():
     missing_url = "https://scp-wiki-cn.wikidot.com/images/missing.png"
     pages = [

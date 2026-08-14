@@ -11,10 +11,16 @@ from bs4 import BeautifulSoup, Tag
 import resvg_py
 
 from .models import FetchResult, ProcessedPage
-from .transform import ASSET_ATTRIBUTES
+from .transform import (
+    ASSET_ATTRIBUTES,
+    EPUB_BACKGROUND_ASSET_ATTRIBUTE,
+    EPUB_BACKGROUND_REPEAT_ATTRIBUTE,
+)
 
 
-EPUB_BACKGROUND_ASSET_ATTRIBUTE = "data-epub-background-url"
+VALID_EPUB_BACKGROUND_REPEAT_VALUES = frozenset(
+    {"repeat", "no-repeat", "repeat-x", "repeat-y"}
+)
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 _ANOMALY_DIAMOND_ICON_CENTERS = {
     "top": (80.0, 30.4),
@@ -316,6 +322,13 @@ def _rewrite_page_assets(page: ProcessedPage, localized_by_url: dict[str, AssetR
         asset = localized_by_url.get(raw_url)
         if asset is None:
             continue
+        raw_repeat = tag.get(EPUB_BACKGROUND_REPEAT_ATTRIBUTE)
+        repeat_mode = (
+            raw_repeat.strip().lower()
+            if isinstance(raw_repeat, str)
+            and raw_repeat.strip().lower() in VALID_EPUB_BACKGROUND_REPEAT_VALUES
+            else "repeat"
+        )
         existing_style = str(tag.get("style", "")).strip()
         declarations = [declaration.strip() for declaration in existing_style.split(";") if declaration.strip()]
         declarations = [
@@ -327,11 +340,12 @@ def _rewrite_page_assets(page: ProcessedPage, localized_by_url: dict[str, AssetR
         declarations.extend(
             [
                 f'background-image: url("../{asset.href}")',
-                "background-repeat: repeat",
+                f"background-repeat: {repeat_mode}",
             ]
         )
         tag["style"] = "; ".join(declarations)
         tag.attrs.pop(EPUB_BACKGROUND_ASSET_ATTRIBUTE, None)
+        tag.attrs.pop(EPUB_BACKGROUND_REPEAT_ATTRIBUTE, None)
         changed = True
 
     if not changed:
