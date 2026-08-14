@@ -27,6 +27,75 @@ SCP_4833_BACKGROUND_URL = (
 )
 
 
+def test_removes_configured_paperstack_theme_logo_and_preserves_article_image():
+    html = """
+    <html><body><div id="page-content">
+      <div class="logo">
+        <img src="https://scp-wiki.wdfiles.com/local--files/theme%3Apaperstack/lgtrans.png"
+             alt="lgtrans.png" class="image">
+      </div>
+      <div class="scp-image-block">
+        <img src="https://scp-wiki.wdfiles.com/local--files/scp-7900/whaleskin"
+             alt="whaleskin" class="image">
+      </div>
+      <p>正文</p>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        PageRef("SCP-7900", BASE_URL, "scp-7900", 1, "scp"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_paperstack_theme_logo=True),
+    )
+
+    soup = BeautifulSoup(result.xhtml, "html.parser")
+    assert soup.select_one("div.logo") is None
+    assert soup.find("img", alt="lgtrans.png") is None
+    assert soup.find("img", alt="whaleskin") is not None
+    assert (
+        "https://scp-wiki.wdfiles.com/local--files/theme%3Apaperstack/lgtrans.png"
+        not in result.asset_urls
+    )
+    assert (
+        "https://scp-wiki.wdfiles.com/local--files/scp-7900/whaleskin"
+        in result.asset_urls
+    )
+
+
+@pytest.mark.parametrize(
+    ("enabled", "source"),
+    [
+        (
+            False,
+            "https://scp-wiki.wdfiles.com/local--files/theme%3Apaperstack/lgtrans.png",
+        ),
+        (True, "https://example.test/article-logo.png"),
+    ],
+)
+def test_paperstack_logo_cleanup_preserves_unconfigured_or_different_images(
+    enabled: bool,
+    source: str,
+):
+    html = f"""
+    <html><body><div id="page-content">
+      <div class="logo"><img src="{source}" alt="kept-logo"></div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        PageRef("SCP-7900", BASE_URL, "scp-7900", 1, "scp"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_paperstack_theme_logo=enabled),
+    )
+
+    assert (
+        BeautifulSoup(result.xhtml, "html.parser").find("img", alt="kept-logo")
+        is not None
+    )
+
+
 @pytest.mark.parametrize(
     (
         "slug",

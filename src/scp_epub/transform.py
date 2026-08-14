@@ -524,6 +524,7 @@ RECOMMENDATION_PANEL_LABELS = frozenset({"你可能也会喜欢", "您可能也�
 SUBSTANTIVE_MEDIA_TAGS = ("audio", "figure", "img", "object", "picture", "svg", "table", "video")
 TWO_LINK_TERMINAL_NAVIGATION_SLUGS = frozenset({"scp-7261", "scp-3662"})
 ITERATION_NAVIGATION_PAGE_PREFIXES = ("scp-7503", "scp-6445")
+PAPERSTACK_THEME_LOGO_PATH = "/local--files/theme%3apaperstack/lgtrans.png"
 
 
 @dataclass(frozen=True)
@@ -533,6 +534,7 @@ class PageTransformOptions:
     remove_adult_content_warning: bool = False
     remove_author_work_list: bool = False
     remove_recommendation_panel: bool = False
+    remove_paperstack_theme_logo: bool = False
     layout_profile: str | None = None
 
 
@@ -792,6 +794,8 @@ def _apply_page_cleanup_options(
         _remove_terminal_author_work_list(page_content)
     if options.remove_recommendation_panel:
         _remove_recommendation_panels(page_content)
+    if options.remove_paperstack_theme_logo:
+        _remove_paperstack_theme_logo(page_content)
 
     layout_profile_rule = LAYOUT_PROFILE_RULES.get(options.layout_profile)
     if layout_profile_rule is None:
@@ -1010,6 +1014,18 @@ def _remove_recommendation_panels(page_content: Tag) -> None:
         panel = heading.find_parent(class_="collapsible-block")
         if isinstance(panel, Tag):
             panel.decompose()
+
+
+def _remove_paperstack_theme_logo(page_content: Tag) -> None:
+    for container in list(page_content.select("div.logo")):
+        image = container.find("img")
+        if not isinstance(image, Tag):
+            continue
+        source = image.get("src")
+        if not isinstance(source, str):
+            continue
+        if urlparse(source.strip()).path.casefold() == PAPERSTACK_THEME_LOGO_PATH:
+            container.decompose()
 
 
 def _is_recommendation_panel_label(value: str) -> bool:
