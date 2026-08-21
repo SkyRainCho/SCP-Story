@@ -641,10 +641,14 @@ def test_production_configs_declare_scp3986_collapsible_appendices(config_path: 
     "config_path",
     ["config/featured-scp.yaml", "config/series-8.yaml"],
 )
-def test_production_configs_remove_scp7900_paperstack_theme_logo(config_path: str):
+def test_production_configs_remove_paperstack_theme_logos(config_path: str):
     config = load_config(Path(config_path))
 
-    assert config.page_overrides["scp-7900"].remove_paperstack_theme_logo is True
+    assert {
+        slug
+        for slug, override in config.page_overrides.items()
+        if override.remove_paperstack_theme_logo
+    } == {"scp-7804", "scp-7900"}
 
 
 def test_load_config_parses_collapsible_appendices_in_order(tmp_path: Path):
