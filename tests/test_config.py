@@ -545,7 +545,15 @@ def test_featured_scp_config_declares_page_overrides():
         if override.remove_author_work_list
     } == {"scp-6698", "scp-4233", "scp-5595"}
     assert config.page_overrides["scp-7069"].remove_adult_content_warning is True
-    assert config.page_overrides["scp-7472"].remove_recommendation_panel is True
+    assert {
+        slug
+        for slug, override in config.page_overrides.items()
+        if override.remove_recommendation_panel
+    } == {
+        "scp-7472",
+        "scp-7472/offset/1",
+        "scp-7472/offset/2",
+    }
     assert {
         slug: config.page_overrides[slug].layout_profile
         for slug in ("scp-6183", "scp-4612", "scp-4833", "scp-6599")

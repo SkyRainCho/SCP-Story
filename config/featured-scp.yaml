@@ -127,6 +127,10 @@ page_overrides:
     remove_adult_content_warning: true
   scp-7472:
     remove_recommendation_panel: true
+  scp-7472/offset/1:
+    remove_recommendation_panel: true
+  scp-7472/offset/2:
+    remove_recommendation_panel: true
   scp-6183:
     layout_profile: scp-6183
   scp-4612:
