@@ -605,6 +605,8 @@ def transform_page(
     )
     if entry.slug == "scp-6747":
         _stabilize_scp_6747_splash(page_content)
+    if entry.slug == "scp-7646":
+        _normalize_scp_7646_scene_breaks(page_content)
 
     if _has_interactive_article_layout(page_content):
         _linearize_interactive_article_layout(page_content)
@@ -2567,6 +2569,31 @@ def _normalize_scene_break_images(page_content: Tag) -> None:
         parent = image.parent
         if isinstance(parent, Tag) and "image-container" in _class_tokens(parent):
             _append_style_declaration(parent, "text-align", "center")
+
+
+def _normalize_scp_7646_scene_breaks(page_content: Tag) -> None:
+    for container in page_content.select(".asterisk"):
+        image = container.find("img", recursive=False)
+        if image is None:
+            continue
+
+        _add_class_token(container, "layout-profile-scp-7646-scene-break")
+        for property_name, value in (
+            ("width", "50px"),
+            ("height", "50px"),
+            ("max-width", "80px"),
+            ("max-height", "80px"),
+            ("margin", "10px auto"),
+            ("text-align", "center"),
+        ):
+            _append_style_declaration(container, property_name, value)
+
+        for property_name, value in (
+            ("width", "40px"),
+            ("height", "40px"),
+            ("max-width", "100%"),
+        ):
+            _append_style_declaration(image, property_name, value)
 
 
 def _expand_wikidot_tabs(

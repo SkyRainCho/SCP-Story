@@ -1085,6 +1085,67 @@ def test_keeps_scene_break_scp_logo_small_and_centered():
     assert result.asset_urls == ("https://scp-wiki-cn.wikidot.com/local--files/theme:classic/scp_foundation_logo.png",)
 
 
+def _scp7646_scene_break_html() -> str:
+    scene_break = """
+      <div class="asterisk">
+        <img class="image"
+             src="http://scp-wiki.wikidot.com/local--files/unreality-hub/Unreality%20Header%20Logo.svg"
+             alt="Unreality%20Header%20Logo.svg" />
+      </div>
+    """
+    return f"""
+    <html><body><div id="page-content">
+      <img id="article-image" class="image" src="/local--files/scp-7646/PFOA-3D.png"
+           alt="全氟辛酸分子" />
+      {scene_break}
+      <div class="interview"><p>文字抄录一。</p></div>
+      {scene_break}
+      <div class="interview"><p>文字抄录二。</p></div>
+      {scene_break}
+      <div class="interview"><p>文字抄录三。</p></div>
+      {scene_break}
+    </div></body></html>
+    """
+
+
+def test_scp7646_restores_imported_theme_scene_break_size():
+    result = transform_page(
+        page_ref("scp-7646"),
+        _scp7646_scene_break_html(),
+        BASE_URL,
+    )
+    soup = soup_fragment(result.xhtml)
+    scene_breaks = soup.select(".layout-profile-scp-7646-scene-break")
+
+    assert len(scene_breaks) == 4
+    for container in scene_breaks:
+        assert "width: 50px" in container["style"]
+        assert "height: 50px" in container["style"]
+        assert "max-width: 80px" in container["style"]
+        assert "max-height: 80px" in container["style"]
+        assert "margin: 10px auto" in container["style"]
+        assert "text-align: center" in container["style"]
+        image = container.find("img", recursive=False)
+        assert image is not None
+        assert "width: 40px" in image["style"]
+        assert "height: 40px" in image["style"]
+        assert "max-width: 100%" in image["style"]
+
+    assert soup.find(id="article-image").get("style") is None
+
+
+def test_scp7646_scene_break_sizing_does_not_affect_other_pages():
+    result = transform_page(
+        page_ref("scp-7645"),
+        _scp7646_scene_break_html(),
+        BASE_URL,
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.select(".layout-profile-scp-7646-scene-break") == []
+    assert all(container.get("style") is None for container in soup.select(".asterisk"))
+
+
 def test_preserves_document_styles_that_target_page_content():
     html = """
     <html>
