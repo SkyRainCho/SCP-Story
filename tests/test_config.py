@@ -531,6 +531,7 @@ def test_featured_scp_config_declares_page_overrides():
         "scp-5109",
         "scp-5494",
         "scp-6781",
+        "scp-8430",
         "scp-7503",
         "scp-7503/offset/1",
         "scp-7503/offset/2",

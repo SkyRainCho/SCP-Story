@@ -811,9 +811,11 @@ def _remove_terminal_navigation(entry: PageRef, page_content: Tag) -> None:
         navigation_slug=entry.slug,
         allow_footnotes_footer_boundary=True,
     ):
+        if block.parent is None:
+            continue
         if _is_compact_guillemet_navigation(entry.slug, block) or (
             entry.slug == "scp-6781" and _is_scp_6781_previous_next_navigation(block)
-        ):
+        ) or _is_scp_8430_earthworm_navigation(entry.slug, block):
             block.decompose()
 
 
@@ -959,6 +961,16 @@ def _is_scp_6781_previous_next_navigation(block: Tag) -> bool:
     return (
         set(label_links) == {"前情", "后事"}
         and len({id(link) for link in label_links.values()}) == 2
+    )
+
+
+def _is_scp_8430_earthworm_navigation(slug: str, block: Tag) -> bool:
+    return (
+        slug == "scp-8430"
+        and "earthworm" in _class_tokens(block)
+        and block.select_one(".earthworm__previous") is not None
+        and block.select_one(".earthworm__hub") is not None
+        and block.select_one(".earthworm__next") is not None
     )
 
 

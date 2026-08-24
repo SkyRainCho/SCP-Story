@@ -3101,6 +3101,65 @@ def test_removes_terminal_navigation_before_footnotes_footer_and_preserves_footn
     assert soup.find(id="article") is not None
 
 
+def test_removes_scp8430_terminal_earthworm_navigation_before_footnotes():
+    html = """
+    <html><body><div id="page-content">
+      <p id="article">应保留的 SCP-8430 正文。</p>
+      <div class="earthworm" id="anthology-nav">
+        <div class="earthworm__previous"><a href="/scp-8876">人类恐惧症：屠宰场地</a></div>
+        <div class="earthworm__hub"><a href="/scp-anthology-2024">SCP文选2024</a></div>
+        <div class="earthworm__next"><a href="/scp-8558">享乐恐惧症：肉欲糜烂</a></div>
+      </div>
+      <div class="footnotes-footer" id="footnotes">
+        <div class="title">Footnotes</div><div>1. 应保留的注释。</div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref("scp-8430"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=True),
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.find(id="anthology-nav") is None
+    assert soup.find(id="article") is not None
+    assert soup.find(id="footnotes").get_text(" ", strip=True) == (
+        "Footnotes 1. 应保留的注释。"
+    )
+
+
+@pytest.mark.parametrize(
+    ("slug", "enabled"),
+    (("scp-8430", False), ("scp-8431", True)),
+)
+def test_preserves_scp8430_style_earthworm_navigation_outside_target_conditions(
+    slug: str,
+    enabled: bool,
+):
+    html = """
+    <html><body><div id="page-content">
+      <p id="article">正文。</p>
+      <div class="earthworm" id="anthology-nav">
+        <div class="earthworm__previous"><a href="/previous">Previous</a></div>
+        <div class="earthworm__hub"><a href="/hub">Hub</a></div>
+        <div class="earthworm__next"><a href="/next">Next</a></div>
+      </div>
+    </div></body></html>
+    """
+
+    result = transform_page(
+        page_ref(slug),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(remove_terminal_navigation=enabled),
+    )
+
+    assert soup_fragment(result.xhtml).find(id="anthology-nav") is not None
+
+
 def test_preserves_terminal_navigation_when_cleanup_is_disabled():
     html = """
     <html><body><div id="page-content">

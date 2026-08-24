@@ -115,6 +115,8 @@ page_overrides:
     remove_terminal_navigation: true
   scp-6781:
     remove_terminal_navigation: true
+  scp-8430:
+    remove_terminal_navigation: true
   scp-5464:
     remove_leading_metadata: true
   scp-6698:
