@@ -139,6 +139,8 @@ page_overrides:
     layout_profile: scp-4612
   scp-4833:
     layout_profile: scp-4833
+  scp-9000:
+    layout_profile: scp-9000
   scp-7804:
     remove_paperstack_theme_logo: true
   scp-7900:

@@ -2966,6 +2966,20 @@ def _apply_scp_6599_layout_profile(page_content: Tag) -> None:
         _append_style_declaration(image_block, "width", "100%")
 
 
+def _apply_scp_9000_layout_profile(page_content: Tag) -> None:
+    for addendum in page_content.select(".addendumout"):
+        title = addendum.select_one(":scope > p > .title")
+        if title is None or title.get_text(" ", strip=True) != "历史":
+            continue
+        if addendum.select_one(".aquino.addendumin") is None:
+            continue
+
+        _add_class_token(addendum, "layout-profile-scp-9000-history")
+        _append_style_declaration(addendum, "clear", "both")
+        _append_style_declaration(addendum, "max-width", "100%")
+        return
+
+
 def _apply_scp_4833_layout_profile(page_content: Tag) -> None:
     title = next(
         (
@@ -3157,6 +3171,13 @@ LAYOUT_PROFILE_RULES: dict[str, LayoutProfileRule] = {
             ".layout-profile-scp-6599-reddit-body {float: none; clear: both; width: auto; max-width: 100%;}"
             "\n.layout-profile-scp-6599-inline-media {float: none; clear: both; max-width: 100%;}"
             "\n.layout-profile-scp-6599-inline-media img {max-width: 100%; height: auto;}"
+        ),
+    ),
+    "scp-9000": LayoutProfileRule(
+        apply=_apply_scp_9000_layout_profile,
+        style_rules=(
+            ".layout-profile-scp-9000-history {clear: both; max-width: 100%; "
+            "box-sizing: border-box;}"
         ),
     ),
 }

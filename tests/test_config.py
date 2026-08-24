@@ -557,12 +557,13 @@ def test_featured_scp_config_declares_page_overrides():
     }
     assert {
         slug: config.page_overrides[slug].layout_profile
-        for slug in ("scp-6183", "scp-4612", "scp-4833", "scp-6599")
+        for slug in ("scp-6183", "scp-4612", "scp-4833", "scp-6599", "scp-9000")
     } == {
         "scp-6183": "scp-6183",
         "scp-4612": "scp-4612",
         "scp-4833": "scp-4833",
         "scp-6599": "scp-6599",
+        "scp-9000": "scp-9000",
     }
     assert [
         (document.url, document.position, document.anchor_text)

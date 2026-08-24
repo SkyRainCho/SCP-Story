@@ -300,7 +300,10 @@ def soup_fragment(xhtml: str) -> BeautifulSoup:
     return BeautifulSoup(f"<root>{xhtml}</root>", "xml")
 
 
-@pytest.mark.parametrize("profile", ("scp-6183", "scp-4612", "scp-4833", "scp-6599"))
+@pytest.mark.parametrize(
+    "profile",
+    ("scp-6183", "scp-4612", "scp-4833", "scp-6599", "scp-9000"),
+)
 def test_featured_layout_profiles_leave_unselected_fixture_output_unchanged(profile: str):
     html = (FEATURED_LAYOUT_FIXTURES / f"{profile}.html").read_text(encoding="utf-8")
 
@@ -486,6 +489,35 @@ def test_scp6599_layout_profile_normalizes_reddit_posts_and_nested_media():
     assert portrait_image["class"].split() == ["scp-image-block", "block-right"]
     assert portrait_image["style"] == "width: 35%"
     assert "附录继续。" in soup.get_text(" ", strip=True)
+
+
+def test_scp9000_layout_profile_clears_history_after_intro_floats():
+    html = (FEATURED_LAYOUT_FIXTURES / "scp-9000.html").read_text(encoding="utf-8")
+
+    result = transform_page(
+        page_ref("scp-9000"),
+        html,
+        BASE_URL,
+        page_options=PageTransformOptions(layout_profile="scp-9000"),
+    )
+    soup = soup_fragment(result.xhtml)
+    history = soup.find(id="history")
+    later_addendum = soup.find(id="later-addendum")
+    aquino_image = soup.find(id="aquino")
+    prison_image = soup.find(id="prison")
+
+    assert history is not None
+    assert "layout-profile-scp-9000-history" in history["class"]
+    assert "clear: both" in history["style"]
+    assert "max-width: 100%" in history["style"]
+    assert ".layout-profile-scp-9000-history {clear: both" in result.xhtml
+    assert "box-sizing: border-box" in result.xhtml
+    assert later_addendum is not None
+    assert "layout-profile-scp-9000-history" not in later_addendum.get("class", [])
+    assert aquino_image["class"].split() == ["scp-image-block", "block-right"]
+    assert prison_image["class"].split() == ["scp-image-block", "block-left"]
+    assert "float: none" not in aquino_image.get("style", "")
+    assert "float: none" not in prison_image.get("style", "")
 
 
 def test_scp4833_layout_profile_restores_title_warning_panel_and_background_asset():
