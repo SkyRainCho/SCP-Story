@@ -606,6 +606,7 @@ def transform_page(
     if entry.slug == "scp-6747":
         _stabilize_scp_6747_splash(page_content)
     if entry.slug == "scp-7646":
+        _normalize_scp_7646_interactive_media(page_content)
         _normalize_scp_7646_scene_breaks(page_content)
 
     if _has_interactive_article_layout(page_content):
@@ -2594,6 +2595,91 @@ def _normalize_scp_7646_scene_breaks(page_content: Tag) -> None:
             ("max-width", "100%"),
         ):
             _append_style_declaration(image, property_name, value)
+
+
+def _normalize_scp_7646_interactive_media(page_content: Tag) -> None:
+    desired_widths = {
+        "pfoa-3d.png": "300px",
+        "oat_cn.png": "600px",
+        "dupont.png": "600px",
+    }
+
+    for filename, desired_width in desired_widths.items():
+        widgets = [
+            widget
+            for widget in list(page_content.select(".image-click-fullscreen"))
+            if _scp_7646_widget_contains_image(widget, filename)
+        ]
+        selected = next(
+            (
+                widget
+                for widget in widgets
+                if _style_property_value(widget, "max-width") == desired_width
+            ),
+            None,
+        )
+        if selected is None:
+            continue
+
+        for widget in widgets:
+            if widget is selected:
+                continue
+            wrapper = widget.parent
+            if isinstance(wrapper, Tag) and _class_tokens(wrapper) & {"pfoa_mob", "pfoa_pc"}:
+                wrapper.decompose()
+            else:
+                widget.decompose()
+
+        for duplicate_layer in list(
+            selected.select(".image-click-fullscreen-image, .mobile-exit")
+        ):
+            duplicate_layer.decompose()
+
+        base = selected.select_one(".image-click-fullscreen-base")
+        if base is not None:
+            base.unwrap()
+
+        classes = [
+            class_name
+            for class_name in selected.get("class", [])
+            if class_name != "image-click-fullscreen"
+        ]
+        selected["class"] = classes
+        _add_class_token(selected, "layout-profile-scp-7646-static-image")
+        for attribute_name in ("data-feature", "onclick", "onmouseover", "onmouseout"):
+            selected.attrs.pop(attribute_name, None)
+
+        for property_name, value in (
+            ("float", "none"),
+            ("clear", "both"),
+            ("width", "100%"),
+            ("max-width", desired_width),
+            ("margin", "1em auto"),
+        ):
+            _append_style_declaration(selected, property_name, value)
+
+        for image in selected.find_all("img"):
+            _append_style_declaration(image, "width", "100%")
+            _append_style_declaration(image, "max-width", "100%")
+            _append_style_declaration(image, "height", "auto")
+
+        wrapper = selected.parent
+        if isinstance(wrapper, Tag) and _class_tokens(wrapper) & {"pfoa_mob", "pfoa_pc"}:
+            wrapper.unwrap()
+
+    for drinkbar in list(page_content.select(".drinkbar")):
+        drinkbar.decompose()
+
+
+def _scp_7646_widget_contains_image(widget: Tag, filename: str) -> bool:
+    normalized_filename = filename.casefold()
+    for image in widget.select(".image-click-fullscreen-base img"):
+        source = image.get("src")
+        if not isinstance(source, str):
+            continue
+        if urlparse(source).path.rsplit("/", 1)[-1].casefold() == normalized_filename:
+            return True
+    return False
 
 
 def _expand_wikidot_tabs(

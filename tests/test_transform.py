@@ -1146,6 +1146,120 @@ def test_scp7646_scene_break_sizing_does_not_affect_other_pages():
     assert all(container.get("style") is None for container in soup.select(".asterisk"))
 
 
+def _scp7646_interactive_media_html() -> str:
+    return """
+    <html><body><div id="page-content">
+      <div class="pfoa_mob">
+        <div class="image-click-fullscreen scp-image-block nofloat" data-feature="click"
+             style="max-width: 300px">
+          <div class="image-click-fullscreen-base"><img src="/local--files/scp-7646/PFOA-3D.png" /></div>
+          <div class="image-click-fullscreen-image"><img src="/local--files/scp-7646/PFOA-3D.png" /></div>
+          <div class="scp-image-caption">全氟辛酸的分子结构。并非由 Alex Thorley 绘制。</div>
+          <div class="mobile-exit">关闭</div>
+        </div>
+      </div>
+      <div class="pfoa_pc">
+        <div class="image-click-fullscreen scp-image-block nofloat" data-feature="click"
+             style="max-width: 600px">
+          <div class="image-click-fullscreen-base"><img src="/local--files/scp-7646/PFOA-3D.png" /></div>
+          <div class="image-click-fullscreen-image"><img src="/local--files/scp-7646/PFOA-3D.png" /></div>
+          <div class="scp-image-caption">全氟辛酸的分子结构。并非由 Alex Thorley 绘制。</div>
+          <div class="mobile-exit">关闭</div>
+        </div>
+      </div>
+      <div class="pfoa_mob">
+        <div class="image-click-fullscreen scp-image-block nofloat" data-feature="click"
+             style="max-width: 300px">
+          <div class="image-click-fullscreen-base"><img src="/local--files/scp-7646/oat_cn.png" /></div>
+          <div class="image-click-fullscreen-image"><img src="/local--files/scp-7646/oat_cn.png" /></div>
+          <div class="scp-image-caption">行动总览：代号 ALEX THORLEY 喝了 700+ 杯水。</div>
+          <div class="mobile-exit">关闭</div>
+        </div>
+      </div>
+      <div class="pfoa_pc">
+        <div class="image-click-fullscreen scp-image-block nofloat" data-feature="click"
+             style="max-width: 600px">
+          <div class="image-click-fullscreen-base"><img src="/local--files/scp-7646/oat_cn.png" /></div>
+          <div class="image-click-fullscreen-image"><img src="/local--files/scp-7646/oat_cn.png" /></div>
+          <div class="scp-image-caption">行动总览：代号 ALEX THORLEY 喝了 700+ 杯水。</div>
+          <div class="mobile-exit">关闭</div>
+        </div>
+      </div>
+      <div class="pfoa_mob">
+        <div class="image-click-fullscreen scp-image-block nofloat" data-feature="click"
+             style="max-width: 300px">
+          <div class="image-click-fullscreen-base"><img src="/local--files/scp-7646/dupont.png" /></div>
+          <div class="image-click-fullscreen-image"><img src="/local--files/scp-7646/dupont.png" /></div>
+          <div class="scp-image-caption">Thorley 的大概位置，根据文件 7646-AE1 的主张。</div>
+          <div class="mobile-exit">关闭</div>
+        </div>
+      </div>
+      <div class="pfoa_pc">
+        <div class="image-click-fullscreen scp-image-block nofloat" data-feature="click"
+             style="max-width: 600px">
+          <div class="image-click-fullscreen-base"><img src="/local--files/scp-7646/dupont.png" /></div>
+          <div class="image-click-fullscreen-image"><img src="/local--files/scp-7646/dupont.png" /></div>
+          <div class="scp-image-caption">Thorley 的大概位置，根据文件 7646-AE1 的主张。</div>
+          <div class="mobile-exit">关闭</div>
+        </div>
+      </div>
+      <div class="drinkbar"><div class="tab"><p>饮水</p></div><div class="drinker"><p>每日目标</p></div></div>
+    </div></body></html>
+    """
+
+
+def test_scp7646_staticizes_selected_media_and_removes_drinkbar():
+    result = transform_page(
+        page_ref("scp-7646"),
+        _scp7646_interactive_media_html(),
+        BASE_URL,
+    )
+    soup = soup_fragment(result.xhtml)
+    static_blocks = soup.select(".layout-profile-scp-7646-static-image")
+
+    assert len(static_blocks) == 3
+    expected_widths = {
+        "PFOA-3D.png": "300px",
+        "oat_cn.png": "600px",
+        "dupont.png": "600px",
+    }
+    for filename, width in expected_widths.items():
+        images = [image for image in soup.find_all("img") if image["src"].endswith(filename)]
+        assert len(images) == 1
+        block = images[0].parent
+        assert "layout-profile-scp-7646-static-image" in block.get("class", "").split()
+        assert f"max-width: {width}" in block["style"]
+        assert "width: 100%" in block["style"]
+        assert "margin: 1em auto" in block["style"]
+        assert "max-width: 100%" in images[0]["style"]
+        assert "height: auto" in images[0]["style"]
+
+    assert soup.select(".image-click-fullscreen") == []
+    assert soup.select(".image-click-fullscreen-base") == []
+    assert soup.select(".image-click-fullscreen-image") == []
+    assert soup.select(".mobile-exit") == []
+    assert soup.select(".pfoa_mob, .pfoa_pc") == []
+    assert soup.select(".drinkbar") == []
+    assert "全氟辛酸的分子结构" in soup.get_text(" ", strip=True)
+    assert "行动总览" in soup.get_text(" ", strip=True)
+    assert "Thorley 的大概位置" in soup.get_text(" ", strip=True)
+    assert "每日目标" not in soup.get_text(" ", strip=True)
+
+
+def test_scp7646_interactive_media_cleanup_does_not_affect_other_pages():
+    result = transform_page(
+        page_ref("scp-7645"),
+        _scp7646_interactive_media_html(),
+        BASE_URL,
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert len(soup.select(".image-click-fullscreen")) == 6
+    assert len(soup.select(".image-click-fullscreen-image")) == 6
+    assert soup.select_one(".drinkbar") is not None
+    assert soup.select(".layout-profile-scp-7646-static-image") == []
+
+
 def test_preserves_document_styles_that_target_page_content():
     html = """
     <html>
