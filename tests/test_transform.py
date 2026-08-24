@@ -1334,6 +1334,55 @@ def test_scp9100_web_only_cleanup_does_not_affect_other_pages():
     assert any(asset_url.endswith("Daydream.png") for asset_url in result.asset_urls)
 
 
+def _scp8274_terminal_diary_html() -> str:
+    return """
+    <html><head><style>
+      .terminal-content { background: black; }
+      .terminal-text { color: white; }
+    </style></head><body><div id="page-content">
+      <div class="terminal">
+        <div class="terminal-content">
+          <div class="terminal-text">
+            <div class="blockquote"><p>日记条目#1：保留的正文。</p></div>
+          </div>
+        </div>
+      </div>
+    </div></body></html>
+    """
+
+
+def test_scp8274_sets_high_contrast_terminal_diary_colors():
+    result = transform_page(
+        page_ref("scp-8274"),
+        _scp8274_terminal_diary_html(),
+        BASE_URL,
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.select_one(".terminal .blockquote").get_text(strip=True) == (
+        "日记条目#1：保留的正文。"
+    )
+    assert (
+        ".terminal .blockquote {background: #f2f2f2; color: #1a1a1a; "
+        "border: 1px dashed #777;}"
+    ) in result.xhtml
+    assert ".terminal-content {background: black;}" in result.xhtml
+    assert ".terminal-text {color: white;}" in result.xhtml
+    assert result.xhtml.index(".terminal-text {color: white;}") < result.xhtml.index(
+        ".terminal .blockquote {background: #f2f2f2;"
+    )
+
+
+def test_scp8274_terminal_diary_colors_do_not_affect_other_pages():
+    result = transform_page(
+        page_ref("scp-8273"),
+        _scp8274_terminal_diary_html(),
+        BASE_URL,
+    )
+
+    assert "background: #f2f2f2; color: #1a1a1a" not in result.xhtml
+
+
 def test_preserves_document_styles_that_target_page_content():
     html = """
     <html>

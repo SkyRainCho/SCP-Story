@@ -252,6 +252,10 @@ PAGE_EPUB_STYLE_RULES = {
         "\n.admo-episode_splash .admo-rate_splash {margin-top: 0; padding-bottom: 0;}"
         "\n.admo-end_card .admo-credits {display: block; text-align: center;}"
     ),
+    "scp-8274": (
+        ".terminal .blockquote {background: #f2f2f2; color: #1a1a1a; "
+        "border: 1px dashed #777;}"
+    ),
     "scp-9100": (
         ".layout-profile-scp-9100-relative-time {page-break-inside: avoid;}"
         "\n.layout-profile-scp-9100-relative-time-label {white-space: nowrap; "

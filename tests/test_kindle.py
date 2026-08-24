@@ -1280,6 +1280,32 @@ def test_prepare_kindle_pages_stable_preserves_xhtml_entities_in_css():
     assert "transition" not in stable.xhtml
 
 
+def test_prepare_kindle_pages_stable_preserves_scp8274_diary_contrast():
+    xhtml = """
+    <style>
+      .terminal-content { background: black; }
+      .terminal-text { color: white; }
+      .terminal .blockquote {
+        background: #f2f2f2;
+        color: #1a1a1a;
+        border: 1px dashed #777;
+      }
+    </style>
+    <div class="terminal"><div class="terminal-content">
+      <div class="terminal-text"><div class="blockquote">日记正文</div></div>
+    </div></div>
+    """
+
+    [stable] = prepare_kindle_pages([_page(xhtml, slug="scp-8274")], stable=True)
+
+    assert "background: #f2f2f2" in stable.xhtml
+    assert "color: #1a1a1a" in stable.xhtml
+    assert "border: 1px dashed #777" in stable.xhtml
+    assert "background: black" in stable.xhtml
+    assert "color: white" in stable.xhtml
+    assert "日记正文" in stable.xhtml
+
+
 def test_local_image_references_include_direct_and_ancestor_classes():
     page = _page(
         '<div class="map-shell outer">'
