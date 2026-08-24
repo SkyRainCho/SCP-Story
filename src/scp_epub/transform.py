@@ -608,6 +608,8 @@ def transform_page(
     if entry.slug == "scp-7646":
         _normalize_scp_7646_interactive_media(page_content)
         _normalize_scp_7646_scene_breaks(page_content)
+    if entry.slug == "scp-9100":
+        _remove_scp_9100_web_only_elements(page_content)
 
     if _has_interactive_article_layout(page_content):
         _linearize_interactive_article_layout(page_content)
@@ -2680,6 +2682,11 @@ def _scp_7646_widget_contains_image(widget: Tag, filename: str) -> bool:
         if urlparse(source).path.rsplit("/", 1)[-1].casefold() == normalized_filename:
             return True
     return False
+
+
+def _remove_scp_9100_web_only_elements(page_content: Tag) -> None:
+    for element in list(page_content.select(".crom-thumbnail, .relativetime")):
+        element.decompose()
 
 
 def _expand_wikidot_tabs(

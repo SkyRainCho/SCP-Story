@@ -1260,6 +1260,50 @@ def test_scp7646_interactive_media_cleanup_does_not_affect_other_pages():
     assert soup.select(".layout-profile-scp-7646-static-image") == []
 
 
+def _scp9100_web_only_elements_html() -> str:
+    return """
+    <html><body><div id="page-content">
+      <img class="crom-thumbnail" src="/local--files/scp-9100/Daydream.png"
+           style="display: none" alt="Daydream.png" />
+      <div class="event"><p>2014年4月2日：保留的事件。</p></div>
+      <div class="relativetime"><p>[+2天]</p></div>
+      <div class="event"><p>2014年4月4日：保留的事件。</p></div>
+      <div class="relativetime"><p>[+5天]</p></div>
+    </div></body></html>
+    """
+
+
+def test_scp9100_removes_web_only_thumbnail_and_relative_time_separators():
+    result = transform_page(
+        page_ref("scp-9100"),
+        _scp9100_web_only_elements_html(),
+        BASE_URL,
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.select(".crom-thumbnail, .relativetime") == []
+    assert "Daydream.png" not in result.xhtml
+    assert all(not asset_url.endswith("Daydream.png") for asset_url in result.asset_urls)
+    page_text = soup.get_text(" ", strip=True)
+    assert "2014年4月2日" in page_text
+    assert "2014年4月4日" in page_text
+    assert "+2天" not in page_text
+    assert "+5天" not in page_text
+
+
+def test_scp9100_web_only_cleanup_does_not_affect_other_pages():
+    result = transform_page(
+        page_ref("scp-9099"),
+        _scp9100_web_only_elements_html(),
+        BASE_URL,
+    )
+    soup = soup_fragment(result.xhtml)
+
+    assert soup.select_one(".crom-thumbnail") is not None
+    assert len(soup.select(".relativetime")) == 2
+    assert any(asset_url.endswith("Daydream.png") for asset_url in result.asset_urls)
+
+
 def test_preserves_document_styles_that_target_page_content():
     html = """
     <html>
