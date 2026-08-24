@@ -252,6 +252,11 @@ PAGE_EPUB_STYLE_RULES = {
         "\n.admo-episode_splash .admo-rate_splash {margin-top: 0; padding-bottom: 0;}"
         "\n.admo-end_card .admo-credits {display: block; text-align: center;}"
     ),
+    "scp-9100": (
+        ".layout-profile-scp-9100-relative-time {page-break-inside: avoid;}"
+        "\n.layout-profile-scp-9100-relative-time-label {white-space: nowrap; "
+        "font-family: monospace;}"
+    ),
     "secure-facility-dossier-site-7": (
         ".scp-image-caption {background-color: #262626;}"
     ),
@@ -571,6 +576,8 @@ def transform_page(
         )
     else:
         anomaly_icon_urls, anomaly_quadrant_colors = {}, {}
+    if entry.slug == "scp-9100":
+        _normalize_scp_9100_web_only_elements(soup, page_content)
     page_styles = _applicable_page_styles(soup, page_content)
     if _restore_centered_inline_block_cards(soup, page_content):
         page_styles = _append_page_style_rules(
@@ -608,9 +615,6 @@ def transform_page(
     if entry.slug == "scp-7646":
         _normalize_scp_7646_interactive_media(page_content)
         _normalize_scp_7646_scene_breaks(page_content)
-    if entry.slug == "scp-9100":
-        _remove_scp_9100_web_only_elements(page_content)
-
     if _has_interactive_article_layout(page_content):
         _linearize_interactive_article_layout(page_content)
         page_styles = _linearize_interactive_article_styles(page_styles)
@@ -2684,9 +2688,84 @@ def _scp_7646_widget_contains_image(widget: Tag, filename: str) -> bool:
     return False
 
 
-def _remove_scp_9100_web_only_elements(page_content: Tag) -> None:
-    for element in list(page_content.select(".crom-thumbnail, .relativetime")):
-        element.decompose()
+def _normalize_scp_9100_web_only_elements(
+    soup: BeautifulSoup,
+    page_content: Tag,
+) -> None:
+    for thumbnail in list(page_content.select(".crom-thumbnail")):
+        thumbnail.decompose()
+
+    for relative_time in list(page_content.select(".relativetime")):
+        label_text = relative_time.get_text(" ", strip=True)
+        if not label_text:
+            relative_time.decompose()
+            continue
+
+        divider = soup.new_tag("table")
+        divider["class"] = ["layout-profile-scp-9100-relative-time"]
+        for property_name, value in (
+            ("width", "100%"),
+            ("border", "none"),
+            ("border-collapse", "collapse"),
+            ("margin", "2em 0"),
+            ("page-break-inside", "avoid"),
+        ):
+            _append_style_declaration(divider, property_name, value)
+
+        body = soup.new_tag("tbody")
+        row = soup.new_tag("tr")
+        for tag in (body, row):
+            _append_style_declaration(tag, "border", "none")
+            _append_style_declaration(tag, "background", "transparent")
+
+        for side in ("left", "right"):
+            rule_cell = soup.new_tag("td")
+            rule_cell["class"] = [
+                "layout-profile-scp-9100-relative-time-rule-cell",
+                f"layout-profile-scp-9100-relative-time-rule-cell-{side}",
+            ]
+            for property_name, value in (
+                ("width", "50%"),
+                ("padding", "0"),
+                ("border", "none"),
+                ("background", "transparent"),
+                ("vertical-align", "middle"),
+            ):
+                _append_style_declaration(rule_cell, property_name, value)
+
+            rule = soup.new_tag("div")
+            rule["class"] = ["layout-profile-scp-9100-relative-time-rule"]
+            for property_name, value in (
+                ("width", "100%"),
+                ("height", "0"),
+                ("margin", "0"),
+                ("padding", "0"),
+                ("border", "none"),
+                ("border-top", "1px solid #babdbf"),
+            ):
+                _append_style_declaration(rule, property_name, value)
+            rule_cell.append(rule)
+            row.append(rule_cell)
+
+        label_cell = soup.new_tag("td")
+        label_cell["class"] = ["layout-profile-scp-9100-relative-time-label"]
+        for property_name, value in (
+            ("width", "1%"),
+            ("padding", "0 1em"),
+            ("border", "none"),
+            ("background", "transparent"),
+            ("text-align", "center"),
+            ("white-space", "nowrap"),
+            ("font-family", "monospace"),
+            ("vertical-align", "middle"),
+        ):
+            _append_style_declaration(label_cell, property_name, value)
+        label_cell.string = label_text
+        row.insert(1, label_cell)
+
+        body.append(row)
+        divider.append(body)
+        relative_time.replace_with(divider)
 
 
 def _expand_wikidot_tabs(

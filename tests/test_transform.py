@@ -1262,7 +1262,10 @@ def test_scp7646_interactive_media_cleanup_does_not_affect_other_pages():
 
 def _scp9100_web_only_elements_html() -> str:
     return """
-    <html><body><div id="page-content">
+    <html><head><style>
+      .relativetime { display: flex; align-items: center; }
+      .relativetime::before, .relativetime::after { content: ''; flex: 1; }
+    </style></head><body><div id="page-content">
       <img class="crom-thumbnail" src="/local--files/scp-9100/Daydream.png"
            style="display: none" alt="Daydream.png" />
       <div class="event"><p>2014年4月2日：保留的事件。</p></div>
@@ -1273,7 +1276,7 @@ def _scp9100_web_only_elements_html() -> str:
     """
 
 
-def test_scp9100_removes_web_only_thumbnail_and_relative_time_separators():
+def test_scp9100_removes_web_only_thumbnail_and_staticizes_time_separators():
     result = transform_page(
         page_ref("scp-9100"),
         _scp9100_web_only_elements_html(),
@@ -1284,11 +1287,37 @@ def test_scp9100_removes_web_only_thumbnail_and_relative_time_separators():
     assert soup.select(".crom-thumbnail, .relativetime") == []
     assert "Daydream.png" not in result.xhtml
     assert all(not asset_url.endswith("Daydream.png") for asset_url in result.asset_urls)
+    dividers = soup.select("table.layout-profile-scp-9100-relative-time")
+    assert len(dividers) == 2
+    assert [divider.get_text(" ", strip=True) for divider in dividers] == [
+        "[+2天]",
+        "[+5天]",
+    ]
+    for divider in dividers:
+        assert "width: 100%" in divider["style"]
+        assert "border-collapse: collapse" in divider["style"]
+        assert "margin: 2em 0" in divider["style"]
+        cells = divider.select("tr > td")
+        assert len(cells) == 3
+        label = divider.select_one(".layout-profile-scp-9100-relative-time-label")
+        assert label is cells[1]
+        assert "text-align: center" in label["style"]
+        rules = divider.select(".layout-profile-scp-9100-relative-time-rule")
+        assert len(rules) == 2
+        assert all("border-top: 1px solid #babdbf" in rule["style"] for rule in rules)
+
+    assert (
+        ".layout-profile-scp-9100-relative-time-label {white-space: nowrap; "
+        "font-family: monospace;}"
+    ) in result.xhtml
+    assert ".relativetime {" not in result.xhtml
+    assert ".relativetime::before" not in result.xhtml
+
     page_text = soup.get_text(" ", strip=True)
     assert "2014年4月2日" in page_text
     assert "2014年4月4日" in page_text
-    assert "+2天" not in page_text
-    assert "+5天" not in page_text
+    assert "+2天" in page_text
+    assert "+5天" in page_text
 
 
 def test_scp9100_web_only_cleanup_does_not_affect_other_pages():
@@ -1301,6 +1330,7 @@ def test_scp9100_web_only_cleanup_does_not_affect_other_pages():
 
     assert soup.select_one(".crom-thumbnail") is not None
     assert len(soup.select(".relativetime")) == 2
+    assert soup.select(".layout-profile-scp-9100-relative-time") == []
     assert any(asset_url.endswith("Daydream.png") for asset_url in result.asset_urls)
 
 
