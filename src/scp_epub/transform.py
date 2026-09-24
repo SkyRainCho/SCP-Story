@@ -256,6 +256,14 @@ PAGE_EPUB_STYLE_RULES = {
         ".terminal .blockquote {background: #f2f2f2; color: #1a1a1a; "
         "border: 1px dashed #777;}"
     ),
+    "scp-9593": (
+        ".reddit > div:first-child {margin-top: 1.2em !important; "
+        "margin-bottom: 0 !important;}"
+        "\n.lbd-meta {margin-top: 0;}"
+        "\n.lbd-text {margin-top: 0;}"
+        "\n.tweet-header {margin-bottom: 0 !important;}"
+        "\n.dots {margin-top: 0;}"
+    ),
     "scp-9100": (
         ".layout-profile-scp-9100-relative-time {page-break-inside: avoid;}"
         "\n.layout-profile-scp-9100-relative-time-label {white-space: nowrap; "

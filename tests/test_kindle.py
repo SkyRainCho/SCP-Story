@@ -1306,6 +1306,33 @@ def test_prepare_kindle_pages_stable_preserves_scp8274_diary_contrast():
     assert "日记正文" in stable.xhtml
 
 
+def test_prepare_kindle_pages_stable_preserves_scp9593_spacing_overrides():
+    xhtml = """
+    <style>
+      .reddit > div:first-child { margin-top: 1.2em !important; margin-bottom: 0 !important; }
+      .lbd-meta { margin-top: 0; }
+      .lbd-text { margin-top: 0; }
+      .tweet-header { margin-bottom: 0 !important; }
+      .dots { margin-top: 0; }
+    </style>
+    <div class="reddit"><div>用户信息</div><p>烧烤架理论</p></div>
+    <div class="lbd"><div class="lbd-meta">元数据</div><div class="lbd-text">简介</div></div>
+    <div class="tweet-header">推文头部</div><div class="dots">更多</div>
+    """
+
+    [stable] = prepare_kindle_pages([_page(xhtml, slug="scp-9593")], stable=True)
+
+    for rule in (
+        ".reddit &gt; div:first-child {margin-top: 1.2em !important; "
+        "margin-bottom: 0 !important}",
+        ".lbd-meta {margin-top: 0}",
+        ".lbd-text {margin-top: 0}",
+        ".tweet-header {margin-bottom: 0 !important}",
+        ".dots {margin-top: 0}",
+    ):
+        assert rule in stable.xhtml
+
+
 def test_local_image_references_include_direct_and_ancestor_classes():
     page = _page(
         '<div class="map-shell outer">'

@@ -1383,6 +1383,64 @@ def test_scp8274_terminal_diary_colors_do_not_affect_other_pages():
     assert "background: #f2f2f2; color: #1a1a1a" not in result.xhtml
 
 
+def _scp9593_overlapping_cards_html() -> str:
+    return """
+    <html><head><style>
+      .lbd-meta { margin-top: -1.8rem; }
+      .lbd-text { margin-top: -1rem; }
+      .tweet-header { margin-bottom: -1.5em; }
+      .dots { margin-top: -2rem; }
+    </style></head><body><div id="page-content">
+      <div class="reddit">
+        <div style="margin-bottom:-1.5em; margin-top:1.2em;">
+          <span>用户信息</span>
+        </div>
+        <p>烧烤架理论</p>
+      </div>
+      <div class="lbd">
+        <div class="lbd-meta"><p>元数据</p></div>
+        <div class="lbd-text"><p>简介</p></div>
+      </div>
+      <div class="tweet-header"><span>推文头部</span></div>
+      <div class="dots">更多</div>
+    </div></body></html>
+    """
+
+
+def test_scp9593_resets_negative_spacing_that_overlaps_text():
+    result = transform_page(
+        page_ref("scp-9593"),
+        _scp9593_overlapping_cards_html(),
+        BASE_URL,
+    )
+
+    assert (
+        ".reddit &gt; div:first-child {margin-top: 1.2em !important; "
+        "margin-bottom: 0 !important;}"
+    ) in result.xhtml
+    assert ".lbd-meta {margin-top: 0;}" in result.xhtml
+    assert ".lbd-text {margin-top: 0;}" in result.xhtml
+    assert ".tweet-header {margin-bottom: 0 !important;}" in result.xhtml
+    assert ".dots {margin-top: 0;}" in result.xhtml
+
+
+def test_scp9593_spacing_fix_is_page_specific():
+    result = transform_page(
+        page_ref("scp-9592"),
+        _scp9593_overlapping_cards_html(),
+        BASE_URL,
+    )
+
+    for rule in (
+        ".reddit &gt; div:first-child",
+        ".lbd-meta {margin-top: 0;}",
+        ".lbd-text {margin-top: 0;}",
+        ".tweet-header {margin-bottom: 0 !important;}",
+        ".dots {margin-top: 0;}",
+    ):
+        assert rule not in result.xhtml
+
+
 def test_preserves_document_styles_that_target_page_content():
     html = """
     <html>
